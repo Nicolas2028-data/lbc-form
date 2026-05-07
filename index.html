@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LBC整体院 – ご予約</title>
+  <meta name="description" content="背骨・関節のプロフェッショナル。LBC整体院のオンライン予約フォームです。">
+  <meta property="og:title" content="LBC整体院 – ご予約">
+  <meta property="og:description" content="背骨・関節のプロフェッショナル。オンライン予約はこちら。">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+  <style>
+    :root {
+      --primary: #2c7a5c;
+      --primary-dark: #1e5c42;
+      --primary-light: #e8f5ef;
+      --primary-mid: #c2e0d4;
+      --accent: #f0a500;
+      --danger: #e53935;
+      --danger-light: #fdecea;
+      --text: #1a1a1a;
+      --text-sub: #444;
+      --text-muted: #888;
+      --border: #e0e0e0;
+      --border-focus: #2c7a5c;
+      --bg: #f5f7f6;
+      --white: #fff;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+      --shadow-hover: 0 4px 20px rgba(44,122,92,0.18);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary);
+      color: var(--white);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    }
+    .logo { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; }
+    .logo span { color: var(--accent); }
+    .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.75; display: block; letter-spacing: 0.5px; }
+    .lang-select {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      padding: 6px 28px 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.75)'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    .lang-select:focus { outline: none; }
+    .lang-select option { background: #1e5c42; color: var(--white); }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, #3a9970 100%);
+      color: var(--white);
+      text-align: center;
+      padding: 28px 20px 24px;
+    }
+    .hero h1 { font-size: 1.35rem; font-weight: 800; margin-bottom: 6px; }
+    .hero p { font-size: 0.85rem; opacity: 0.88; margin-bottom: 12px; }
+    .hero-meta {
+      display: inline-flex;
+      gap: 16px;
+      font-size: 0.78rem;
+      opacity: 0.82;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .hero-meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Layout ── */
+    .container { max-width: 580px; margin: 0 auto; padding: 0 14px 72px; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, #3a9970 100%);
+      color: var(--white);
+      text-align: center;
+      padding: 28px 20px 24px;
+      margin-bottom: 0;
+    }
+    .hero h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+    .hero p { font-size: 0.85rem; opacity: 0.85; }
+
+    /* ── Steps ── */
+    .steps-wrap {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0 12px;
+      margin-bottom: 20px;
+      position: sticky;
+      top: 53px;
+      z-index: 90;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      max-width: 340px;
+      margin: 0 auto;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      position: relative;
+    }
+    .step-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: calc(50% + 14px);
+      right: calc(-50% + 14px);
+      height: 2px;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .step-item.done:not(:last-child)::after { background: var(--primary); }
+    .step-item.active:not(:last-child)::after { background: var(--primary-mid); }
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+      color: var(--text-muted);
+      background: var(--white);
+      transition: all 0.3s;
+      position: relative; z-index: 1;
+    }
+    .step-item.active .step-num { background: var(--white); border-color: var(--primary); color: var(--primary); font-weight: 800; }
+    .step-item.done .step-num { background: var(--primary); border-color: var(--primary); color: var(--white); }
+    .step-item.done .step-num::after { content: '✓'; }
+    .step-item.done .step-num span { display: none; }
+    .step-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .step-item.active .step-label { color: var(--primary); font-weight: 700; }
+    .step-item.done .step-label { color: var(--primary); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 20px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(0,0,0,0.04);
+      animation: fadeSlideIn 0.25s ease;
+    }
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .icon { font-size: 1.1rem; }
+
+    /* ── Form fields ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+    .badge-req {
+      background: var(--danger);
+      color: var(--white);
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+    .badge-opt {
+      background: var(--border);
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    input[type="text"],
+    input[type="tel"],
+    input[type="email"],
+    textarea {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--white);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none;
+    }
+    input::placeholder { color: #bbb; }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(44,122,92,0.1);
+    }
+    input.is-error { border-color: var(--danger); background: var(--danger-light); }
+    .field-error {
+      display: none;
+      font-size: 0.78rem;
+      color: var(--danger);
+      margin-top: 5px;
+      padding-left: 2px;
+    }
+    .field-error.visible { display: flex; align-items: center; gap: 4px; }
+    .field-error::before { content: '!'; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; background:var(--danger); color:var(--white); border-radius:50%; font-size:0.65rem; font-weight:700; flex-shrink:0; }
+    .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .radio-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+    .radio-item {
+      flex: 1;
+      min-width: 100px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .radio-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
+    .radio-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+    /* ── Course cards ── */
+    .course-list { display: flex; flex-direction: column; gap: 10px; }
+    .course-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      user-select: none;
+    }
+    .course-card:hover { border-color: var(--primary); box-shadow: var(--shadow-hover); }
+    .course-card.selected { border-color: var(--primary); background: var(--primary-light); }
+    .course-radio {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      background: var(--white);
+    }
+    .course-card.selected .course-radio { border-color: var(--primary); background: var(--primary); }
+    .course-radio::after {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--white);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .course-card.selected .course-radio::after { opacity: 1; }
+    .course-body { flex: 1; }
+    .course-name { font-weight: 700; font-size: 0.95rem; color: var(--text); }
+    .course-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .course-badge {
+      background: var(--primary);
+      color: var(--white);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .course-card.selected .course-badge { background: var(--primary-dark); }
+
+    /* ── Calendar ── */
+    .month-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .month-nav button {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-sub);
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .month-nav button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+    .month-nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .month-label { font-weight: 800; font-size: 1rem; color: var(--text); }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      margin-bottom: 18px;
+    }
+    .cal-hd {
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 5px 0;
+    }
+    .cal-hd.sun { color: #e53935; }
+    .cal-hd.sat { color: #1565c0; }
+    .cal-day {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: all 0.12s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      position: relative;
+      font-weight: 500;
+    }
+    .cal-day.empty { cursor: default; }
+    .cal-day.available {
+      border-color: transparent;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+    .cal-day.available:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(44,122,92,0.15); }
+    .cal-day.selected { background: var(--primary); border-color: var(--primary); color: var(--white) !important; font-weight: 700; }
+    .cal-day.unavailable { color: #ccc; cursor: not-allowed; font-weight: 400; }
+    .cal-day.today:not(.selected):not(.unavailable) { border-color: var(--accent); }
+    .cal-day.today.unavailable { border-color: transparent; }
+    .slot-dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+    .cal-day.selected .slot-dot { background: rgba(255,255,255,0.6); }
+
+    /* ── Time slots ── */
+    .time-section-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 10px;
+      padding-top: 2px;
+    }
+    .time-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .time-btn {
+      padding: 10px 4px;
+      text-align: center;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: var(--white);
+      transition: all 0.12s;
+      color: var(--text);
+    }
+    .time-btn:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+    .time-btn.selected { background: var(--primary); border-color: var(--primary); color: var(--white); }
+    .course-card:focus, .cal-day:focus, .time-btn:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .time-btn.unavailable { opacity: 0.3; cursor: not-allowed; background: var(--bg); }
+    .time-group-label {
+      grid-column: 1 / -1;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 6px 0 2px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
+    .date-prompt {
+      text-align: center;
+      padding: 20px 16px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border: 1.5px dashed var(--border);
+    }
+    .date-prompt .icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
+    .no-slots-msg {
+      text-align: center;
+      padding: 14px;
+      background: #fff8e1;
+      border-radius: var(--radius-sm);
+      color: #795548;
+      font-size: 0.85rem;
+      border: 1px solid #ffe082;
+    }
+    .loading-box {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Summary ── */
+    .summary-card {
+      background: var(--primary-light);
+      border: 1.5px solid var(--primary-mid);
+      border-radius: var(--radius-sm);
+      padding: 4px 16px;
+      margin-bottom: 16px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(44,122,92,0.12);
+      gap: 12px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row .s-label {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+    }
+    .summary-row .s-icon { font-size: 1rem; }
+    .summary-row .s-value {
+      font-weight: 700;
+      color: var(--text);
+      text-align: right;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    /* ── Submit button ── */
+    .btn-submit {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(44,122,92,0.35);
+      letter-spacing: 0.3px;
+    }
+    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(44,122,92,0.4); }
+    .btn-submit:active { transform: none; }
+    .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .submit-note { font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 10px; }
+    .loading-row { display: none; text-align: center; margin-top: 12px; font-size: 0.85rem; color: var(--text-muted); }
+
+    /* ── Staff elements ── */
+    .staff-banner {
+      display: none;
+      background: #fff3cd;
+      border: 1.5px solid #ffd54f;
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-size: 0.83rem;
+      font-weight: 700;
+      color: #5d4037;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .staff-banner.visible { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .staff-section { display: none; }
+    .staff-section.visible { display: block; }
+    .staff-toggle { text-align: center; margin-top: 8px; padding-bottom: 4px; }
+    .staff-toggle a { font-size: 0.75rem; color: var(--text-muted); text-decoration: none; cursor: pointer; }
+    .staff-toggle a:hover { color: var(--primary); text-decoration: underline; }
+
+    /* ── Success screen ── */
+    #successScreen { display: none; text-align: center; padding: 48px 16px; }
+    #successScreen.visible { display: block; }
+    .success-anim {
+      width: 72px; height: 72px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 2.2rem;
+      color: var(--white);
+      animation: popIn 0.4s cubic-bezier(0.36,0.07,0.19,0.97);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .success-title { font-size: 1.3rem; font-weight: 800; color: var(--primary-dark); margin-bottom: 8px; }
+    .success-msg { font-size: 0.9rem; color: var(--text-sub); margin-bottom: 6px; }
+    .success-num {
+      display: inline-block;
+      background: var(--primary-light);
+      border: 1.5px solid var(--primary-mid);
+      border-radius: var(--radius-sm);
+      padding: 10px 20px;
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--primary-dark);
+      margin: 14px 0;
+    }
+    .success-note { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 28px; line-height: 1.7; }
+    .btn-back {
+      display: inline-block;
+      padding: 13px 36px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-back:hover { background: var(--primary-dark); }
+    .btn-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 8px 20px;
+      background: var(--white);
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-copy:hover { background: var(--primary-light); }
+    .btn-questionnaire {
+      display: inline-block;
+      margin: 14px auto 0;
+      padding: 12px 28px;
+      background: var(--accent);
+      color: var(--white);
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn-questionnaire:hover { opacity: 0.88; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+    .modal-title { font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); margin-bottom: 16px; }
+    .modal-pw {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      margin-bottom: 14px;
+    }
+    .modal-pw:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(44,122,92,0.1); }
+    .modal-actions { display: flex; gap: 10px; }
+    .btn-modal-ok {
+      flex: 1; padding: 12px;
+      background: var(--primary); color: var(--white);
+      border: none; border-radius: var(--radius-sm);
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-modal-ok:hover { background: var(--primary-dark); }
+    .btn-modal-cancel {
+      flex: 1; padding: 12px;
+      background: var(--white); color: var(--text-sub);
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 0.95rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-modal-cancel:hover { border-color: var(--text-muted); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #222;
+      color: var(--white);
+      padding: 11px 20px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      z-index: 9999;
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      white-space: nowrap;
+      max-width: 90vw;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.is-error { background: var(--danger); }
+    .toast.is-success { background: var(--primary); }
+
+    /* ── Rebooking ── */
+    .rebooking-banner {
+      background: #e3f2fd;
+      border: 1.5px solid #90caf9;
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1565c0;
+      text-align: center;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .rebooking-banner.visible { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    input[readonly], input:disabled { background: var(--bg) !important; cursor: default; opacity: 0.75; }
+    .field-locked { pointer-events: none; opacity: 0.65; }
+
+    /* ── Misc ── */
+    #mainForm { display: block; }
+
+    /* ── Desktop (2カラム) ── */
+    @media (min-width: 768px) {
+      .container {
+        max-width: 1100px;
+        padding: 0 32px 80px;
+      }
+      #mainForm {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      .col-left {
+        flex: 0 0 420px;
+        display: flex;
+        flex-direction: column;
+      }
+      .col-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .col-left .card,
+      .col-right .card {
+        margin-bottom: 16px;
+      }
+      /* PC では時間グリッドを6列に */
+      .time-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+      /* ステップバーの top をヘッダー高さに合わせて維持 */
+      .steps-wrap { top: 53px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LBC <span>整体院</span></div>
+  <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
+    <option value="ja">🇯🇵 日本語</option>
+    <option value="es">🇪🇸 Español</option>
+    <option value="pt">🇧🇷 Português</option>
+  </select>
+</header>
+
+<!-- Hero -->
+<div class="hero" id="heroSection">
+  <h1 id="heroTitle">ご予約</h1>
+  <p id="heroSub">背骨・関節のプロフェッショナル。お気軽にご予約ください。</p>
+  <div class="hero-meta">
+    <span>📍 <span id="heroAddr">〒XXX-XXXX 東京都XX区XX</span></span>
+    <span>📞 <span id="heroTel">TEL: 03-XXXX-XXXX</span></span>
+    <span>🕐 <span id="heroHours">8:00〜22:00</span></span>
+  </div>
+</div>
+
+<!-- Steps bar -->
+<div class="steps-wrap" id="stepsWrap">
+  <div class="steps">
+    <div class="step-item active" id="si1">
+      <div class="step-num"><span>1</span></div>
+      <div class="step-label" id="slabel1"></div>
+    </div>
+    <div class="step-item" id="si2">
+      <div class="step-num"><span>2</span></div>
+      <div class="step-label" id="slabel2"></div>
+    </div>
+    <div class="step-item" id="si3">
+      <div class="step-num"><span>3</span></div>
+      <div class="step-label" id="slabel3"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div id="staffBanner" class="staff-banner"></div>
+  <div id="rebookingBanner" class="rebooking-banner"></div>
+
+  <div id="mainForm">
+
+    <!-- 左カラム: 顧客情報・コース -->
+    <div class="col-left">
+
+      <!-- ① Customer info -->
+      <div class="card" id="cardInfo">
+        <div class="card-title"><span class="icon">👤</span><span id="t_info"></span></div>
+
+        <div class="form-group">
+          <div class="field-label" id="fl_name"></div>
+          <input type="text" id="name" autocomplete="name" inputmode="text" maxlength="50">
+          <div class="field-error" id="e_name"></div>
+        </div>
+
+        <div class="form-group">
+          <div class="field-label" id="fl_phone"></div>
+          <input type="tel" id="phone" autocomplete="tel" inputmode="numeric" placeholder="090-1234-5678" maxlength="13">
+          <div class="hint" id="h_phone"></div>
+          <div class="field-error" id="e_phone"></div>
+        </div>
+
+        <div class="form-group">
+          <div class="field-label" id="fl_email"></div>
+          <input type="email" id="email" autocomplete="email" inputmode="email" maxlength="100" placeholder="example@email.com">
+          <div class="field-error" id="e_email"></div>
+        </div>
+
+        <div class="form-group">
+          <div class="field-label" id="fl_visit"></div>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="visitType" value="first" checked>
+              <span id="l_first"></span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="visitType" value="return">
+              <span id="l_return"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 再来院のみ: 備考欄 -->
+        <div id="sec_notes" style="display:none;">
+          <div class="form-group">
+            <div class="field-label" id="fl_notes"></div>
+            <textarea id="returnNotes" rows="3" style="resize:vertical;font-size:0.95rem;" id="returnNotes"></textarea>
+            <div class="hint" id="h_notes"></div>
+          </div>
+        </div>
+
+        <!-- Staff only -->
+        <div class="staff-section" id="sec_patient">
+          <div class="form-group">
+            <div class="field-label" id="fl_pid"></div>
+            <input type="text" id="patientId" placeholder="P-001234">
+            <div class="hint" id="h_pid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② Course -->
+      <div class="card" id="cardCourse">
+        <div class="card-title"><span class="icon">🌿</span><span id="t_course"></span></div>
+        <div class="course-list" id="courseList"></div>
+        <div class="field-error" id="e_course" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- Staff note -->
+      <div class="card staff-section" id="cardNote">
+        <div class="card-title"><span class="icon">📝</span><span id="t_note"></span></div>
+        <div class="form-group">
+          <div class="field-label" id="fl_note"></div>
+          <textarea id="staffNote" rows="3" style="resize:vertical;font-size:0.95rem;"></textarea>
+        </div>
+      </div>
+
+      <div class="staff-toggle">
+        <a id="staffToggleLink" onclick="toggleStaffMode()"></a>
+      </div>
+
+    </div><!-- /col-left -->
+
+    <!-- 右カラム: 日時・確認 -->
+    <div class="col-right">
+
+      <!-- ③ Date & Time -->
+      <div class="card" id="cardSlot">
+        <div class="card-title"><span class="icon">📅</span><span id="t_slot"></span></div>
+
+        <div class="month-nav">
+          <button id="btnPrev" onclick="changeMonth(-1)" aria-label="前月">&#8592;</button>
+          <span class="month-label" id="monthLabel"></span>
+          <button id="btnNext" onclick="changeMonth(1)" aria-label="翌月">&#8594;</button>
+        </div>
+
+        <div class="cal-grid" id="calGrid"></div>
+
+        <div id="timeArea">
+          <div class="date-prompt" id="datePrompt">
+            <span class="icon">👆</span>
+            <span id="t_pickDate"></span>
+          </div>
+          <div class="loading-box" id="slotLoading" style="display:none;">
+            <span class="spinner"></span><span id="t_loading"></span>
+          </div>
+          <div id="timeSlots" style="display:none;">
+            <div class="time-section-title" id="t_selectTime"></div>
+            <div class="time-grid" id="timeGrid"></div>
+          </div>
+          <div class="no-slots-msg" id="noSlotsMsg" style="display:none;"></div>
+        </div>
+
+        <div class="field-error" id="e_slot" style="margin-top:10px;"></div>
+      </div>
+
+      <!-- Confirm -->
+      <div class="card" id="cardConfirm">
+        <div class="card-title"><span class="icon">✅</span><span id="t_confirm"></span></div>
+        <div class="summary-card" id="summaryCard" style="display:none;"></div>
+        <button class="btn-submit" id="submitBtn" onclick="submitBooking()" disabled>
+          <span id="l_submit"></span>
+        </button>
+        <div class="submit-note" id="l_submitNote"></div>
+        <div class="loading-row" id="loadingRow">
+          <span class="spinner"></span><span id="t_submitting"></span>
+        </div>
+      </div>
+
+    </div><!-- /col-right -->
+
+  </div><!-- /mainForm -->
+
+  <!-- Success -->
+  <div id="successScreen">
+    <div class="success-anim">✓</div>
+    <div class="success-title" id="s_title"></div>
+    <div class="success-msg" id="s_msg"></div>
+    <div class="success-num" id="s_num"></div>
+    <button class="btn-copy" onclick="copyBookingNum()" id="s_copy">📋 <span id="s_copyLabel">予約番号をコピー</span></button>
+    <div style="margin:4px 0"></div>
+    <div class="success-note" id="s_note"></div>
+    <a id="s_qBtn" class="btn-questionnaire" href="#" target="_blank" style="display:none;"></a>
+    <div style="margin:10px 0"></div>
+    <button class="btn-back" onclick="resetForm()" id="s_back"></button>
+  </div>
+
+</div>
+
+<!-- Staff modal -->
+<div id="staffModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="m_title"></div>
+    <input type="password" class="modal-pw" id="staffPw" placeholder="Password">
+    <div class="modal-actions">
+      <button class="btn-modal-ok" onclick="verifyPw()" id="m_ok"></button>
+      <button class="btn-modal-cancel" onclick="closeModal()" id="m_cancel"></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG — GAS URL を1箇所に集約
+   ============================================================ */
+const CONFIG = {
+  GAS_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec',
+  // パスワードは平文で持たない。GAS接続後はサーバー側で検証する
+  STAFF_PW_HASH: '1c9aa5f2919e5ae3f98343c486097294e278996713acae174731b1867e931c7c',
+  ADVANCE_DAYS: 365,
+};
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ============================================================
+   I18N
+   ============================================================ */
+const I18N = {
+  ja: {
+    hero: 'ご予約',
+    steps: ['お客様情報', 'コース', '日時'],
+    t_info: 'お客様情報',
+    t_course: 'コースを選択',
+    t_slot: '日時を選択',
+    t_confirm: 'ご確認・送信',
+    t_note: 'スタッフメモ',
+    fl_name: ['お名前', true],
+    fl_phone: ['電話番号', true],
+    fl_email: ['メールアドレス', false],
+    fl_visit: ['来院種別', true],
+    fl_pid: ['診察番号', false],
+    fl_note: ['内部メモ（顧客には表示されません）', false],
+    h_phone: '数字を入力すると自動でハイフンが入ります',
+    fl_notes: ['備考・相談事項', false],
+    h_notes: '前回からの変化、気になる症状、ご相談事項など',
+    h_pid: '再来院の場合は入力してください',
+    l_first: '初回', l_return: '再来院',
+    courses: [
+      { id: 'chiro30', name: 'カイロプラクティック', desc: '背骨・関節の矯正', dur: '30分', price: '¥3,500' },
+      { id: 'total60', name: 'トータルケア',         desc: '全身整体＋カイロ',  dur: '60分', price: '¥6,500' },
+      { id: 'other60', name: 'その他ケア',           desc: '鍼・マッサージ等',  dur: '60分', price: '¥6,500' },
+    ],
+    weekdays: ['日','月','火','水','木','金','土'],
+    t_pickDate: '日付を選択すると空き時間が表示されます',
+    t_loading: '空き枠を確認中...',
+    t_selectTime: '時間を選択してください',
+    noSlots: 'この日は空きがありません',
+    l_submit: '仮予約を送信する',
+    l_submitNote: '送信後、担当者が確認して確定のご連絡をいたします',
+    t_submitting: '送信中...',
+    s_title: '仮予約を受け付けました！',
+    s_msg: 'ルカスが内容を確認後、確定のご連絡をいたします。',
+    s_note: '問診票のご記入をお忘れなく。\nメッセージにてURLをお送りします。',
+    s_note_return: '担当者が確認後、確定のご連絡をいたします。',
+    s_qBtn: '問診票を記入する',
+    s_back: '別の予約をする',
+    s_numPrefix: '予約番号 ',
+    s_labels: { name:'お名前', phone:'電話番号', course:'コース', date:'日時', visit:'来院種別' },
+    s_first: '初回', s_return: '再来院',
+    staffToggle: 'スタッフモードで予約する',
+    exitStaff: 'スタッフモードを終了する',
+    staffBanner: '🔒 スタッフモード（Lucas専用）',
+    m_title: 'スタッフ認証',
+    m_ok: '認証する', m_cancel: 'キャンセル',
+    e_name: 'お名前を入力してください',
+    e_phone: '正しい電話番号を入力してください',
+    e_email: '正しいメールアドレスを入力してください',
+    e_course: 'コースを選択してください',
+    e_slot: '日時を選択してください',
+    e_pw: 'パスワードが違います',
+    err_net: '通信エラーが発生しました。再度お試しください。',
+    err_srv: 'サーバーエラーが発生しました。',
+    phonePattern: /^0\d{9,10}$/,
+  },
+  es: {
+    hero: 'Reserva',
+    steps: ['Datos', 'Servicio', 'Horario'],
+    t_info: 'Datos del cliente',
+    t_course: 'Seleccionar servicio',
+    t_slot: 'Seleccionar fecha y hora',
+    t_confirm: 'Confirmar y enviar',
+    t_note: 'Nota del personal',
+    fl_name: ['Nombre completo', true],
+    fl_phone: ['Teléfono', true],
+    fl_email: ['Correo electrónico', false],
+    fl_visit: ['Tipo de visita', true],
+    fl_pid: ['N° de paciente', false],
+    fl_note: ['Nota interna (no visible al cliente)', false],
+    h_phone: 'Los guiones se insertan automáticamente',
+    fl_notes: ['Notas / Consultas', false],
+    h_notes: 'Cambios desde la última visita, síntomas, consultas, etc.',
+    h_pid: 'Completar si es revisita',
+    l_first: 'Primera vez', l_return: 'Revisita',
+    courses: [
+      { id: 'chiro30', name: 'Quiropráctica',  desc: 'Ajuste de columna y articulaciones', dur: '30 min', price: '¥3,500' },
+      { id: 'total60', name: 'Cuidado Total',   desc: 'Osteopatía + quiropráctica',         dur: '60 min', price: '¥6,500' },
+      { id: 'other60', name: 'Otro cuidado',    desc: 'Acupuntura, masaje, etc.',            dur: '60 min', price: '¥6,500' },
+    ],
+    months: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+    weekdays: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
+    t_pickDate: 'Seleccione una fecha para ver los horarios',
+    t_loading: 'Buscando horarios disponibles...',
+    t_selectTime: 'Seleccione un horario',
+    noSlots: 'Sin disponibilidad este día',
+    l_submit: 'Enviar reserva provisional',
+    l_submitNote: 'Lucas revisará y confirmará su reserva',
+    t_submitting: 'Enviando...',
+    s_title: '¡Reserva recibida!',
+    s_msg: 'Lucas revisará la solicitud y le avisará a la brevedad.',
+    s_note: 'Recuerde completar el cuestionario.\nLe enviaremos el enlace por mensaje.',
+    s_note_return: 'Lucas revisará y le confirmará a la brevedad.',
+    s_qBtn: 'Completar cuestionario',
+    s_back: 'Hacer otra reserva',
+    s_numPrefix: 'N° de reserva: ',
+    s_labels: { name:'Nombre', phone:'Teléfono', course:'Servicio', date:'Fecha y hora', visit:'Tipo de visita' },
+    s_first: 'Primera vez', s_return: 'Revisita',
+    staffToggle: 'Reservar en modo personal',
+    exitStaff: 'Salir del modo personal',
+    staffBanner: '🔒 Modo personal (solo Lucas)',
+    m_title: 'Autenticación de personal',
+    m_ok: 'Confirmar', m_cancel: 'Cancelar',
+    e_name: 'Ingrese su nombre',
+    e_phone: 'Ingrese un teléfono válido',
+    e_email: 'Ingrese un correo válido',
+    e_course: 'Seleccione un servicio',
+    e_slot: 'Seleccione fecha y hora',
+    e_pw: 'Contraseña incorrecta',
+    err_net: 'Error de conexión. Intente nuevamente.',
+    err_srv: 'Error del servidor.',
+    phonePattern: /^\+?[\d\s\-().]{7,20}$/,
+  },
+  pt: {
+    hero: 'Agendamento',
+    steps: ['Dados', 'Serviço', 'Horário'],
+    t_info: 'Dados do cliente',
+    t_course: 'Selecionar serviço',
+    t_slot: 'Selecionar data e horário',
+    t_confirm: 'Confirmar e enviar',
+    t_note: 'Nota da equipe',
+    fl_name: ['Nome completo', true],
+    fl_phone: ['Telefone', true],
+    fl_email: ['E-mail', false],
+    fl_visit: ['Tipo de visita', true],
+    fl_pid: ['N° do paciente', false],
+    fl_note: ['Nota interna (não visível ao cliente)', false],
+    h_phone: 'Os hífens são inseridos automaticamente',
+    fl_notes: ['Observações / Dúvidas', false],
+    h_notes: 'Alterações desde a última visita, sintomas, dúvidas, etc.',
+    h_pid: 'Preencher se for retorno',
+    l_first: 'Primeira vez', l_return: 'Retorno',
+    courses: [
+      { id: 'chiro30', name: 'Quiropraxia',   desc: 'Ajuste de coluna e articulações', dur: '30 min', price: '¥3,500' },
+      { id: 'total60', name: 'Cuidado Total',  desc: 'Osteopatia + quiropraxia',        dur: '60 min', price: '¥6,500' },
+      { id: 'other60', name: 'Outro cuidado',  desc: 'Acupuntura, massagem, etc.',      dur: '60 min', price: '¥6,500' },
+    ],
+    months: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
+    weekdays: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+    t_pickDate: 'Selecione uma data para ver os horários',
+    t_loading: 'Buscando horários disponíveis...',
+    t_selectTime: 'Selecione um horário',
+    noSlots: 'Sem disponibilidade neste dia',
+    l_submit: 'Enviar agendamento provisório',
+    l_submitNote: 'Lucas revisará e confirmará seu agendamento',
+    t_submitting: 'Enviando...',
+    s_title: 'Agendamento recebido!',
+    s_msg: 'Lucas revisará o pedido e entrará em contato em breve.',
+    s_note: 'Não esqueça de preencher o questionário.\nEnviaremos o link por mensagem.',
+    s_note_return: 'Lucas revisará e entrará em contato em breve.',
+    s_qBtn: 'Preencher questionário',
+    s_back: 'Fazer outro agendamento',
+    s_numPrefix: 'N° do agendamento: ',
+    s_labels: { name:'Nome', phone:'Telefone', course:'Serviço', date:'Data e horário', visit:'Tipo de visita' },
+    s_first: 'Primeira vez', s_return: 'Retorno',
+    staffToggle: 'Agendar em modo staff',
+    exitStaff: 'Sair do modo staff',
+    staffBanner: '🔒 Modo staff (somente Lucas)',
+    m_title: 'Autenticação de staff',
+    m_ok: 'Confirmar', m_cancel: 'Cancelar',
+    e_name: 'Digite seu nome',
+    e_phone: 'Digite um telefone válido',
+    e_email: 'Digite um e-mail válido',
+    e_course: 'Selecione um serviço',
+    e_slot: 'Selecione data e horário',
+    e_pw: 'Senha incorreta',
+    err_net: 'Erro de conexão. Tente novamente.',
+    err_srv: 'Erro no servidor.',
+    phonePattern: /^\+?[\d\s\-().]{7,20}$/,
+  },
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const S = {
+  lang: 'ja',
+  staff: false,
+  visitType: null,
+  submitting: false,
+  rebooking: null,
+  month: null,
+  date: null,
+  time: null,
+  course: null,
+  slots: {},
+  loaded: {},
+  toastTm: null,
+};
+
+function saveSession() {
+  try {
+    sessionStorage.setItem('lbc_form', JSON.stringify({
+      name:  document.getElementById('name')?.value || '',
+      phone: document.getElementById('phone')?.value || '',
+      email: document.getElementById('email')?.value || '',
+      visitType: document.querySelector('input[name="visitType"]:checked')?.value || 'first',
+      returnNotes: document.getElementById('returnNotes')?.value || '',
+      course: S.course,
+      date: S.date,
+      time: S.time,
+      lang: S.lang,
+    }));
+  } catch {}
+}
+
+function restoreSession() {
+  try {
+    const raw = sessionStorage.getItem('lbc_form');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.name)  document.getElementById('name').value  = d.name;
+    if (d.phone) document.getElementById('phone').value = d.phone;
+    if (d.email) document.getElementById('email').value = d.email;
+    if (d.returnNotes) document.getElementById('returnNotes').value = d.returnNotes;
+    if (d.visitType === 'return') {
+      document.querySelector('input[name="visitType"][value="return"]').checked = true;
+      document.getElementById('sec_notes').style.display = 'block';
+    }
+    if (d.lang && d.lang !== 'ja') setLang(d.lang);
+    if (d.course) { S.course = d.course; buildCourses(); }
+    if (d.date)   { S.date = d.date; }
+    if (d.time)   { S.time = d.time; }
+    updateSummary();
+    updateSubmitBtn();
+    updateStepIndicator();
+  } catch {}
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem('lbc_form'); } catch {}
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', () => {
+  S.month = firstOfMonth(new Date());
+  setLang('ja');
+  restoreSession();
+  loadSlots(S.month);
+  updateStepIndicator();
+  checkRebooking();
+
+  document.getElementById('name').addEventListener('input', () => {
+    clearErr('e_name', 'name');
+    updateSummary();
+    saveSession();
+  });
+  document.getElementById('name').addEventListener('blur', () => {
+    const el = document.getElementById('name');
+    el.value = el.value.trim();
+    if (!el.value) showErr('e_name', I18N[S.lang].e_name, 'name');
+    updateStepIndicator();
+  });
+  document.getElementById('phone').addEventListener('input', e => {
+    const input = e.target;
+    const pos = input.selectionStart;
+    const before = input.value.length;
+    // 全角数字→半角に変換してから数字以外を除去
+    let digits = input.value
+      .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+      .replace(/[^\d]/g, '').slice(0, 11);
+    // 自動フォーマット
+    let formatted = digits;
+    if (/^0[789]0/.test(digits)) {
+      // 携帯: 090-XXXX-XXXX
+      if (digits.length > 7) formatted = digits.slice(0,3) + '-' + digits.slice(3,7) + '-' + digits.slice(7);
+      else if (digits.length > 3) formatted = digits.slice(0,3) + '-' + digits.slice(3);
+    } else if (digits.startsWith('0')) {
+      // 固定: 03-XXXX-XXXX など
+      if (digits.length > 6) formatted = digits.slice(0,2) + '-' + digits.slice(2,6) + '-' + digits.slice(6);
+      else if (digits.length > 2) formatted = digits.slice(0,2) + '-' + digits.slice(2);
+    }
+    input.value = formatted;
+    // カーソル位置を補正
+    const diff = input.value.length - before;
+    input.setSelectionRange(pos + diff, pos + diff);
+    clearErr('e_phone', 'phone');
+    updateSummary();
+    saveSession();
+  });
+  document.getElementById('email').addEventListener('input', () => clearErr('e_email', 'email'));
+  document.getElementById('phone').addEventListener('blur', () => {
+    const phone = document.getElementById('phone').value.replace(/[-\s]/g, '');
+    if (phone && !I18N[S.lang].phonePattern.test(phone))
+      showErr('e_phone', I18N[S.lang].e_phone, 'phone');
+  });
+  document.getElementById('email').addEventListener('blur', () => {
+    const email = document.getElementById('email').value.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      showErr('e_email', I18N[S.lang].e_email, 'email');
+  });
+  document.querySelectorAll('input[name="visitType"]').forEach(r =>
+    r.addEventListener('change', () => {
+      const isReturn = r.value === 'return' && r.checked;
+      document.getElementById('sec_notes').style.display =
+        document.querySelector('input[name="visitType"]:checked')?.value === 'return' ? 'block' : 'none';
+      updateSummary();
+    })
+  );
+  document.getElementById('staffModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('staffModal')) closeModal();
+  });
+});
+
+/* ============================================================
+   LANGUAGE
+   ============================================================ */
+function setLang(lang) {
+  document.documentElement.lang = lang;
+  S.lang = lang;
+  document.getElementById('langSelect').value = lang;
+  applyTexts();
+  buildCourses();
+  renderCal();
+  updateSummary();
+}
+
+function L(key) { return I18N[S.lang][key]; }
+
+function applyTexts() {
+  const l = I18N[S.lang];
+  document.title = 'LBC整体院 – ' + l.hero;
+
+  set('slabel1', l.steps[0]);
+  set('slabel2', l.steps[1]);
+  set('slabel3', l.steps[2]);
+  set('t_info',   l.t_info);
+  set('t_course', l.t_course);
+  set('t_slot',   l.t_slot);
+  set('t_confirm',l.t_confirm);
+  set('t_note',   l.t_note);
+  set('t_pickDate', l.t_pickDate);
+  set('t_loading',  l.t_loading);
+  set('t_selectTime', l.t_selectTime);
+  set('l_submit',    l.l_submit);
+  set('l_submitNote',l.l_submitNote);
+  set('t_submitting',l.t_submitting);
+  set('s_title', l.s_title);
+  set('s_msg',   l.s_msg);
+  if (!document.getElementById('successScreen').classList.contains('visible')) {
+    set('s_note', l.s_note.replace('\n', '<br>'), true);
+  }
+  set('s_back',  l.s_back);
+  set('staffBanner', l.staffBanner);
+  set('staffToggleLink', S.staff ? l.exitStaff : l.staffToggle);
+  set('m_title',  l.m_title);
+  set('m_ok',     l.m_ok);
+  set('m_cancel', l.m_cancel);
+  set('l_first',  l.l_first);
+  set('l_return', l.l_return);
+  set('h_phone',  l.h_phone);
+  set('h_pid',    l.h_pid);
+
+  renderFieldLabel('fl_name',  l.fl_name);
+  renderFieldLabel('fl_phone', l.fl_phone);
+  renderFieldLabel('fl_email', l.fl_email);
+  renderFieldLabel('fl_visit', l.fl_visit);
+  renderFieldLabel('fl_notes', l.fl_notes);
+  set('h_notes', l.h_notes);
+  renderFieldLabel('fl_pid',   l.fl_pid);
+  renderFieldLabel('fl_note',  l.fl_note);
+
+  const descs = { ja:'背骨・関節のプロフェッショナル。LBC整体院のオンライン予約フォームです。', es:'Reserva online en LBC Seikotsu-in. Quiropráctica y osteopatía profesional.', pt:'Agendamento online na LBC Seikotsu-in. Quiropraxia e osteopatia profissional.' };
+  document.querySelector('meta[name="description"]')?.setAttribute('content', descs[S.lang] || descs.ja);
+  document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'LBC整体院 – ' + l.hero);
+}
+
+function renderFieldLabel(id, [text, required]) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const labels = { ja: ['必須','任意'], es: ['Req.','Opc.'], pt: ['Obr.','Opc.'] };
+  const [reqTxt, optTxt] = labels[S.lang] || labels.ja;
+  el.innerHTML = escHtml(text) +
+    (required
+      ? ` <span class="badge-req">${reqTxt}</span>`
+      : ` <span class="badge-opt">${optTxt}</span>`);
+}
+
+function set(id, val, html = false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (html) el.innerHTML = val;
+  else el.textContent = val;
+}
+
+/* ============================================================
+   COURSES
+   ============================================================ */
+function buildCourses() {
+  const list = document.getElementById('courseList');
+  list.innerHTML = L('courses').map(c => `
+    <div class="course-card ${S.course === c.id ? 'selected' : ''}" onclick="pickCourse('${c.id}')" tabindex="0" role="radio" aria-checked="${S.course === c.id}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickCourse('${c.id}')}">
+      <div class="course-radio"></div>
+      <div class="course-body">
+        <div class="course-name">${escHtml(c.name)}</div>
+        <div class="course-desc">${escHtml(c.desc)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="course-badge">${escHtml(c.dur)}</div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--primary);margin-top:4px">${escHtml(c.price||'')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function pickCourse(id) {
+  const l = I18N[S.lang];
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.replace(/[-\s]/g, '');
+  if (!name) { showErr('e_name', l.e_name, 'name'); document.getElementById('name').focus(); return; }
+  if (!l.phonePattern.test(phone)) { showErr('e_phone', l.e_phone, 'phone'); document.getElementById('phone').focus(); return; }
+  S.course = id;
+  buildCourses();
+  clearErr('e_course');
+  updateSummary();
+  updateSubmitBtn();
+  updateStepIndicator();
+}
+
+/* ============================================================
+   CALENDAR
+   ============================================================ */
+function renderCal() {
+  const l = I18N[S.lang];
+  const year = S.month.getFullYear();
+  const month = S.month.getMonth();
+  const today = midnight(new Date());
+  const maxDate = midnight(new Date(today)); maxDate.setDate(today.getDate() + CONFIG.ADVANCE_DAYS);
+
+  // Month label
+  const label = S.lang === 'ja'
+    ? `${year}年${month + 1}月`
+    : `${I18N[S.lang].months[month]} ${year}`;
+  set('monthLabel', label);
+
+  // Prev/Next disabled
+  document.getElementById('btnPrev').disabled =
+    year === today.getFullYear() && month <= today.getMonth();
+  const nm = new Date(year, month + 1, 1);
+  document.getElementById('btnNext').disabled =
+    nm > maxDate;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  let html = l.weekdays.map((d, i) =>
+    `<div class="cal-hd${i===0?' sun':i===6?' sat':''}">${d}</div>`
+  ).join('');
+
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const ds = fmtDate(date);
+    const past = date < today;
+    const future = date > maxDate;
+    const avail = !past && !future && (S.slots[ds] || []).length > 0;
+    const sel = S.date === ds;
+    const isToday = date.getTime() === today.getTime();
+
+    let cls = 'cal-day';
+    if (sel) cls += ' selected';
+    else if (avail) cls += ' available';
+    else cls += ' unavailable';
+    if (isToday) cls += ' today';
+
+    const dot = avail && !sel ? '<div class="slot-dot"></div>' : '';
+    html += `<div class="${cls}" ${avail ? `onclick="pickDate('${ds}')" tabindex="0" role="button" aria-label="${ds}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickDate('${ds}')}"` : 'aria-disabled="true"'}>${d}${dot}</div>`;
+  }
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function changeMonth(delta) {
+  S.month = new Date(S.month.getFullYear(), S.month.getMonth() + delta, 1);
+  S.date = null;
+  S.time = null;
+  showDatePrompt();
+  renderCal();
+  loadSlots(S.month);
+  updateSummary();
+  updateSubmitBtn();
+  updateStepIndicator();
+}
+
+async function loadSlots(monthDate) {
+  const key = fmtYM(monthDate);
+  if (S.loaded[key]) return;
+
+  // GAS未接続（開発モード）はデモデータを即注入
+  if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
+    injectDemo(monthDate);
+    if (!S.date) showDatePrompt();
+    renderCal();
+    if (S.date && S.slots[S.date]) renderTimes(S.date);
+    return;
+  }
+
+  document.getElementById('slotLoading').style.display = 'block';
+  document.getElementById('datePrompt').style.display = 'none';
+
+  try {
+    const url = CONFIG.GAS_URL + '?action=getSlots&month=' + key;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.slots) {
+      Object.assign(S.slots, data.slots);
+      S.loaded[key] = true;
+    } else {
+      injectDemo(monthDate);
+    }
+  } catch {
+    injectDemo(monthDate);
+  } finally {
+    document.getElementById('slotLoading').style.display = 'none';
+    if (!S.date) showDatePrompt();
+    renderCal();
+    if (S.date && S.slots[S.date]) renderTimes(S.date);
+  }
+}
+
+function injectDemo(m) {
+  const y = m.getFullYear(), mo = m.getMonth();
+  const days = new Date(y, mo + 1, 0).getDate();
+  const today = midnight(new Date());
+  const now = new Date();
+  const todayStr = fmtDate(today);
+  const allTimes = [];
+  for (let h = 8; h < 22; h++) {
+    for (const min of [0, 30]) {
+      allTimes.push(`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
+    }
+  }
+  for (let d = 1; d <= days; d++) {
+    const dt = new Date(y, mo, d);
+    if (dt < today) continue;
+    const ds = fmtDate(dt);
+    if (ds === todayStr) {
+      // 現在時刻以降のスロットのみ
+      S.slots[ds] = allTimes.filter(t => {
+        const [th, tm] = t.split(':').map(Number);
+        return th > now.getHours() || (th === now.getHours() && tm > now.getMinutes());
+      });
+    } else {
+      S.slots[ds] = allTimes;
+    }
+  }
+  S.loaded[fmtYM(m)] = true;
+}
+
+function pickDate(ds) {
+  if (!S.course) { showErr('e_course', I18N[S.lang].e_course); document.getElementById('cardCourse').scrollIntoView({ behavior:'smooth', block:'center' }); return; }
+  S.date = ds;
+  S.time = null;
+  renderCal();
+  renderTimes(ds);
+  updateSummary();
+  updateSubmitBtn();
+  updateStepIndicator();
+  // Scroll to time slots
+  setTimeout(() => {
+    document.getElementById('timeArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 80);
+}
+
+function renderTimes(ds) {
+  const times = S.slots[ds] || [];
+  document.getElementById('datePrompt').style.display = 'none';
+  document.getElementById('noSlotsMsg').style.display = 'none';
+  document.getElementById('timeSlots').style.display = 'none';
+
+  if (times.length === 0) {
+    document.getElementById('noSlotsMsg').textContent = L('noSlots');
+    document.getElementById('noSlotsMsg').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('timeSlots').style.display = 'block';
+  const groups = { ja: ['午前','午後','夜間'], es: ['Mañana','Tarde','Noche'], pt: ['Manhã','Tarde','Noite'] };
+  const [g0, g1, g2] = groups[S.lang] || groups.ja;
+  const slots = { [g0]: [], [g1]: [], [g2]: [] };
+  times.forEach(t => {
+    const h = parseInt(t);
+    if (h < 12) slots[g0].push(t);
+    else if (h < 18) slots[g1].push(t);
+    else slots[g2].push(t);
+  });
+  document.getElementById('timeGrid').innerHTML = Object.entries(slots)
+    .filter(([, ts]) => ts.length > 0)
+    .map(([label, ts]) => `
+      <div class="time-group-label">${label}</div>
+      ${ts.map(t => `<div class="time-btn ${S.time === t ? 'selected' : ''}" onclick="pickTime('${t}')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickTime('${t}')}">${t}</div>`).join('')}
+    `).join('');
+}
+
+function showDatePrompt() {
+  document.getElementById('datePrompt').style.display = 'block';
+  document.getElementById('timeSlots').style.display = 'none';
+  document.getElementById('noSlotsMsg').style.display = 'none';
+}
+
+function pickTime(t) {
+  S.time = t;
+  clearErr('e_slot');
+  renderTimes(S.date);
+  updateSummary();
+  updateSubmitBtn();
+  updateStepIndicator();
+}
+
+/* ============================================================
+   STEP INDICATOR
+   ============================================================ */
+function updateStepIndicator() {
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.replace(/[-\s]/g, '');
+  const infoOk = !!name && I18N[S.lang].phonePattern.test(phone);
+  const courseOk = !!S.course;
+  const slotOk = !!(S.date && S.time);
+
+  // Step 1: active if not done, done if info looks filled
+  setStep(1, infoOk ? 'done' : 'active');
+  setStep(2, courseOk ? 'done' : infoOk ? 'active' : '');
+  setStep(3, slotOk ? 'done' : courseOk ? 'active' : '');
+}
+
+function setStep(n, state) {
+  const el = document.getElementById('si' + n);
+  if (!el) return;
+  el.classList.remove('active', 'done');
+  if (state) el.classList.add(state);
+}
+
+/* ============================================================
+   SUMMARY
+   ============================================================ */
+function updateSummary() {
+  updateStepIndicator();
+  const box = document.getElementById('summaryCard');
+  if (!S.course || !S.date || !S.time) { box.style.display = 'none'; return; }
+
+  const l = I18N[S.lang];
+  const course = l.courses.find(c => c.id === S.course);
+  const vt = document.querySelector('input[name="visitType"]:checked')?.value === 'first'
+    ? l.s_first : l.s_return;
+  const name = document.getElementById('name').value || '–';
+  const phone = document.getElementById('phone').value || '–';
+
+  const dateDisplay = fmtDisplayDate(S.date, S.time, S.lang);
+  box.style.display = 'block';
+  box.innerHTML = [
+    ['👤', l.s_labels.name,   escHtml(name)],
+    ['📞', l.s_labels.phone,  escHtml(phone)],
+    ['🌿', l.s_labels.course, escHtml(course ? `${course.name}（${course.dur}）` : '–')],
+    ['📅', l.s_labels.date,   dateDisplay],
+    ['🏥', l.s_labels.visit,  vt],
+  ].map(([icon, k, v]) => `
+    <div class="summary-row">
+      <span class="s-label"><span class="s-icon">${icon}</span>${k}</span>
+      <span class="s-value">${v}</span>
+    </div>
+  `).join('');
+}
+
+function updateSubmitBtn() {
+  document.getElementById('submitBtn').disabled = !(S.course && S.date && S.time);
+}
+
+/* ============================================================
+   VALIDATION
+   ============================================================ */
+function validate() {
+  const l = I18N[S.lang];
+  let ok = true;
+
+  const name = document.getElementById('name').value.trim();
+  name ? clearErr('e_name', 'name') : (showErr('e_name', l.e_name, 'name'), ok = false);
+
+  const phone = document.getElementById('phone').value.replace(/[-\s]/g, '');
+  l.phonePattern.test(phone) ? clearErr('e_phone', 'phone') : (showErr('e_phone', l.e_phone, 'phone'), ok = false);
+
+  const email = document.getElementById('email').value.trim();
+  (!email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    ? clearErr('e_email', 'email')
+    : (showErr('e_email', l.e_email, 'email'), ok = false);
+
+  S.course ? clearErr('e_course') : (showErr('e_course', l.e_course), ok = false);
+  (S.date && S.time) ? clearErr('e_slot') : (showErr('e_slot', l.e_slot), ok = false);
+
+  return ok;
+}
+
+function showErr(id, msg, inputId = null) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
+  if (inputId) document.getElementById(inputId)?.classList.add('is-error');
+}
+function clearErr(id, inputId = null) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('visible');
+  if (inputId) document.getElementById(inputId)?.classList.remove('is-error');
+}
+
+/* ============================================================
+   SUBMIT
+   ============================================================ */
+async function submitBooking() {
+  if (S.submitting) return;
+  if (!validate()) {
+    document.querySelector('.field-error.visible')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const errMsg = { ja:'未入力・エラーの項目を確認してください', es:'Revise los campos con error', pt:'Verifique os campos com erro' };
+    toast(errMsg[S.lang] || errMsg.ja, 'error');
+    return;
+  }
+  const email = document.getElementById('email').value.trim();
+  if (!email) {
+    const warn = { ja:'メールアドレスを入力すると確認メールが届きます', es:'Con email recibirá confirmación por correo', pt:'Com email receberá confirmação por e-mail' };
+    toast(warn[S.lang] || warn.ja);
+    await new Promise(r => setTimeout(r, 2500));
+  }
+  S.submitting = true;
+  S.visitType = document.querySelector('input[name="visitType"]:checked')?.value || 'first';
+  const l = I18N[S.lang];
+  const course = l.courses.find(c => c.id === S.course);
+  const payload = {
+    action: 'submitBooking',
+    name:     document.getElementById('name').value.trim(),
+    phone:    document.getElementById('phone').value.replace(/[-\s]/g, ''),
+    email:    document.getElementById('email').value.trim(),
+    courseId: S.course,
+    courseName: course?.name || '',
+    date: S.date,
+    time: S.time,
+    visitType: document.querySelector('input[name="visitType"]:checked')?.value || 'first',
+    lang: S.lang,
+    isStaffMode: S.staff,
+    returnNotes: document.getElementById('returnNotes')?.value.trim() || '',
+    patientId: document.getElementById('patientId')?.value.trim() || '',
+    staffNote: document.getElementById('staffNote')?.value.trim() || '',
+  };
+
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('loadingRow').style.display = 'block';
+
+  try {
+    const res = await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.success) {
+      clearSession();
+      showSuccess(data.bookingNumber || genTempNum(), data.questionnaireUrl);
+    } else {
+      toast(data.error || l.err_srv, 'error');
+      document.getElementById('submitBtn').disabled = false;
+    }
+  } catch {
+    toast(l.err_net, 'error');
+    document.getElementById('submitBtn').disabled = false;
+  } finally {
+    S.submitting = false;
+    document.getElementById('loadingRow').style.display = 'none';
+  }
+}
+
+async function checkRebooking() {
+  const token = new URLSearchParams(window.location.search).get('rebooking');
+  if (!token) return;
+  S.rebooking = token;
+
+  if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
+    // デモモード
+    applyRebookingUI({
+      customer: { name: '（デモ）山田 太郎', phone: '090-0000-0000', email: 'demo@example.com' },
+      visitType: 'return',
+    });
+    return;
+  }
+  try {
+    const res = await fetch(`${CONFIG.GAS_URL}?action=validateToken&token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    if (data.valid) {
+      applyRebookingUI(data);
+    } else {
+      toast('再予約リンクが無効または期限切れです', 'error');
+      S.rebooking = null;
+    }
+  } catch {
+    toast('データの取得に失敗しました', 'error');
+    S.rebooking = null;
+  }
+}
+
+function applyRebookingUI(data) {
+  const c = data.customer || {};
+  if (c.name)  { document.getElementById('name').value = c.name;   document.getElementById('name').readOnly = true; }
+  if (c.phone) { document.getElementById('phone').value = c.phone; document.getElementById('phone').readOnly = true; }
+  if (c.email) { document.getElementById('email').value = c.email; document.getElementById('email').readOnly = true; }
+
+  const vt = data.visitType || 'return';
+  const vtEl = document.querySelector(`input[name="visitType"][value="${vt}"]`);
+  if (vtEl) vtEl.checked = true;
+  document.querySelectorAll('input[name="visitType"]').forEach(r => r.disabled = true);
+  if (vt === 'return') document.getElementById('sec_notes').style.display = 'block';
+
+  const banner = document.getElementById('rebookingBanner');
+  const msgs = { ja:'🔄 再予約モード — 新しい日時・コースを選択してください', es:'🔄 Modo reserva — Seleccione nueva fecha y servicio', pt:'🔄 Modo reagendamento — Selecione nova data e serviço' };
+  banner.textContent = msgs[S.lang] || msgs.ja;
+  banner.classList.add('visible');
+
+  document.getElementById('staffToggleLink').style.display = 'none';
+  updateSummary();
+  updateStepIndicator();
+}
+
+function copyBookingNum() {
+  const num = document.getElementById('s_num')?.textContent || '';
+  navigator.clipboard?.writeText(num).then(() => {
+    const el = document.getElementById('s_copyLabel');
+    if (el) { el.textContent = { ja:'コピーしました！', es:'¡Copiado!', pt:'Copiado!' }[S.lang] || 'Copied!'; }
+    setTimeout(() => { if (el) el.textContent = { ja:'予約番号をコピー', es:'Copiar N°', pt:'Copiar N°' }[S.lang]; }, 2000);
+  });
+}
+
+function genTempNum() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return 'Y' + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) +
+         pad(d.getHours()) + pad(d.getMinutes());
+}
+
+function showSuccess(num, questionnaireUrl) {
+  const l = I18N[S.lang];
+  document.getElementById('mainForm').style.display = 'none';
+  document.getElementById('stepsWrap').style.display = 'none';
+  document.getElementById('heroSection').style.display = 'none';
+  document.getElementById('staffBanner').classList.remove('visible');
+  const sc = document.getElementById('successScreen');
+  sc.classList.add('visible');
+  document.getElementById('s_num').textContent = l.s_numPrefix + num;
+  const isFirst = S.visitType === 'first';
+  set('s_note', (isFirst ? l.s_note : (l.s_note_return || '')).replace('\n', '<br>'), true);
+  const qBtn = document.getElementById('s_qBtn');
+  if (qBtn) {
+    if (isFirst && questionnaireUrl) {
+      qBtn.href = questionnaireUrl;
+      qBtn.textContent = l.s_qBtn || '問診票を記入する';
+      qBtn.style.display = 'inline-block';
+    } else {
+      qBtn.style.display = 'none';
+    }
+  }
+}
+
+function resetForm() {
+  S.date = null; S.time = null; S.course = null; S.visitType = null; S.rebooking = null;
+  S.slots = {}; S.loaded = {};
+  S.month = firstOfMonth(new Date());
+  S.staff = false;
+  const qBtn = document.getElementById('s_qBtn');
+  if (qBtn) qBtn.style.display = 'none';
+
+  document.getElementById('sec_notes').style.display = 'none';
+  document.getElementById('rebookingBanner').classList.remove('visible');
+  document.getElementById('staffToggleLink').style.display = '';
+  ['name','phone','email'].forEach(id => { const el = document.getElementById(id); if(el){ el.readOnly = false; } });
+  document.querySelectorAll('input[name="visitType"]').forEach(r => r.disabled = false);
+  ['name','phone','email','returnNotes','patientId','staffNote'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.querySelector('input[name="visitType"][value="first"]').checked = true;
+
+  document.getElementById('successScreen').classList.remove('visible');
+  document.getElementById('mainForm').style.display = 'block';
+  document.getElementById('stepsWrap').style.display = 'block';
+  document.getElementById('heroSection').style.display = 'block';
+
+  document.querySelectorAll('.staff-section').forEach(el => el.classList.remove('visible'));
+  document.getElementById('staffBanner').classList.remove('visible');
+
+  buildCourses();
+  showDatePrompt();
+  renderCal();
+  loadSlots(S.month);
+  updateSummary();
+  updateSubmitBtn();
+  updateStepIndicator();
+  applyTexts();
+}
+
+/* ============================================================
+   STAFF MODE
+   ============================================================ */
+function toggleStaffMode() {
+  S.staff ? exitStaff() : openModal();
+}
+function openModal() {
+  document.getElementById('staffModal').classList.add('visible');
+  document.getElementById('staffPw').value = '';
+  document.getElementById('staffPw').focus();
+  document.getElementById('staffPw').onkeydown = e => { if (e.key === 'Enter') verifyPw(); };
+}
+function closeModal() {
+  document.getElementById('staffModal').classList.remove('visible');
+}
+async function verifyPw() {
+  const pw = document.getElementById('staffPw').value;
+  let ok = false;
+  if (!CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
+    // GAS接続済み: サーバー側で検証
+    try {
+      const res = await fetch(CONFIG.GAS_URL + '?action=verifyStaff&pw=' + encodeURIComponent(pw));
+      const data = await res.json();
+      ok = data.ok === true;
+    } catch { ok = false; }
+  } else {
+    // 開発モード: ハッシュで検証
+    ok = (await sha256(pw)) === CONFIG.STAFF_PW_HASH;
+  }
+  if (ok) {
+    S.staff = true;
+    closeModal();
+    document.querySelectorAll('.staff-section').forEach(el => el.classList.add('visible'));
+    document.getElementById('staffBanner').classList.add('visible');
+    set('staffToggleLink', L('exitStaff'));
+    toast('✓ Staff mode', 'success');
+  } else {
+    toast(L('e_pw'), 'error');
+    document.getElementById('staffPw').select();
+  }
+}
+function exitStaff() {
+  S.staff = false;
+  document.querySelectorAll('.staff-section').forEach(el => el.classList.remove('visible'));
+  document.getElementById('staffBanner').classList.remove('visible');
+  set('staffToggleLink', L('staffToggle'));
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type === 'error' ? ' is-error' : type === 'success' ? ' is-success' : '');
+  el.classList.add('show');
+  clearTimeout(S.toastTm);
+  S.toastTm = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtYM(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function midnight(d) {
+  d.setHours(0,0,0,0); return d;
+}
+function firstOfMonth(d) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDisplayDate(dateStr, timeStr, lang) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const wd = { ja: ['日','月','火','水','木','金','土'], es: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'], pt: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] };
+  const w = (wd[lang] || wd.ja)[d.getDay()];
+  if (lang === 'ja') return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${w}）${timeStr}`;
+  const mo = (I18N[lang]?.months || [])[d.getMonth()] || (d.getMonth()+1);
+  return `${d.getDate()} ${mo} ${d.getFullYear()}  ${timeStr}`;
+}
+</script>
+</body>
+</html>

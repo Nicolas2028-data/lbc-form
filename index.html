@@ -839,11 +839,20 @@
           </div>
         </div>
 
-        <!-- 症状・相談事項（一時非表示） -->
+        <!-- 再来院のみ: 新たな症状・相談の有無 -->
         <div id="sec_notes" style="display:none;">
           <div class="form-group">
             <div class="field-label" id="fl_notes"></div>
-            <textarea id="returnNotes" rows="3" style="resize:vertical;font-size:0.95rem;" id="returnNotes"></textarea>
+            <div class="radio-group">
+              <label class="radio-item">
+                <input type="radio" name="hasNewSymptom" value="no" checked>
+                <span id="l_symptom_no"></span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="hasNewSymptom" value="yes">
+                <span id="l_symptom_yes"></span>
+              </label>
+            </div>
             <div class="hint" id="h_notes"></div>
           </div>
         </div>
@@ -996,10 +1005,10 @@ const I18N = {
     fl_pid: ['診察番号', false],
     fl_note: ['内部メモ（顧客には表示されません）', false],
     h_phone: '数字を入力すると自動でハイフンが入ります',
-    fl_notes: ['症状・ご相談事項', false],
-    fl_notes_return: ['前回とは別の内容・新たな症状・ご相談事項', false],
-    h_notes: 'お体の気になる症状や、ご相談事項をご記入ください',
-    h_notes_return: '前回とは別の内容・新たな症状・ご相談事項などをご記入ください',
+    fl_notes: ['前回とは別の内容・新たな症状はありますか？', false],
+    h_notes: '「はい」を選ぶと、予約後に問診票のご記入をお願いします',
+    l_symptom_no: 'いいえ（通常通り）',
+    l_symptom_yes: 'はい（新たな症状・ご相談あり）',
     h_pid: '再来院の場合は入力してください',
     l_first: '初回', l_return: '再来院',
     courses: [
@@ -1056,10 +1065,10 @@ const I18N = {
     fl_pid: ['N° de paciente', false],
     fl_note: ['Nota interna (no visible al cliente)', false],
     h_phone: 'Los guiones se insertan automáticamente',
-    fl_notes: ['Síntomas / Consultas', false],
-    fl_notes_return: ['Nuevos síntomas / Nuevas consultas', false],
-    h_notes: 'Síntomas o consultas que desea comentar',
-    h_notes_return: 'Síntomas nuevos o temas distintos a la visita anterior',
+    fl_notes: ['¿Tiene síntomas nuevos o diferentes a la visita anterior?', false],
+    h_notes: 'Si elige "Sí", se le pedirá completar el cuestionario tras la reserva',
+    l_symptom_no: 'No (visita habitual)',
+    l_symptom_yes: 'Sí (síntomas o consulta nueva)',
     h_pid: 'Completar si es revisita',
     l_first: 'Primera vez', l_return: 'Revisita',
     courses: [
@@ -1117,10 +1126,10 @@ const I18N = {
     fl_pid: ['N° do paciente', false],
     fl_note: ['Nota interna (não visível ao cliente)', false],
     h_phone: 'Os hífens são inseridos automaticamente',
-    fl_notes: ['Sintomas / Dúvidas', false],
-    fl_notes_return: ['Novos sintomas / Novas dúvidas', false],
-    h_notes: 'Sintomas ou dúvidas que gostaria de comentar',
-    h_notes_return: 'Novos sintomas ou temas diferentes da visita anterior',
+    fl_notes: ['Tem sintomas novos ou diferentes da visita anterior?', false],
+    h_notes: 'Se escolher "Sim", pediremos que preencha o questionário após o agendamento',
+    l_symptom_no: 'Não (visita habitual)',
+    l_symptom_yes: 'Sim (novos sintomas ou dúvidas)',
     h_pid: 'Preencher se for retorno',
     l_first: 'Primeira vez', l_return: 'Retorno',
     courses: [
@@ -1210,7 +1219,7 @@ function restoreSession() {
     if (d.returnNotes) document.getElementById('returnNotes').value = d.returnNotes;
     if (d.visitType === 'return') {
       document.querySelector('input[name="visitType"][value="return"]').checked = true;
-      updateNotesLabel();
+      document.getElementById('sec_notes').style.display = 'block';
     }
     if (d.lang && d.lang !== 'ja') setLang(d.lang);
     if (d.course) { S.course = d.course; buildCourses(); }
@@ -1290,7 +1299,9 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelectorAll('input[name="visitType"]').forEach(r =>
     r.addEventListener('change', () => {
-      updateNotesLabel();
+      const isReturn = document.querySelector('input[name="visitType"]:checked')?.value === 'return';
+      document.getElementById('sec_notes').style.display = isReturn ? 'block' : 'none';
+      if (!isReturn) document.querySelector('input[name="hasNewSymptom"][value="no"]').checked = true;
       updateSummary();
       saveSession();
     })
@@ -1355,23 +1366,18 @@ function applyTexts() {
   renderFieldLabel('fl_phone', l.fl_phone);
   renderFieldLabel('fl_email', l.fl_email);
   renderFieldLabel('fl_visit', l.fl_visit);
+  renderFieldLabel('fl_notes', l.fl_notes);
+  set('h_notes', l.h_notes);
+  set('l_symptom_no',  l.l_symptom_no);
+  set('l_symptom_yes', l.l_symptom_yes);
   renderFieldLabel('fl_pid',   l.fl_pid);
   renderFieldLabel('fl_note',  l.fl_note);
-  updateNotesLabel();
 
   const descs = { ja:'背骨・関節のプロフェッショナル。LBC整体院のオンライン予約フォームです。', es:'Reserva online en LBC Seikotsu-in. Quiropráctica y osteopatía profesional.', pt:'Agendamento online na LBC Seikotsu-in. Quiropraxia e osteopatia profissional.' };
   document.querySelector('meta[name="description"]')?.setAttribute('content', descs[S.lang] || descs.ja);
   document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'LBC整体院 – ' + l.hero);
 }
 
-function updateNotesLabel() {
-  const l = I18N[S.lang];
-  const isReturn = document.querySelector('input[name="visitType"]:checked')?.value === 'return';
-  const label = isReturn ? (l.fl_notes_return || l.fl_notes) : l.fl_notes;
-  const hint  = isReturn ? (l.h_notes_return  || l.h_notes)  : l.h_notes;
-  renderFieldLabel('fl_notes', label);
-  set('h_notes', hint);
-}
 
 function hiraganaToKatakana(str) {
   return str.replace(/[ぁ-ゖ]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
@@ -1851,7 +1857,7 @@ function applyRebookingUI(data) {
   const vtEl = document.querySelector(`input[name="visitType"][value="${vt}"]`);
   if (vtEl) vtEl.checked = true;
   document.querySelectorAll('input[name="visitType"]').forEach(r => r.disabled = true);
-  updateNotesLabel();
+  if (vt === 'return') document.getElementById('sec_notes').style.display = 'block';
 
   const banner = document.getElementById('rebookingBanner');
   const msgs = { ja:'🔄 再予約モード — 新しい日時・コースを選択してください', es:'🔄 Modo reserva — Seleccione nueva fecha y servicio', pt:'🔄 Modo reagendamento — Selecione nova data e serviço' };
@@ -1889,10 +1895,12 @@ function showSuccess(num, questionnaireUrl) {
   sc.classList.add('visible');
   document.getElementById('s_num').textContent = l.s_numPrefix + num;
   const isFirst = S.visitType === 'first';
-  set('s_note', (isFirst ? l.s_note : (l.s_note_return || '')).replace('\n', '<br>'), true);
+  const hasNewSymptom = document.querySelector('input[name="hasNewSymptom"]:checked')?.value === 'yes';
+  const needsQuestionnaire = isFirst || hasNewSymptom;
+  set('s_note', (needsQuestionnaire ? l.s_note : (l.s_note_return || '')).replace('\n', '<br>'), true);
   const qBtn = document.getElementById('s_qBtn');
   if (qBtn) {
-    if (isFirst && questionnaireUrl) {
+    if (needsQuestionnaire && questionnaireUrl) {
       qBtn.href = questionnaireUrl;
       qBtn.textContent = l.s_qBtn || '問診票を記入する';
       qBtn.style.display = 'inline-block';
@@ -1910,6 +1918,8 @@ function resetForm() {
   const qBtn = document.getElementById('s_qBtn');
   if (qBtn) qBtn.style.display = 'none';
 
+  document.getElementById('sec_notes').style.display = 'none';
+  document.querySelector('input[name="hasNewSymptom"][value="no"]').checked = true;
   document.getElementById('rebookingBanner').classList.remove('visible');
   document.getElementById('staffToggleLink').style.display = '';
   ['name','phone','email'].forEach(id => { const el = document.getElementById(id); if(el){ el.readOnly = false; } });

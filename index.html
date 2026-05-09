@@ -807,6 +807,12 @@
         </div>
 
         <div class="form-group">
+          <div class="field-label" id="fl_furigana"></div>
+          <input type="text" id="furigana" autocomplete="off" inputmode="text" maxlength="50" placeholder="ヤマダ タロウ">
+          <div class="hint" id="h_furigana"></div>
+        </div>
+
+        <div class="form-group">
           <div class="field-label" id="fl_phone"></div>
           <input type="tel" id="phone" autocomplete="tel" inputmode="numeric" placeholder="090-1234-5678" maxlength="13">
           <div class="hint" id="h_phone"></div>
@@ -833,8 +839,8 @@
           </div>
         </div>
 
-        <!-- 再来院のみ: 備考欄 -->
-        <div id="sec_notes" style="display:none;">
+        <!-- 症状・相談事項 -->
+        <div id="sec_notes">
           <div class="form-group">
             <div class="field-label" id="fl_notes"></div>
             <textarea id="returnNotes" rows="3" style="resize:vertical;font-size:0.95rem;" id="returnNotes"></textarea>
@@ -982,14 +988,18 @@ const I18N = {
     t_confirm: 'ご確認・送信',
     t_note: 'スタッフメモ',
     fl_name: ['お名前', true],
+    fl_furigana: ['フリガナ', false],
+    h_furigana: 'カタカナでご記入ください',
     fl_phone: ['電話番号', true],
     fl_email: ['メールアドレス', false],
     fl_visit: ['来院種別', true],
     fl_pid: ['診察番号', false],
     fl_note: ['内部メモ（顧客には表示されません）', false],
     h_phone: '数字を入力すると自動でハイフンが入ります',
-    fl_notes: ['備考・相談事項', false],
-    h_notes: '前回からの変化、気になる症状、ご相談事項など',
+    fl_notes: ['症状・ご相談事項', false],
+    fl_notes_return: ['前回とは別の内容・新たな症状・ご相談事項', false],
+    h_notes: 'お体の気になる症状や、ご相談事項をご記入ください',
+    h_notes_return: '前回とは別の内容・新たな症状・ご相談事項などをご記入ください',
     h_pid: '再来院の場合は入力してください',
     l_first: '初回', l_return: '再来院',
     courses: [
@@ -1038,14 +1048,18 @@ const I18N = {
     t_confirm: 'Confirmar y enviar',
     t_note: 'Nota del personal',
     fl_name: ['Nombre completo', true],
+    fl_furigana: ['Furigana (フリガナ)', false],
+    h_furigana: 'En katakana si es posible (ej: ヤマダ タロウ)',
     fl_phone: ['Teléfono', true],
     fl_email: ['Correo electrónico', false],
     fl_visit: ['Tipo de visita', true],
     fl_pid: ['N° de paciente', false],
     fl_note: ['Nota interna (no visible al cliente)', false],
     h_phone: 'Los guiones se insertan automáticamente',
-    fl_notes: ['Notas / Consultas', false],
-    h_notes: 'Cambios desde la última visita, síntomas, consultas, etc.',
+    fl_notes: ['Síntomas / Consultas', false],
+    fl_notes_return: ['Nuevos síntomas / Nuevas consultas', false],
+    h_notes: 'Síntomas o consultas que desea comentar',
+    h_notes_return: 'Síntomas nuevos o temas distintos a la visita anterior',
     h_pid: 'Completar si es revisita',
     l_first: 'Primera vez', l_return: 'Revisita',
     courses: [
@@ -1095,14 +1109,18 @@ const I18N = {
     t_confirm: 'Confirmar e enviar',
     t_note: 'Nota da equipe',
     fl_name: ['Nome completo', true],
+    fl_furigana: ['Furigana (フリガナ)', false],
+    h_furigana: 'Em katakana se possível (ex: ヤマダ タロウ)',
     fl_phone: ['Telefone', true],
     fl_email: ['E-mail', false],
     fl_visit: ['Tipo de visita', true],
     fl_pid: ['N° do paciente', false],
     fl_note: ['Nota interna (não visível ao cliente)', false],
     h_phone: 'Os hífens são inseridos automaticamente',
-    fl_notes: ['Observações / Dúvidas', false],
-    h_notes: 'Alterações desde a última visita, sintomas, dúvidas, etc.',
+    fl_notes: ['Sintomas / Dúvidas', false],
+    fl_notes_return: ['Novos sintomas / Novas dúvidas', false],
+    h_notes: 'Sintomas ou dúvidas que gostaria de comentar',
+    h_notes_return: 'Novos sintomas ou temas diferentes da visita anterior',
     h_pid: 'Preencher se for retorno',
     l_first: 'Primeira vez', l_return: 'Retorno',
     courses: [
@@ -1167,6 +1185,7 @@ function saveSession() {
   try {
     sessionStorage.setItem('lbc_form', JSON.stringify({
       name:  document.getElementById('name')?.value || '',
+      furigana: document.getElementById('furigana')?.value || '',
       phone: document.getElementById('phone')?.value || '',
       email: document.getElementById('email')?.value || '',
       visitType: document.querySelector('input[name="visitType"]:checked')?.value || 'first',
@@ -1185,12 +1204,13 @@ function restoreSession() {
     if (!raw) return;
     const d = JSON.parse(raw);
     if (d.name)  document.getElementById('name').value  = d.name;
+    if (d.furigana) document.getElementById('furigana').value = d.furigana;
     if (d.phone) document.getElementById('phone').value = d.phone;
     if (d.email) document.getElementById('email').value = d.email;
     if (d.returnNotes) document.getElementById('returnNotes').value = d.returnNotes;
     if (d.visitType === 'return') {
       document.querySelector('input[name="visitType"][value="return"]').checked = true;
-      document.getElementById('sec_notes').style.display = 'block';
+      updateNotesLabel();
     }
     if (d.lang && d.lang !== 'ja') setLang(d.lang);
     if (d.course) { S.course = d.course; buildCourses(); }
@@ -1216,6 +1236,8 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSlots(S.month);
   updateStepIndicator();
   checkRebooking();
+
+  setupFuriganaAutofill();
 
   document.getElementById('name').addEventListener('input', () => {
     clearErr('e_name', 'name');
@@ -1268,10 +1290,9 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelectorAll('input[name="visitType"]').forEach(r =>
     r.addEventListener('change', () => {
-      const isReturn = r.value === 'return' && r.checked;
-      document.getElementById('sec_notes').style.display =
-        document.querySelector('input[name="visitType"]:checked')?.value === 'return' ? 'block' : 'none';
+      updateNotesLabel();
       updateSummary();
+      saveSession();
     })
   );
   document.getElementById('staffModal').addEventListener('click', e => {
@@ -1329,17 +1350,66 @@ function applyTexts() {
   set('h_pid',    l.h_pid);
 
   renderFieldLabel('fl_name',  l.fl_name);
+  renderFieldLabel('fl_furigana', l.fl_furigana);
+  set('h_furigana', l.h_furigana);
   renderFieldLabel('fl_phone', l.fl_phone);
   renderFieldLabel('fl_email', l.fl_email);
   renderFieldLabel('fl_visit', l.fl_visit);
-  renderFieldLabel('fl_notes', l.fl_notes);
-  set('h_notes', l.h_notes);
   renderFieldLabel('fl_pid',   l.fl_pid);
   renderFieldLabel('fl_note',  l.fl_note);
+  updateNotesLabel();
 
   const descs = { ja:'背骨・関節のプロフェッショナル。LBC整体院のオンライン予約フォームです。', es:'Reserva online en LBC Seikotsu-in. Quiropráctica y osteopatía profesional.', pt:'Agendamento online na LBC Seikotsu-in. Quiropraxia e osteopatia profissional.' };
   document.querySelector('meta[name="description"]')?.setAttribute('content', descs[S.lang] || descs.ja);
   document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'LBC整体院 – ' + l.hero);
+}
+
+function updateNotesLabel() {
+  const l = I18N[S.lang];
+  const isReturn = document.querySelector('input[name="visitType"]:checked')?.value === 'return';
+  const label = isReturn ? (l.fl_notes_return || l.fl_notes) : l.fl_notes;
+  const hint  = isReturn ? (l.h_notes_return  || l.h_notes)  : l.h_notes;
+  renderFieldLabel('fl_notes', label);
+  set('h_notes', hint);
+}
+
+function hiraganaToKatakana(str) {
+  return str.replace(/[ぁ-ゖ]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+}
+
+function setupFuriganaAutofill() {
+  const nameEl = document.getElementById('name');
+  const kanaEl = document.getElementById('furigana');
+  let accumulated = '';
+  let composing = false;
+  let userEditedKana = false;
+
+  kanaEl.addEventListener('input', () => { userEditedKana = kanaEl.value.length > 0; });
+
+  nameEl.addEventListener('compositionstart', () => { composing = true; });
+
+  nameEl.addEventListener('compositionupdate', (e) => {
+    if (userEditedKana || S.lang !== 'ja') return;
+    kanaEl.value = hiraganaToKatakana(accumulated + (e.data || ''));
+  });
+
+  nameEl.addEventListener('compositionend', (e) => {
+    composing = false;
+    if (userEditedKana || S.lang !== 'ja') return;
+    const seg = e.data || '';
+    if (/^[ぁ-ゟ゠-ヿ\s・]+$/.test(seg)) {
+      accumulated += seg;
+    } else {
+      accumulated = kanaEl.value;
+    }
+  });
+
+  nameEl.addEventListener('input', () => {
+    if (!composing && !nameEl.value && !userEditedKana) {
+      accumulated = '';
+      kanaEl.value = '';
+    }
+  });
 }
 
 function renderFieldLabel(id, [text, required]) {
@@ -1702,6 +1772,7 @@ async function submitBooking() {
   const payload = {
     action: 'submitBooking',
     name:     document.getElementById('name').value.trim(),
+    furigana: document.getElementById('furigana').value.trim(),
     phone:    document.getElementById('phone').value.replace(/[-\s]/g, ''),
     email:    document.getElementById('email').value.trim(),
     courseId: S.course,
@@ -1780,7 +1851,7 @@ function applyRebookingUI(data) {
   const vtEl = document.querySelector(`input[name="visitType"][value="${vt}"]`);
   if (vtEl) vtEl.checked = true;
   document.querySelectorAll('input[name="visitType"]').forEach(r => r.disabled = true);
-  if (vt === 'return') document.getElementById('sec_notes').style.display = 'block';
+  updateNotesLabel();
 
   const banner = document.getElementById('rebookingBanner');
   const msgs = { ja:'🔄 再予約モード — 新しい日時・コースを選択してください', es:'🔄 Modo reserva — Seleccione nueva fecha y servicio', pt:'🔄 Modo reagendamento — Selecione nova data e serviço' };
@@ -1839,12 +1910,11 @@ function resetForm() {
   const qBtn = document.getElementById('s_qBtn');
   if (qBtn) qBtn.style.display = 'none';
 
-  document.getElementById('sec_notes').style.display = 'none';
   document.getElementById('rebookingBanner').classList.remove('visible');
   document.getElementById('staffToggleLink').style.display = '';
   ['name','phone','email'].forEach(id => { const el = document.getElementById(id); if(el){ el.readOnly = false; } });
   document.querySelectorAll('input[name="visitType"]').forEach(r => r.disabled = false);
-  ['name','phone','email','returnNotes','patientId','staffNote'].forEach(id => {
+  ['name','furigana','phone','email','returnNotes','patientId','staffNote'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });

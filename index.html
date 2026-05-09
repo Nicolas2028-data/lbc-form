@@ -990,6 +990,7 @@ async function sha256(str) {
 const I18N = {
   ja: {
     hero: 'ご予約',
+    heroSub: '背骨・関節のプロフェッショナル。お気軽にご予約ください。',
     steps: ['お客様情報', 'コース', '日時'],
     t_info: 'お客様情報',
     t_course: 'コースを選択',
@@ -1050,6 +1051,7 @@ const I18N = {
   },
   es: {
     hero: 'Reserva',
+    heroSub: 'Quiropráctica y osteopatía profesional. Reserve su turno en línea.',
     steps: ['Datos', 'Servicio', 'Horario'],
     t_info: 'Datos del cliente',
     t_course: 'Seleccionar servicio',
@@ -1111,6 +1113,7 @@ const I18N = {
   },
   pt: {
     hero: 'Agendamento',
+    heroSub: 'Quiropraxia e osteopatia profissional. Agende sua consulta online.',
     steps: ['Dados', 'Serviço', 'Horário'],
     t_info: 'Dados do cliente',
     t_course: 'Selecionar serviço',
@@ -1329,6 +1332,8 @@ function L(key) { return I18N[S.lang][key]; }
 function applyTexts() {
   const l = I18N[S.lang];
   document.title = 'LBC整体院 – ' + l.hero;
+  set('heroTitle', l.hero);
+  set('heroSub',   l.heroSub);
 
   set('slabel1', l.steps[0]);
   set('slabel2', l.steps[1]);

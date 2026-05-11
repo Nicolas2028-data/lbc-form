@@ -45,7 +45,7 @@
 
     /* ── Header ── */
     header {
-      background: var(--primary);
+      background: #051F20;
       color: var(--white);
       padding: 14px 20px;
       display: flex;
@@ -101,7 +101,7 @@
 
     /* ── Hero ── */
     .hero {
-      background: linear-gradient(135deg, var(--primary) 0%, #3a9970 100%);
+      background: linear-gradient(135deg, #0B2B26 0%, #163832 100%);
       color: var(--white);
       text-align: center;
       padding: 28px 20px 24px;
@@ -990,7 +990,9 @@ async function sha256(str) {
 const I18N = {
   ja: {
     hero: 'ご予約',
-    heroSub: '背骨・関節のプロフェッショナル。お気軽にご予約ください。',
+    heroSub: 'あなたの健康を第一に。お気軽にご予約ください。',
+    heroAddr: '〒510-0835 三重県四日市市大井手',
+    heroTel: 'TEL: 070-9233-4084',
     steps: ['お客様情報', 'コース', '日時'],
     t_info: 'お客様情報',
     t_course: 'コースを選択',
@@ -1013,9 +1015,10 @@ const I18N = {
     h_pid: '再来院の場合は入力してください',
     l_first: '初回', l_return: '再来院',
     courses: [
-      { id: 'chiro30', name: 'カイロプラクティック', desc: '背骨・関節の矯正', dur: '30分', price: '¥3,500' },
-      { id: 'total60', name: 'トータルケア',         desc: '全身整体＋カイロ',  dur: '60分', price: '¥6,500' },
-      { id: 'other60', name: 'その他ケア',           desc: '鍼・マッサージ等',  dur: '60分', price: '¥6,500' },
+      { id: 'chiro30',  name: 'カイロプラクティック', desc: '正確な調整で痛みを和らげ、姿勢を整えます', dur: '30分', price: '¥4,000' },
+      { id: 'fascia60', name: '筋膜リリース',         desc: '筋膜の緊張をほぐし、筋肉を緩めます',     dur: '60分', price: '¥5,000' },
+      { id: 'cup60',    name: '吸玉（カッピング）',   desc: 'むくみの改善、血流を促進させます',       dur: '60分', price: '¥4,000' },
+      { id: 'total60',  name: 'トータルケア',         desc: '上記のコース全て＋揉みほぐし',           dur: '60分', price: '¥6,000' },
     ],
     weekdays: ['日','月','火','水','木','金','土'],
     t_pickDate: '日付を選択すると空き時間が表示されます',
@@ -1023,7 +1026,7 @@ const I18N = {
     t_selectTime: '時間を選択してください',
     noSlots: 'この日は空きがありません',
     l_submit: '仮予約を送信する',
-    l_submitNote: '送信後、担当者が確認して確定のご連絡をいたします',
+    l_submitNote: '送信後、担当の方が確認して予約完了のご連絡をいたします。',
     t_submitting: '送信中...',
     s_title: '仮予約を受け付けました！',
     s_msg: 'ルカスが内容を確認後、確定のご連絡をいたします。',
@@ -1051,7 +1054,9 @@ const I18N = {
   },
   es: {
     hero: 'Reserva',
-    heroSub: 'Quiropráctica y osteopatía profesional. Reserve su turno en línea.',
+    heroSub: 'Su Salud viene en primer lugar! Agende su horario!',
+    heroAddr: '〒510-0835 Mie-ken Yokkaichi-shi Ooide',
+    heroTel: 'TEL: 070-9233-4084',
     steps: ['Datos', 'Servicio', 'Horario'],
     t_info: 'Datos del cliente',
     t_course: 'Seleccionar servicio',
@@ -1063,7 +1068,7 @@ const I18N = {
     h_furigana: 'En katakana si es posible (ej: ヤマダ タロウ)',
     fl_phone: ['Teléfono', true],
     fl_email: ['Correo electrónico', false],
-    fl_visit: ['Tipo de visita', true],
+    fl_visit: ['Tipo de consulta', true],
     fl_pid: ['N° de paciente', false],
     fl_note: ['Nota interna (no visible al cliente)', false],
     h_phone: 'Los guiones se insertan automáticamente',
@@ -1072,11 +1077,12 @@ const I18N = {
     l_symptom_no: 'No (visita habitual)',
     l_symptom_yes: 'Sí (síntomas o consulta nueva)',
     h_pid: 'Completar si es revisita',
-    l_first: 'Primera vez', l_return: 'Revisita',
+    l_first: 'Primera vez', l_return: 'Cliente',
     courses: [
-      { id: 'chiro30', name: 'Quiropráctica',  desc: 'Ajuste de columna y articulaciones', dur: '30 min', price: '¥3,500' },
-      { id: 'total60', name: 'Cuidado Total',   desc: 'Osteopatía + quiropráctica',         dur: '60 min', price: '¥6,500' },
-      { id: 'other60', name: 'Otro cuidado',    desc: 'Acupuntura, masaje, etc.',            dur: '60 min', price: '¥6,500' },
+      { id: 'chiro30',  name: 'Quiropráctica',         desc: 'Alivie el dolor y mejore su postura con ajuste preciso', dur: '30 min', price: '¥4,000' },
+      { id: 'fascia60', name: 'Liberación Miofascial',  desc: 'Libera la tensión miofascial y relaja los músculos',    dur: '60 min', price: '¥5,000' },
+      { id: 'cup60',    name: 'Ventosa',                desc: 'Mejora la circulación y reduce la retención de líquidos', dur: '60 min', price: '¥4,000' },
+      { id: 'total60',  name: 'Cuidado Total',          desc: 'Todos los servicios anteriores + Masaje',               dur: '60 min', price: '¥6,000' },
     ],
     months: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
     weekdays: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
@@ -1113,7 +1119,9 @@ const I18N = {
   },
   pt: {
     hero: 'Agendamento',
-    heroSub: 'Quiropraxia e osteopatia profissional. Agende sua consulta online.',
+    heroSub: 'Sua saúde vem em primeiro lugar! Agende seu horário!',
+    heroAddr: '〒510-0835 Mie-ken Yokkaichi-shi Ooide',
+    heroTel: 'TEL: 070-9233-4084',
     steps: ['Dados', 'Serviço', 'Horário'],
     t_info: 'Dados do cliente',
     t_course: 'Selecionar serviço',
@@ -1136,9 +1144,10 @@ const I18N = {
     h_pid: 'Preencher se for retorno',
     l_first: 'Primeira vez', l_return: 'Retorno',
     courses: [
-      { id: 'chiro30', name: 'Quiropraxia',   desc: 'Ajuste de coluna e articulações', dur: '30 min', price: '¥3,500' },
-      { id: 'total60', name: 'Cuidado Total',  desc: 'Osteopatia + quiropraxia',        dur: '60 min', price: '¥6,500' },
-      { id: 'other60', name: 'Outro cuidado',  desc: 'Acupuntura, massagem, etc.',      dur: '60 min', price: '¥6,500' },
+      { id: 'chiro30',  name: 'Quiropraxia',           desc: 'Alívio da dor e melhora da postura com ajuste preciso', dur: '30 min', price: '¥4,000' },
+      { id: 'fascia60', name: 'Liberação Miofascial',   desc: 'Libera a tensão miofascial e relaxa os músculos',      dur: '60 min', price: '¥5,000' },
+      { id: 'cup60',    name: 'Ventosa',                desc: 'Melhora a circulação e reduz o inchaço',               dur: '60 min', price: '¥4,000' },
+      { id: 'total60',  name: 'Cuidado Total',          desc: 'Todos os serviços acima + Massagem',                   dur: '60 min', price: '¥6,000' },
     ],
     months: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
     weekdays: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
@@ -1334,6 +1343,8 @@ function applyTexts() {
   document.title = 'LBC整体院 – ' + l.hero;
   set('heroTitle', l.hero);
   set('heroSub',   l.heroSub);
+  set('heroAddr',  l.heroAddr);
+  set('heroTel',   l.heroTel);
 
   set('slabel1', l.steps[0]);
   set('slabel2', l.steps[1]);

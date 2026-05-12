@@ -1364,11 +1364,11 @@ function applyTexts() {
     set('s_note', l.s_note.replace('\n', '<br>'), true);
   }
   set('s_back',  l.s_back);
-  set('s_copyLabel', { ja:'予約番号をコピー', es:'Copiar N°', pt:'Copiar N°' }[lang]);
+  set('s_copyLabel', { ja:'予約番号をコピー', es:'Copiar N°', pt:'Copiar N°' }[S.lang]);
   set('staffBanner', l.staffBanner);
   const rebookMsgs = { ja:'🔄 再予約モード — 新しい日時・コースを選択してください', es:'🔄 Modo reserva — Seleccione nueva fecha y servicio', pt:'🔄 Modo reagendamento — Selecione nova data e serviço' };
   const rb = document.getElementById('rebookingBanner');
-  if (rb?.classList.contains('visible')) rb.textContent = rebookMsgs[lang] || rebookMsgs.ja;
+  if (rb?.classList.contains('visible')) rb.textContent = rebookMsgs[S.lang] || rebookMsgs.ja;
   set('staffToggleLink', S.staff ? l.exitStaff : l.staffToggle);
   set('m_title',  l.m_title);
   set('m_ok',     l.m_ok);
@@ -1783,13 +1783,14 @@ async function submitBooking() {
     toast(errMsg[S.lang] || errMsg.ja, 'error');
     return;
   }
+  S.submitting = true;
+  document.getElementById('submitBtn').disabled = true;
   const email = document.getElementById('email').value.trim();
   if (!email) {
     const warn = { ja:'メールアドレスを入力すると確認メールが届きます', es:'Con email recibirá confirmación por correo', pt:'Com email receberá confirmação por e-mail' };
     toast(warn[S.lang] || warn.ja);
     await new Promise(r => setTimeout(r, 2500));
   }
-  S.submitting = true;
   S.visitType = document.querySelector('input[name="visitType"]:checked')?.value || 'first';
   const l = I18N[S.lang];
   const course = l.courses.find(c => c.id === S.course);
@@ -1804,6 +1805,7 @@ async function submitBooking() {
     date: S.date,
     time: S.time,
     visitType: document.querySelector('input[name="visitType"]:checked')?.value || 'first',
+    hasNewSymptom: document.querySelector('input[name="hasNewSymptom"]:checked')?.value || 'no',
     lang: S.lang,
     isStaffMode: S.staff,
     returnNotes: document.getElementById('returnNotes')?.value.trim() || '',
@@ -1811,7 +1813,6 @@ async function submitBooking() {
     staffNote: document.getElementById('staffNote')?.value.trim() || '',
   };
 
-  document.getElementById('submitBtn').disabled = true;
   document.getElementById('loadingRow').style.display = 'block';
 
   try {

@@ -78,12 +78,6 @@
     .lang-select option { background: #1e5c42; color: var(--white); }
 
     /* ── Hero ── */
-    .hero {
-      background: linear-gradient(135deg, var(--primary) 0%, #3a9970 100%);
-      color: var(--white);
-      text-align: center;
-      padding: 28px 20px 24px;
-    }
     .hero h1 { font-size: 1.35rem; font-weight: 800; margin-bottom: 6px; }
     .hero p { font-size: 0.85rem; opacity: 0.88; margin-bottom: 12px; }
     .hero-meta {
@@ -1210,6 +1204,7 @@ function saveSession() {
       phone: document.getElementById('phone')?.value || '',
       email: document.getElementById('email')?.value || '',
       visitType: document.querySelector('input[name="visitType"]:checked')?.value || 'first',
+      hasNewSymptom: document.querySelector('input[name="hasNewSymptom"]:checked')?.value || 'no',
       returnNotes: document.getElementById('returnNotes')?.value || '',
       course: S.course,
       date: S.date,
@@ -1228,10 +1223,13 @@ function restoreSession() {
     if (d.furigana) document.getElementById('furigana').value = d.furigana;
     if (d.phone) document.getElementById('phone').value = d.phone;
     if (d.email) document.getElementById('email').value = d.email;
-    if (d.returnNotes) document.getElementById('returnNotes').value = d.returnNotes;
+    if (d.returnNotes) { const el = document.getElementById('returnNotes'); if (el) el.value = d.returnNotes; }
     if (d.visitType === 'return') {
       document.querySelector('input[name="visitType"][value="return"]').checked = true;
       document.getElementById('sec_notes').style.display = 'block';
+      if (d.hasNewSymptom === 'yes') {
+        document.querySelector('input[name="hasNewSymptom"][value="yes"]').checked = true;
+      }
     }
     if (d.lang && d.lang !== 'ja') setLang(d.lang);
     if (d.course) { S.course = d.course; buildCourses(); }
@@ -1366,7 +1364,11 @@ function applyTexts() {
     set('s_note', l.s_note.replace('\n', '<br>'), true);
   }
   set('s_back',  l.s_back);
+  set('s_copyLabel', { ja:'予約番号をコピー', es:'Copiar N°', pt:'Copiar N°' }[lang]);
   set('staffBanner', l.staffBanner);
+  const rebookMsgs = { ja:'🔄 再予約モード — 新しい日時・コースを選択してください', es:'🔄 Modo reserva — Seleccione nueva fecha y servicio', pt:'🔄 Modo reagendamento — Selecione nova data e serviço' };
+  const rb = document.getElementById('rebookingBanner');
+  if (rb?.classList.contains('visible')) rb.textContent = rebookMsgs[lang] || rebookMsgs.ja;
   set('staffToggleLink', S.staff ? l.exitStaff : l.staffToggle);
   set('m_title',  l.m_title);
   set('m_ok',     l.m_ok);

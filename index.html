@@ -1056,6 +1056,9 @@
       <p id="q_section_sub_el">予約情報と合わせて送信されます。以下の項目をご記入ください。</p>
     </div>
 
+    <!-- 予約内容サマリー -->
+    <div class="summary-card" id="summaryCard" style="margin-bottom:16px"></div>
+
     <!-- 基本情報: DOB / 住所 / 来院のきっかけ -->
     <div class="card" id="cardQBasic">
       <div class="card-title"><span class="icon">👤</span><span>基本情報</span></div>
@@ -2179,6 +2182,7 @@ function proceedToQuestionnaire() {
     toast(errMsg[S.lang] || errMsg.ja, 'error');
     return;
   }
+  updateSummary();
   document.getElementById('mainForm').style.display = 'none';
   document.getElementById('stepsWrap').style.display = 'none';
   document.getElementById('cardNext').style.display = 'none';

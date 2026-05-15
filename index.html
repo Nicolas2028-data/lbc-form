@@ -1218,7 +1218,7 @@
 
     <!-- Submit -->
     <div class="card" id="cardConfirm">
-      <button class="btn-submit" id="submitBtn" onclick="submitBooking()" disabled>
+      <button class="btn-submit" id="submitBtn" onclick="submitBooking()">
         <span id="l_submit"></span>
       </button>
       <div class="loading-row" id="loadingRow">
@@ -2182,11 +2182,11 @@ function proceedToQuestionnaire() {
     toast(errMsg[S.lang] || errMsg.ja, 'error');
     return;
   }
-  updateSummary();
   document.getElementById('mainForm').style.display = 'none';
   document.getElementById('stepsWrap').style.display = 'none';
   document.getElementById('cardNext').style.display = 'none';
   document.getElementById('questionnaireSection').style.display = 'block';
+  updateSummary(); // section が visible になってから呼ぶ
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

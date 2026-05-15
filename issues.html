@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LBC Care — 課題管理表</title>
+<style>
+:root {
+  --primary: #2c7a5c; --primary-dark: #1e5c42; --primary-light: #e8f5ef;
+  --accent: #f0a500; --danger: #e53935; --warn: #fb8c00;
+  --text: #1a1a1a; --muted: #666; --border: #e0e0e0; --bg: #f5f7f6; --white: #fff;
+  --radius: 10px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* Header */
+.site-header {
+  background: #051F20; color: #fff; padding: 16px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.site-header h1 { font-size: 1.1rem; font-weight: 800; }
+.site-header h1 span { color: var(--accent); }
+.site-header small { font-size: 0.72rem; opacity: 0.7; margin-left: 10px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; background: #fff; border-bottom: 2px solid var(--border); padding: 0 24px; }
+.tab { padding: 14px 20px; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .15s; white-space: nowrap; }
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-count { display: inline-block; background: var(--primary-light); color: var(--primary-dark); border-radius: 10px; padding: 1px 7px; font-size: 0.72rem; margin-left: 6px; font-weight: 700; }
+
+/* Toolbar */
+.toolbar { display: flex; gap: 10px; padding: 16px 24px; flex-wrap: wrap; align-items: center; background: #fff; border-bottom: 1px solid var(--border); }
+.search-wrap { position: relative; flex: 1; min-width: 200px; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .45; }
+.search-wrap input { width: 100%; padding: 8px 12px 8px 34px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.88rem; outline: none; }
+.search-wrap input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(44,122,92,.1); }
+select.filter-sel { padding: 8px 30px 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; color: var(--text); background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance: none; cursor: pointer; outline: none; }
+select.filter-sel:focus { border-color: var(--primary); }
+.toolbar-right { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.count-badge { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+
+/* Table */
+.table-wrap { padding: 0 24px 40px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 16px; background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+th { background: #f0f5f3; color: var(--primary-dark); font-weight: 700; font-size: 0.82rem; padding: 12px 14px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+th:hover { background: #e4ede9; }
+th .sort-icon { display: inline-block; margin-left: 4px; opacity: .4; font-size: 0.7rem; }
+th.sorted .sort-icon { opacity: 1; color: var(--primary); }
+td { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; line-height: 1.5; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafffe; }
+td.no-col { font-weight: 700; color: var(--primary-dark); text-align: center; width: 46px; }
+td.text-col { max-width: 260px; }
+td.text-col .cell-short { display: block; }
+td.text-col .cell-full  { display: none; }
+td.text-col.expanded .cell-short { display: none; }
+td.text-col.expanded .cell-full  { display: block; }
+.expand-btn { display: inline-block; margin-top: 4px; font-size: 0.75rem; color: var(--primary); cursor: pointer; text-decoration: underline; }
+
+/* Status badges */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.76rem; font-weight: 700; white-space: nowrap; }
+.badge-done    { background: #e8f5ef; color: #1e5c42; }
+.badge-wip     { background: #fff3e0; color: #e65100; }
+.badge-known   { background: #f3e5f5; color: #6a1b9a; }
+.badge-pending { background: #f5f5f5; color: #555; }
+.badge-high    { background: #fdecea; color: #c62828; }
+.badge-mid     { background: #fff8e1; color: #f57f17; }
+.badge-low     { background: #e8f5ef; color: #2e7d32; }
+
+/* Rule table */
+.rule-no { font-weight: 800; color: var(--primary-dark); text-align: center; }
+.danger-cell { color: var(--danger); font-size: 0.82rem; }
+
+/* Empty */
+.empty { text-align: center; padding: 48px; color: var(--muted); }
+
+/* Sheet panels */
+.sheet-panel { display: none; }
+.sheet-panel.active { display: block; }
+
+@media (max-width: 640px) {
+  .tabs { padding: 0 12px; overflow-x: auto; }
+  .toolbar { padding: 12px; }
+  .table-wrap { padding: 0 12px 40px; }
+  td.text-col { max-width: 160px; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div>
+    <h1>LBC<span>Care</span> <small>課題管理表</small></h1>
+  </div>
+  <div style="font-size:0.78rem;opacity:.7" id="lastUpdated"></div>
+</header>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(0)">✅ 今回対応する課題 <span class="tab-count" id="cnt0"></span></div>
+  <div class="tab"        onclick="switchTab(1)">📋 次に対応する課題 <span class="tab-count" id="cnt1"></span></div>
+  <div class="tab"        onclick="switchTab(2)">📐 実装ルール <span class="tab-count" id="cnt2"></span></div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="searchInput" placeholder="キーワード検索..." oninput="applyFilters()">
+  </div>
+  <select class="filter-sel" id="statusFilter" onchange="applyFilters()" style="display:none">
+    <option value="">すべての状態</option>
+    <option>対応済み</option>
+    <option>進行中</option>
+    <option>既知の制約</option>
+    <option>未対応</option>
+  </select>
+  <select class="filter-sel" id="priorityFilter" onchange="applyFilters()" style="display:none">
+    <option value="">すべての優先度</option>
+    <option>高</option>
+    <option>中</option>
+    <option>低</option>
+  </select>
+  <div class="toolbar-right">
+    <span class="count-badge" id="rowCount"></span>
+  </div>
+</div>
+
+<!-- Sheet 0: 今回対応 -->
+<div class="sheet-panel active" id="panel0">
+  <div class="table-wrap">
+    <table id="table0">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0,0)">No <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(0,1)">課題の内容 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(0,2)">なぜ問題か？ <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(0,3)">解決方法 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(0,4)">状態 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(0,5)">ルカスの作業 <span class="sort-icon">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="body0"></tbody>
+    </table>
+    <div class="empty" id="empty0" style="display:none">該当する課題がありません</div>
+  </div>
+</div>
+
+<!-- Sheet 1: 次回対応 -->
+<div class="sheet-panel" id="panel1">
+  <div class="table-wrap">
+    <table id="table1">
+      <thead>
+        <tr>
+          <th onclick="sortTable(1,0)">No <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(1,1)">課題の内容 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(1,2)">説明 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(1,3)">必要なもの <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(1,4)">優先度 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(1,5)">費用の見込み <span class="sort-icon">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="body1"></tbody>
+    </table>
+    <div class="empty" id="empty1" style="display:none">該当する課題がありません</div>
+  </div>
+</div>
+
+<!-- Sheet 2: 実装ルール -->
+<div class="sheet-panel" id="panel2">
+  <div class="table-wrap">
+    <table id="table2">
+      <thead>
+        <tr>
+          <th onclick="sortTable(2,0)">No <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(2,1)">ルール <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(2,2)">理由 <span class="sort-icon">↕</span></th>
+          <th onclick="sortTable(2,3)">守らないとどうなるか <span class="sort-icon">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="body2"></tbody>
+    </table>
+    <div class="empty" id="empty2" style="display:none">該当するルールがありません</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+const DATA = {
+  0: [
+    [1, 'フォームからの送信がブロックされる（CORS問題）', 'ブラウザのセキュリティ機能で、フォームからシステムにデータが送れない。これが起きると予約フォームが動かない', 'データの送り方を変える（text/plain形式で送信）。これで問題なく動く', '対応済み', 'なし'],
+    [2, '予約を却下した場合、お客さんにどう伝えるか', '却下した後にお客さんへの連絡方法が決まっていないと、お客さんが放置される', '却下するとルカスにメールが届く。メールにはお客さんの名前・電話番号・メアドが書いてある。ルカスが直接連絡して代替日を調整する', '対応済み', 'お客さんに電話/メールで連絡'],
+    [3, '時刻がずれる可能性がある', 'システムの時計が日本時間に設定されていないと、リマインドメールの送信時刻や空き枠の表示がずれる', 'システムの時計を日本時間（Asia/Tokyo）に設定する', '対応済み', 'なし'],
+    [4, 'システムを更新するとURLが変わる可能性', 'システムを修正・更新するたびにURLが変わると、フォームが動かなくなる', '更新時は「既存のデプロイを編集」で操作する。これでURLが変わらない', '対応済み', 'なし'],
+    [5, '仮予約を承認し忘れる', 'お客さんが予約を入れたのに、ルカスが承認も却下もしないと、お客さんに確定メールが届かない', '仮予約から24時間経っても処理されていない場合、ルカスにリマインドメールが届く', '対応済み', '通知が来たら承認 or 却下する'],
+    [6, '同じ時間に2人が同時に予約する可能性（ごく稀）', '2人のお客さんが全く同じタイミングで同じ枠を予約すると、両方通ってしまう可能性がある（確率は極めて低い）', '今は許容する。もし起きた場合、Notionに仮予約が2件入るので、ルカスが1件を却下する', '既知の制約', '2件来たら1件を却下'],
+    [7, '問診票が予約フォームと別ページで連携が複雑', '予約フォームと問診票が別HTMLファイルだと、データの引き渡しにURLパラメータが必要で運用が複雑になる', '1つのHTMLファイルにまとめ、STEP1（予約）→ STEP2（問診票）の2ステップ構成に変更。GASへの送信もSTEP2で一括して行う', '対応済み', 'なし'],
+    [8, '問診票送信と予約送信が別々でデータが分断される', '予約とアンケートが別々のGAS呼び出しだと、Notionに情報が2回に分けて書き込まれ、紐付けが複雑になる', 'GASに submitAll アクションを追加し、予約情報と問診票データを1回のリクエストで一括送信・保存できる構成に変更', '対応済み', 'なし'],
+    [9, '問診票の人体図が単純なアウトラインで部位がわかりにくい', '緑色の単純な体型アウトラインでは、患者がどの筋肉部位に痛みがあるか正確に示しにくい', 'SVGベースの解剖学的人体図（大胸筋・腹直筋・大腿四頭筋・腓腹筋など）に差し替え。赤ペンで直接書き込める', '対応済み', 'なし'],
+    [10, 'カレンダースロット取得で月ごとに大量のAPI呼び出しが発生', '月表示時に日数分（最大31回）のNotionAPIを叩いていたため、読み込みが遅くなりAPIのレートリミットにかかるリスクがある', 'GASの getMonthSlots 関数を月全体を1回のバッチクエリに変更。31回→1回になり大幅に高速化', '対応済み', 'なし'],
+    [11, '確認メールが常に日本語で送られる', 'スペイン語・ポルトガル語のお客さんにも日本語でメールが届いてしまう', '送信メールをフォームで選択した言語（ja/es/pt）に切り替わるよう多言語対応', '対応済み', 'なし'],
+  ],
+  1: [
+    [1, 'カスタムドメイン取得', 'フォームのURLをちゃんとしたドメイン（例：booking.lucasbodycare.com）にする', 'Webサイト担当者のドメイン決定', '高', 'ドメイン代のみ 年1,500〜3,000円'],
+    [2, 'ダブルブッキング完全防止', '同時予約の競合を完全に防ぐロック機構を入れる', '技術的な追加実装', '中', '0円'],
+    [3, 'BigQueryへのデータ移行', 'バックアップデータをBigQuery（データ分析基盤）で管理する', 'Google Cloudアカウント', '中', '無料枠内で可能'],
+    [4, '電話自動音声応答', '施術中に電話が来たら自動で「折り返します」と対応する', '外部サービス契約', '低', '月額約2,000円'],
+    [5, 'LINE完全自動化', 'LINEでの予約対応を全て自動化する', 'LINE有料プラン', '低', '月額5,500円〜'],
+    [6, 'Instagram API連携', 'InstagramのDMで自動返信する', 'ビジネスアカウント + API', '低', '要調査'],
+    [7, '姿勢写真のクラウド管理', '施術前後の姿勢写真をクラウドに保存し、お客さんに変化を見せる', 'Google Drive + 追加実装', '中', '0円'],
+    [8, 'データ保護の同意画面', '個人情報の取り扱いについて同意をもらう画面を追加', '法的な確認', '低', '0円'],
+    [9, '再来院リマインダー', '次回推奨日が近づいたらお客さんにリマインドメールを送る', '追加実装', '中', '0円'],
+    [10, 'GASデプロイ・Notion連携の本番設定', '現在 GAS_URL が YOUR_DEPLOYMENT_ID のままで、Notionへのデータ保存が動いていない', 'GASのデプロイ実施 + スクリプトプロパティに NOTION_TOKEN / DB_ID 等を設定', '高', '0円'],
+  ],
+  2: [
+    [1, 'Content-Type: text/plain でGASに送信する', 'application/jsonで送るとブラウザがブロックする（CORS問題）', '予約フォームが動かなくなる'],
+    [2, 'GASのタイムゾーンをAsia/Tokyoに設定する', '時刻がずれるとリマインドメールや空き枠表示が狂う', 'お客さんに間違った時間のメールが届く'],
+    [3, 'GASは「既存のデプロイを編集」で更新する', '新しいデプロイをするとURLが変わる', 'フォームが動かなくなる'],
+    [4, 'GAS APIのURLはフロントエンドの CONFIG.GAS_URL 1箇所にまとめる', 'URLが複数箇所にバラバラにあると修正時に漏れる', '一部の機能だけ動かなくなる'],
+    [5, '機密情報（Notionトークン等）はスクリプトプロパティで管理し、コードに直書きしない', 'コードにトークンを直書きするとGitHubに公開された際に漏洩する', 'Notionアカウントへの不正アクセスが起きる可能性がある'],
+    [6, '多言語テキストは必ず ja / es / pt の3言語すべてに追加する', '1言語だけ更新すると他言語でundefinedが表示される', 'スペイン語・ポルトガル語ユーザーに表示崩れが起きる'],
+    [7, '予約+問診票の送信は必ず submitAll アクションを使う', 'submitBooking と submitQuestionnaire を個別に呼ぶと2重保存になる', 'Notionに重複カルテが作成される'],
+  ],
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let currentTab = 0;
+let sortState = { col: -1, asc: true };
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderAll() {
+  document.getElementById('lastUpdated').textContent = '最終更新: 2026年5月16日';
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('cnt' + i).textContent = DATA[i].length;
+  }
+  applyFilters();
+}
+
+function renderSheet(tab, rows) {
+  const tbody = document.getElementById('body' + tab);
+  const empty = document.getElementById('empty' + tab);
+  tbody.innerHTML = '';
+
+  if (rows.length === 0) {
+    empty.style.display = 'block';
+    document.getElementById('rowCount').textContent = '0件';
+    return;
+  }
+  empty.style.display = 'none';
+  document.getElementById('rowCount').textContent = rows.length + '件';
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    row.forEach((cell, ci) => {
+      const td = document.createElement('td');
+      if (ci === 0) {
+        td.className = 'no-col';
+        td.textContent = cell;
+      } else if (tab === 0 && ci === 4) {
+        td.innerHTML = statusBadge(cell);
+      } else if (tab === 1 && ci === 4) {
+        td.innerHTML = priorityBadge(cell);
+      } else if (tab === 2 && ci === 3) {
+        td.className = 'text-col danger-cell';
+        td.textContent = cell;
+      } else {
+        const text = String(cell);
+        if (text.length > 60) {
+          td.className = 'text-col';
+          td.innerHTML = `<span class="cell-short">${esc(text.slice(0, 60))}…</span><span class="cell-full">${esc(text)}</span><span class="expand-btn" onclick="toggleExpand(this)">もっと見る</span>`;
+        } else {
+          td.className = 'text-col';
+          td.textContent = text;
+        }
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function toggleExpand(btn) {
+  const td = btn.closest('td');
+  td.classList.toggle('expanded');
+  btn.textContent = td.classList.contains('expanded') ? '折りたたむ' : 'もっと見る';
+}
+
+function statusBadge(s) {
+  const map = { '対応済み': 'badge-done', '進行中': 'badge-wip', '既知の制約': 'badge-known', '未対応': 'badge-pending' };
+  return `<span class="badge ${map[s] || 'badge-pending'}">${esc(s)}</span>`;
+}
+function priorityBadge(s) {
+  const map = { '高': 'badge-high', '中': 'badge-mid', '低': 'badge-low' };
+  return `<span class="badge ${map[s] || 'badge-mid'}">${esc(s)}</span>`;
+}
+
+/* ============================================================
+   FILTERS
+   ============================================================ */
+function applyFilters() {
+  const q     = document.getElementById('searchInput').value.toLowerCase().trim();
+  const sf    = document.getElementById('statusFilter').value;
+  const pf    = document.getElementById('priorityFilter').value;
+
+  let rows = [...DATA[currentTab]];
+
+  if (q) rows = rows.filter(r => r.some(c => String(c).toLowerCase().includes(q)));
+  if (currentTab === 0 && sf) rows = rows.filter(r => r[4] === sf);
+  if (currentTab === 1 && pf) rows = rows.filter(r => r[4] === pf);
+
+  if (sortState.col >= 0) {
+    rows.sort((a, b) => {
+      const av = String(a[sortState.col]), bv = String(b[sortState.col]);
+      return sortState.asc ? av.localeCompare(bv, 'ja') : bv.localeCompare(av, 'ja');
+    });
+  }
+
+  renderSheet(currentTab, rows);
+}
+
+/* ============================================================
+   SORT
+   ============================================================ */
+function sortTable(tab, col) {
+  if (tab !== currentTab) return;
+  if (sortState.col === col) {
+    sortState.asc = !sortState.asc;
+  } else {
+    sortState.col = col;
+    sortState.asc = true;
+  }
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  const ths = document.querySelectorAll('#table' + tab + ' th');
+  if (ths[col]) ths[col].classList.add('sorted');
+  const icon = ths[col]?.querySelector('.sort-icon');
+  if (icon) icon.textContent = sortState.asc ? '↑' : '↓';
+  applyFilters();
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function switchTab(idx) {
+  currentTab = idx;
+  sortState = { col: -1, asc: true };
+
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.querySelectorAll('.sheet-panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+
+  document.getElementById('statusFilter').style.display   = idx === 0 ? '' : 'none';
+  document.getElementById('priorityFilter').style.display = idx === 1 ? '' : 'none';
+  document.getElementById('searchInput').value = '';
+  applyFilters();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+renderAll();
+</script>
+</body>
+</html>

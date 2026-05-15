@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">LBC整体院 – 問診票</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+  <style>
+    :root {
+      --primary: #2c7a5c;
+      --primary-dark: #1e5c42;
+      --primary-light: #e8f5ef;
+      --primary-mid: #c2e0d4;
+      --accent: #f0a500;
+      --danger: #e53935;
+      --danger-light: #fdecea;
+      --text: #1a1a1a;
+      --text-sub: #444;
+      --text-muted: #888;
+      --border: #e0e0e0;
+      --border-focus: #2c7a5c;
+      --bg: #f5f7f6;
+      --white: #fff;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #051F20;
+      color: var(--white);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    }
+    .logo { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; }
+    .logo span { color: var(--accent); }
+    .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.75; display: block; letter-spacing: 0.5px; }
+    .lang-select {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      padding: 6px 28px 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.75)'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    .lang-select:focus { outline: none; }
+    .lang-select option { background: #1e5c42; color: var(--white); }
+    .btn-back-header {
+      color: rgba(255,255,255,0.85);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 6px 12px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 16px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-back-header:hover { background: rgba(255,255,255,0.15); color: var(--white); }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #0B2B26 0%, #163832 100%);
+      color: var(--white);
+      text-align: center;
+      padding: 28px 20px 24px;
+    }
+    .hero h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+    .hero p { font-size: 0.85rem; opacity: 0.85; margin-bottom: 12px; }
+    .hero-meta {
+      display: inline-flex;
+      gap: 16px;
+      font-size: 0.78rem;
+      opacity: 0.82;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .hero-meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Layout ── */
+    .container { max-width: 580px; margin: 0 auto; padding: 20px 14px 72px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 20px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(0,0,0,0.04);
+      animation: fadeSlideIn 0.25s ease;
+    }
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .icon { font-size: 1.1rem; }
+
+    /* ── Form fields ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+    .badge-req {
+      background: var(--danger);
+      color: var(--white);
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+    .badge-opt {
+      background: var(--border);
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    input[type="text"],
+    input[type="tel"],
+    input[type="number"],
+    textarea, select.field-select {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--white);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input::placeholder, textarea::placeholder { color: #bbb; }
+    input:focus, textarea:focus, select.field-select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(44,122,92,0.1);
+    }
+    input.is-error { border-color: var(--danger); background: var(--danger-light); }
+    input[readonly] { background: var(--bg); color: var(--text-muted); cursor: default; }
+    .field-error {
+      display: none;
+      font-size: 0.78rem;
+      color: var(--danger);
+      margin-top: 5px;
+      padding-left: 2px;
+    }
+    .field-error.visible { display: flex; align-items: center; gap: 4px; }
+    .field-error::before { content: '!'; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; background:var(--danger); color:var(--white); border-radius:50%; font-size:0.65rem; font-weight:700; flex-shrink:0; }
+    .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Radio ── */
+    .radio-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+    .radio-item {
+      flex: 1;
+      min-width: 100px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .radio-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
+    .radio-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+    /* ── Checkboxes ── */
+    .check-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .check-item {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 9px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      transition: all 0.15s;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .check-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
+    .check-item input[type="checkbox"] { accent-color: var(--primary); width: 15px; height: 15px; flex-shrink: 0; }
+    .other-text { margin-top: 8px; display: none; }
+    .other-text.visible { display: block; }
+
+    /* ── DOB row ── */
+    .dob-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .dob-row input[type="number"] {
+      width: auto;
+      padding: 11px 8px;
+      text-align: center;
+    }
+    .dob-y { min-width: 80px; }
+    .dob-m, .dob-d { min-width: 56px; }
+    .dob-sep { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+    .age-badge {
+      background: var(--primary-light);
+      border: 1.5px solid var(--primary-mid);
+      color: var(--primary-dark);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* ── Pain scale ── */
+    .pain-scale-wrap { margin-top: 6px; }
+    .pain-scale {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .pain-btn {
+      flex: 1;
+      padding: 12px 4px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .pain-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .pain-btn.selected { background: var(--primary); border-color: var(--primary); color: var(--white); }
+    .pain-btn.dim { opacity: 0.35; }
+    .pain-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 0 2px;
+    }
+    .pain-none-row { margin-bottom: 10px; }
+
+    /* ── Canvas body diagram ── */
+    .canvas-section { margin-top: 14px; }
+    .canvas-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; }
+    .canvas-wrap {
+      display: flex;
+      justify-content: center;
+    }
+    .canvas-inner {
+      position: relative;
+      display: inline-block;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #f0f7f4;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    canvas#bodyCanvas { display: block; max-width: 100%; }
+    .canvas-controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .btn-clear {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 18px;
+      font-size: 0.82rem;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-clear:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Submit ── */
+    .btn-submit {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(44,122,92,0.35);
+      letter-spacing: 0.3px;
+    }
+    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(44,122,92,0.4); }
+    .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .loading-row { display: none; text-align: center; margin-bottom: 12px; font-size: 0.85rem; color: var(--text-muted); }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Success ── */
+    #successScreen { display: none; text-align: center; padding: 60px 20px; }
+    #successScreen.visible { display: block; }
+    .success-anim {
+      width: 72px; height: 72px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: var(--white);
+      margin: 0 auto 20px;
+      box-shadow: 0 4px 20px rgba(44,122,92,0.4);
+    }
+    .success-title { font-size: 1.3rem; font-weight: 800; color: var(--primary-dark); margin-bottom: 8px; }
+    .success-msg { font-size: 0.9rem; color: var(--text-sub); margin-bottom: 28px; line-height: 1.7; }
+    .btn-back {
+      display: inline-block;
+      padding: 12px 28px;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-sm);
+      color: var(--primary);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn-back:hover { background: var(--primary); color: var(--white); }
+
+    /* ── Booking summary card ── */
+    .booking-summary {
+      background: var(--primary-light);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      animation: fadeSlideIn 0.3s ease;
+    }
+    .bs-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--primary-mid);
+    }
+    .bs-icon {
+      width: 36px; height: 36px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: var(--white);
+      flex-shrink: 0;
+    }
+    .bs-title { font-weight: 800; font-size: 0.95rem; color: var(--primary-dark); }
+    .bs-subtitle { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+    .bs-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 5px 0;
+      font-size: 0.88rem;
+      gap: 8px;
+    }
+    .bs-label { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .bs-val { font-weight: 700; color: var(--text); text-align: right; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text);
+      color: var(--white);
+      padding: 12px 22px;
+      border-radius: 24px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      z-index: 9999;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+      opacity: 0;
+      max-width: 90vw;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.is-error { background: var(--danger); }
+    .toast.is-success { background: var(--primary); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LBC<span>Care</span><small>Lucas Body Care</small></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="index.html" id="btnBack" class="btn-back-header" style="display:none">← <span id="back_label">戻る</span></a>
+    <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
+      <option value="ja">日本語</option>
+      <option value="es">Español</option>
+      <option value="pt">Português</option>
+    </select>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="container" style="padding-bottom:0;padding-top:0">
+    <h1 id="heroTitle">問診票</h1>
+    <p id="heroSub">来院前に以下の項目をご記入ください</p>
+    <div class="hero-meta">
+      <span id="heroAddr">📍 〒510-0835 三重県四日市市大井手</span>
+      <span id="heroTel">📞 070-9233-4084</span>
+    </div>
+  </div>
+</div>
+
+<div class="container" id="mainForm">
+
+  <input type="hidden" id="bookingNum">
+
+  <!-- hidden: 氏名・電話番号（予約フォームから引き継ぎ、バリデーション用に保持） -->
+  <input type="hidden" id="name">
+  <input type="hidden" id="phone">
+  <input type="hidden" id="furigana">
+
+  <!-- ── 基本情報（2ページ目固有の項目のみ） ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">👤</span><span id="t_basic">基本情報</span></div>
+
+    <div class="form-group">
+      <div class="field-label"><span id="lbl_dob">生年月日</span><span class="badge-req">必須</span></div>
+      <div class="dob-row">
+        <input type="number" class="dob-y" id="dob_y" placeholder="1990" min="1900" oninput="calcAge()">
+        <span class="dob-sep" id="sep_y">年</span>
+        <input type="number" class="dob-m" id="dob_m" placeholder="1" min="1" max="12" oninput="calcAge()">
+        <span class="dob-sep" id="sep_m">月</span>
+        <input type="number" class="dob-d" id="dob_d" placeholder="1" min="1" max="31" oninput="calcAge()">
+        <span class="dob-sep" id="sep_d">日</span>
+        <span id="ageBadge" style="display:none" aria-hidden="true"></span>
+      </div>
+      <div class="field-error" id="e_dob"></div>
+    </div>
+
+    <div class="form-group">
+      <div class="field-label"><span id="lbl_address">住所</span><span class="badge-opt">任意</span></div>
+      <input type="text" id="address_pref" style="margin-bottom:8px">
+      <input type="text" id="address_city">
+    </div>
+
+    <div class="form-group">
+      <div class="field-label"><span id="lbl_howFound">来院のきっかけ</span><span class="badge-req">必須</span></div>
+      <div class="check-group">
+        <label class="check-item"><input type="checkbox" name="howFound" value="kuchikomi"><span id="how_kuchikomi">口コミ</span></label>
+        <label class="check-item"><input type="checkbox" name="howFound" value="instagram"><span id="how_instagram">Instagram</span></label>
+        <label class="check-item"><input type="checkbox" name="howFound" value="shokai"><span id="how_shokai">紹介</span></label>
+        <label class="check-item"><input type="checkbox" name="howFound" value="kanban"><span id="how_kanban">看板</span></label>
+        <label class="check-item"><input type="checkbox" name="howFound" value="other"><span id="how_other_found">その他</span></label>
+      </div>
+      <div class="field-error" id="e_howFound"></div>
+    </div>
+  </div>
+
+  <!-- ── Q1 ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🩺</span><span id="t_q1">Q1. 現在、お体で気になる症状（怪我・病気等）はありますか？</span></div>
+    <div class="check-group" id="q1_group">
+      <label class="check-item"><input type="checkbox" name="q1" value="none" id="q1_none_chk" onchange="handleNone('q1','q1_none_chk')"><span id="q1_none">なし</span></label>
+      <label class="check-item"><input type="checkbox" name="q1" value="fever" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_fever">発熱</span></label>
+      <label class="check-item"><input type="checkbox" name="q1" value="pain" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_pain">激しい痛み</span></label>
+      <label class="check-item"><input type="checkbox" name="q1" value="swelling" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_swelling">炎症・腫れ</span></label>
+      <label class="check-item"><input type="checkbox" name="q1" value="pregnant" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_pregnant">妊娠中</span></label>
+      <label class="check-item"><input type="checkbox" name="q1" value="other" class="q1_other_cb q1_text_trigger" onchange="handleOther('q1'); toggleOtherText('q1')"><span id="q1_other_label">その他</span></label>
+    </div>
+    <div class="other-text" id="q1_other_wrap">
+      <input type="text" id="q1_other_text">
+    </div>
+  </div>
+
+  <!-- ── Q2 ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📋</span><span id="t_q2">Q2. 医師の診断、または過去に大きな病気や怪我はありますか？</span></div>
+    <div class="check-group" id="q2_group">
+      <label class="check-item"><input type="checkbox" name="q2" value="none" id="q2_none_chk" onchange="handleNone('q2','q2_none_chk')"><span id="q2_none">なし</span></label>
+      <label class="check-item"><input type="checkbox" name="q2" value="hernia" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_hernia">椎間板ヘルニア</span></label>
+      <label class="check-item"><input type="checkbox" name="q2" value="stenosis" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_stenosis">脊柱管狭窄症</span></label>
+      <label class="check-item"><input type="checkbox" name="q2" value="shoulder" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_shoulder">五十肩</span></label>
+      <label class="check-item"><input type="checkbox" name="q2" value="sciatica" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_sciatica">坐骨神経痛</span></label>
+      <label class="check-item"><input type="checkbox" name="q2" value="fracture" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_fracture">骨折・脱臼</span></label>
+      <label class="check-item"><input type="checkbox" name="q2" value="other" class="q2_other_cb q2_text_trigger" onchange="handleOther('q2'); toggleOtherText('q2')"><span id="q2_other_label">その他</span></label>
+    </div>
+    <div class="other-text" id="q2_other_wrap">
+      <input type="text" id="q2_other_text">
+    </div>
+  </div>
+
+  <!-- ── Q3 ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">💢</span><span id="t_q3">Q3. 現在、痛みはありますか？</span></div>
+    <div class="radio-group">
+      <label class="radio-item">
+        <input type="radio" name="q3" value="none" checked onchange="toggleQ3Where()">
+        <span id="q3_none">なし</span>
+      </label>
+      <label class="radio-item">
+        <input type="radio" name="q3" value="yes" onchange="toggleQ3Where()">
+        <span id="q3_yes">あり</span>
+      </label>
+    </div>
+    <div id="q3_where_wrap" style="margin-top:10px;display:none">
+      <input type="text" id="q3_where">
+    </div>
+  </div>
+
+  <!-- ── Q4 ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🎯</span><span id="t_q4">Q4. 本日の施術で、何を解決したいですか？（複数可）</span></div>
+    <div class="check-group" id="q4_group">
+      <label class="check-item"><input type="checkbox" name="q4" value="pain"><span id="q4_pain">痛みを解消したい</span></label>
+      <label class="check-item"><input type="checkbox" name="q4" value="relax"><span id="q4_relax">体をリラックスさせたい</span></label>
+      <label class="check-item"><input type="checkbox" name="q4" value="posture"><span id="q4_posture">姿勢を改善したい</span></label>
+      <label class="check-item"><input type="checkbox" name="q4" value="other" class="q4_text_trigger" onchange="toggleOtherText('q4')"><span id="q4_other">その他</span></label>
+    </div>
+    <div class="other-text" id="q4_other_wrap">
+      <input type="text" id="q4_other_text">
+    </div>
+  </div>
+
+  <!-- ── Q5 ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📊</span><span id="t_q5">Q5. 現在の痛みの強さを教えてください（5段階）</span></div>
+    <div class="pain-scale-wrap">
+      <div class="pain-none-row">
+        <label class="check-item" style="display:inline-flex">
+          <input type="checkbox" id="q5_no_pain" onchange="togglePainScale()">
+          <span id="q5_none">痛みなし</span>
+        </label>
+      </div>
+      <div id="painScaleArea">
+        <div class="pain-scale">
+          <button type="button" class="pain-btn" data-val="1">1</button>
+          <button type="button" class="pain-btn" data-val="2">2</button>
+          <button type="button" class="pain-btn" data-val="3">3</button>
+          <button type="button" class="pain-btn" data-val="4">4</button>
+          <button type="button" class="pain-btn" data-val="5">5</button>
+        </div>
+        <div class="pain-labels">
+          <span id="q5_weak">弱</span>
+          <span id="q5_strong">強</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Q6 ── -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🦴</span><span id="t_q6">Q6. 痛みがある部位を選択してください（複数可）</span></div>
+    <div class="check-group">
+      <label class="check-item"><input type="checkbox" name="q6" value="neck"><span id="q6_neck">首</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="rShoulder"><span id="q6_rShoulder">右肩</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="lShoulder"><span id="q6_lShoulder">左肩</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="back"><span id="q6_back">背中</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="waist"><span id="q6_waist">腰</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="elbow"><span id="q6_elbow">肘</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="wrist"><span id="q6_wrist">手首</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="hip"><span id="q6_hip">股関節</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="knee"><span id="q6_knee">膝</span></label>
+      <label class="check-item"><input type="checkbox" name="q6" value="ankle"><span id="q6_ankle">足首</span></label>
+    </div>
+
+    <div class="canvas-section">
+      <div class="canvas-hint" id="q6_drawHint">人体図に痛みのある部位を描いてください（任意・赤ペン）</div>
+      <div class="canvas-wrap">
+        <div class="canvas-inner">
+          <canvas id="bodyCanvas" width="240" height="360"></canvas>
+        </div>
+      </div>
+      <div class="canvas-controls">
+        <button type="button" class="btn-clear" id="btnClear" onclick="clearCanvas()">🗑 <span id="q6_clear">描き直す</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 予約内容サマリー（送信ボタン直上） ── -->
+  <div id="bookingSummary" class="booking-summary" style="display:none">
+    <div class="bs-header">
+      <div class="bs-icon">📋</div>
+      <div>
+        <div class="bs-title" id="bs_title">予約内容の確認</div>
+        <div class="bs-subtitle" id="bs_subtitle">以下の内容で送信されます。</div>
+      </div>
+    </div>
+    <div id="bsRows"></div>
+  </div>
+
+  <!-- ── Submit ── -->
+  <div class="card">
+    <div class="loading-row" id="loadingRow">
+      <span class="spinner"></span><span id="t_submitting">送信中...</span>
+    </div>
+    <button class="btn-submit" id="submitBtn" onclick="submitQuestionnaire()">
+      <span id="l_submit">問診票を送信する</span>
+    </button>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ── Success ── -->
+<div id="successScreen">
+  <div class="success-anim">✓</div>
+  <div class="success-title" id="s_title">問診票を受け付けました！</div>
+  <div class="success-msg" id="s_msg">ありがとうございます。当日は何もお持ちいただく必要はありません。</div>
+  <a href="index.html" class="btn-back" id="s_back">ホームに戻る</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CONFIG = {
+  GAS_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec',
+};
+
+/* ============================================================
+   I18N
+   ============================================================ */
+const I18N = {
+  ja: {
+    pageTitle: 'LBC整体院 – 問診票',
+    heroTitle: '問診票',
+    heroSub: '来院前に以下の項目をご記入ください',
+    heroAddr: '📍 〒510-0835 三重県四日市市大井手',
+    heroTel: '📞 TEL: 070-9233-4084',
+    t_basic: '基本情報',
+    lbl_name: 'お名前', lbl_furigana: 'フリガナ', lbl_phone: '電話番号',
+    lbl_dob: '生年月日', lbl_address: '住所', lbl_visit: '来院歴', lbl_howFound: '来院のきっかけ',
+    req: '必須', opt: '任意',
+    sep_y: '年', sep_m: '月', sep_d: '日', lbl_age: '歳',
+    ph_pref: '都道府県（例: 三重県）', ph_city: '市区町村以降（例: 四日市市大井手）',
+    ph_furigana: 'カタカナでご記入ください',
+    l_first: '初回', l_return: '再診',
+    how_kuchikomi: '口コミ', how_instagram: 'Instagram', how_shokai: '紹介', how_kanban: '看板', how_other_found: 'その他',
+    t_q1: 'Q1. 現在、お体で気になる症状（怪我・病気等）はありますか？',
+    q1_none: 'なし', q1_fever: '発熱', q1_pain: '激しい痛み', q1_swelling: '炎症・腫れ', q1_pregnant: '妊娠中', q1_other_label: 'その他',
+    ph_q1: '具体的にご記入ください',
+    t_q2: 'Q2. 医師の診断、または過去に大きな病気や怪我はありますか？',
+    q2_none: 'なし', q2_hernia: '椎間板ヘルニア', q2_stenosis: '脊柱管狭窄症', q2_shoulder: '五十肩', q2_sciatica: '坐骨神経痛', q2_fracture: '骨折・脱臼', q2_other_label: 'その他',
+    ph_q2: '病名・状態をご記入ください',
+    t_q3: 'Q3. 現在、痛みはありますか？',
+    q3_none: 'なし', q3_yes: 'あり', ph_q3: 'どこが痛みますか？（例: 腰、左肩）',
+    t_q4: 'Q4. 本日の施術で、何を解決したいですか？（複数可）',
+    q4_pain: '痛みを解消したい', q4_relax: '体をリラックスさせたい', q4_posture: '姿勢を改善したい', q4_other: 'その他',
+    ph_q4: '具体的にご記入ください',
+    t_q5: 'Q5. 現在の痛みの強さを教えてください（5段階）',
+    q5_none: '痛みなし', q5_weak: '弱', q5_strong: '強',
+    t_q6: 'Q6. 痛みがある部位を選択してください（複数可）',
+    q6_neck: '首', q6_rShoulder: '右肩', q6_lShoulder: '左肩', q6_back: '背中', q6_waist: '腰', q6_elbow: '肘', q6_wrist: '手首', q6_hip: '股関節', q6_knee: '膝', q6_ankle: '足首',
+    q6_drawHint: '人体図に痛みのある部位を描いてください（任意・赤ペン）',
+    q6_clear: '描き直す',
+    t_submitting: '送信中...',
+    s_title: '仮予約を送信しました！', s_msg: 'ありがとうございます。担当者が確認後、予約確定のご連絡をいたします。', s_back: 'ホームに戻る',
+    bs_title: '予約内容の確認', bs_subtitle: '以下の内容で送信されます。最後に問診票をご記入ください。',
+    bs_name: 'お名前', bs_course: 'コース', bs_datetime: '日時', bs_visit: '来院種別',
+    back_label: '← 予約フォームに戻る',
+    e_dob: '生年月日を入力してください', e_howFound: '来院のきっかけを選択してください',
+    l_submit: '仮予約を送信する',
+    err_net: '通信エラーが発生しました。再度お試しください。', err_srv: 'サーバーエラーが発生しました。',
+    phonePattern: /^0\d{9,10}$/,
+  },
+  es: {
+    pageTitle: 'LBC Care – Cuestionario',
+    heroTitle: 'Cuestionario médico',
+    heroSub: 'Por favor complete los campos antes de su visita',
+    heroAddr: '📍 〒510-0835 Mie-ken Yokkaichi-shi Ooide',
+    heroTel: '📞 TEL: 070-9233-4084',
+    t_basic: 'Información básica',
+    lbl_name: 'Nombre completo', lbl_furigana: 'Furigana (フリガナ)', lbl_phone: 'Teléfono',
+    lbl_dob: 'Fecha de nacimiento', lbl_address: 'Dirección', lbl_visit: 'Tipo de visita', lbl_howFound: '¿Cómo nos conoció?',
+    req: 'Req.', opt: 'Opc.',
+    sep_y: '/', sep_m: '/', sep_d: '', lbl_age: 'años',
+    ph_pref: 'Ciudad / Prefectura', ph_city: 'Dirección detallada',
+    ph_furigana: 'En katakana si es posible',
+    l_first: 'Primera vez', l_return: 'Revisita',
+    how_kuchikomi: 'Recomendación', how_instagram: 'Instagram', how_shokai: 'Referido', how_kanban: 'Cartel', how_other_found: 'Otro',
+    t_q1: 'P1. ¿Tiene algún síntoma actual (lesión, enfermedad, etc.)?',
+    q1_none: 'Ninguno', q1_fever: 'Fiebre', q1_pain: 'Dolor intenso', q1_swelling: 'Inflamación', q1_pregnant: 'Embarazada', q1_other_label: 'Otro',
+    ph_q1: 'Especifique',
+    t_q2: 'P2. ¿Ha tenido alguna enfermedad o lesión importante diagnosticada?',
+    q2_none: 'Ninguna', q2_hernia: 'Hernia de disco', q2_stenosis: 'Estenosis espinal', q2_shoulder: 'Hombro congelado', q2_sciatica: 'Ciática', q2_fracture: 'Fractura/Luxación', q2_other_label: 'Otro',
+    ph_q2: 'Nombre y estado',
+    t_q3: 'P3. ¿Tiene dolor actualmente?',
+    q3_none: 'No', q3_yes: 'Sí', ph_q3: '¿Dónde le duele? (ej: cintura, hombro izquierdo)',
+    t_q4: 'P4. ¿Qué desea resolver con el tratamiento de hoy? (múltiple)',
+    q4_pain: 'Aliviar el dolor', q4_relax: 'Relajar el cuerpo', q4_posture: 'Mejorar la postura', q4_other: 'Otro',
+    ph_q4: 'Especifique',
+    t_q5: 'P5. ¿Cuál es su nivel de dolor actual? (escala 1-5)',
+    q5_none: 'Sin dolor', q5_weak: 'Leve', q5_strong: 'Intenso',
+    t_q6: 'P6. Seleccione las zonas con dolor (múltiple)',
+    q6_neck: 'Cuello', q6_rShoulder: 'Hombro D', q6_lShoulder: 'Hombro I', q6_back: 'Espalda', q6_waist: 'Cintura', q6_elbow: 'Codo', q6_wrist: 'Muñeca', q6_hip: 'Cadera', q6_knee: 'Rodilla', q6_ankle: 'Tobillo',
+    q6_drawHint: 'Marque en la figura las zonas con dolor (opcional)',
+    q6_clear: 'Borrar',
+    t_submitting: 'Enviando...',
+    s_title: '¡Reserva enviada!', s_msg: 'Gracias. Lucas revisará su solicitud y le confirmará a la brevedad.', s_back: 'Volver al inicio',
+    bs_title: 'Confirmar reserva', bs_subtitle: 'Estos datos serán enviados. Por favor complete el cuestionario.',
+    bs_name: 'Nombre', bs_course: 'Servicio', bs_datetime: 'Fecha y hora', bs_visit: 'Tipo de visita',
+    back_label: '← Volver al formulario',
+    e_dob: 'Ingrese su fecha de nacimiento', e_howFound: 'Seleccione cómo nos conoció',
+    l_submit: 'Enviar reserva provisional',
+    err_net: 'Error de conexión. Intente nuevamente.', err_srv: 'Error del servidor.',
+    phonePattern: /^\+?[\d\s\-().]{7,20}$/,
+  },
+  pt: {
+    pageTitle: 'LBC Care – Questionário',
+    heroTitle: 'Questionário médico',
+    heroSub: 'Por favor preencha os campos antes da sua visita',
+    heroAddr: '📍 〒510-0835 Mie-ken Yokkaichi-shi Ooide',
+    heroTel: '📞 TEL: 070-9233-4084',
+    t_basic: 'Informações básicas',
+    lbl_name: 'Nome completo', lbl_furigana: 'Furigana (フリガナ)', lbl_phone: 'Telefone',
+    lbl_dob: 'Data de nascimento', lbl_address: 'Endereço', lbl_visit: 'Tipo de visita', lbl_howFound: 'Como nos conheceu?',
+    req: 'Obr.', opt: 'Opc.',
+    sep_y: '/', sep_m: '/', sep_d: '', lbl_age: 'anos',
+    ph_pref: 'Cidade / Prefeitura', ph_city: 'Endereço detalhado',
+    ph_furigana: 'Em katakana se possível',
+    l_first: 'Primeira vez', l_return: 'Retorno',
+    how_kuchikomi: 'Indicação', how_instagram: 'Instagram', how_shokai: 'Referido', how_kanban: 'Placa', how_other_found: 'Outro',
+    t_q1: 'Q1. Tem algum sintoma atual (lesão, doença, etc.)?',
+    q1_none: 'Nenhum', q1_fever: 'Febre', q1_pain: 'Dor intensa', q1_swelling: 'Inflamação/Inchaço', q1_pregnant: 'Grávida', q1_other_label: 'Outro',
+    ph_q1: 'Especifique',
+    t_q2: 'Q2. Teve alguma doença ou lesão importante diagnosticada?',
+    q2_none: 'Nenhuma', q2_hernia: 'Hérnia de disco', q2_stenosis: 'Estenose espinhal', q2_shoulder: 'Ombro congelado', q2_sciatica: 'Ciática', q2_fracture: 'Fratura/Luxação', q2_other_label: 'Outro',
+    ph_q2: 'Nome e estado',
+    t_q3: 'Q3. Tem dor atualmente?',
+    q3_none: 'Não', q3_yes: 'Sim', ph_q3: 'Onde dói? (ex: lombar, ombro esquerdo)',
+    t_q4: 'Q4. O que deseja resolver com o tratamento de hoje? (múltiplo)',
+    q4_pain: 'Aliviar a dor', q4_relax: 'Relaxar o corpo', q4_posture: 'Melhorar a postura', q4_other: 'Outro',
+    ph_q4: 'Especifique',
+    t_q5: 'Q5. Qual é seu nível de dor atual? (escala 1-5)',
+    q5_none: 'Sem dor', q5_weak: 'Fraco', q5_strong: 'Forte',
+    t_q6: 'Q6. Selecione as áreas com dor (múltiplo)',
+    q6_neck: 'Pescoço', q6_rShoulder: 'Ombro D', q6_lShoulder: 'Ombro E', q6_back: 'Costas', q6_waist: 'Lombar', q6_elbow: 'Cotovelo', q6_wrist: 'Pulso', q6_hip: 'Quadril', q6_knee: 'Joelho', q6_ankle: 'Tornozelo',
+    q6_drawHint: 'Marque na figura as áreas com dor (opcional)',
+    q6_clear: 'Apagar',
+    t_submitting: 'Enviando...',
+    s_title: 'Agendamento enviado!', s_msg: 'Obrigado. Lucas revisará seu pedido e entrará em contato em breve.', s_back: 'Voltar ao início',
+    bs_title: 'Confirmar agendamento', bs_subtitle: 'Estes dados serão enviados. Por favor preencha o questionário.',
+    bs_name: 'Nome', bs_course: 'Serviço', bs_datetime: 'Data e horário', bs_visit: 'Tipo de visita',
+    back_label: '← Voltar ao formulário',
+    e_dob: 'Informe sua data de nascimento', e_howFound: 'Selecione como nos conheceu',
+    l_submit: 'Enviar agendamento provisório',
+    err_net: 'Erro de conexão. Tente novamente.', err_srv: 'Erro no servidor.',
+    phonePattern: /^\+?[\d\s\-().]{7,20}$/,
+  },
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const Q = {
+  lang: 'ja',
+  painLevel: null,
+  submitting: false,
+  toastTm: null,
+  baseImageData: null,
+  canvasDrawn: false,
+};
+
+/* ============================================================
+   LANGUAGE
+   ============================================================ */
+function setLang(lang) {
+  Q.lang = lang;
+  document.documentElement.lang = lang;
+  document.getElementById('langSelect').value = lang;
+  applyTexts();
+}
+
+function L(key) { return I18N[Q.lang][key] || ''; }
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function applyTexts() {
+  const l = I18N[Q.lang];
+  document.title = l.pageTitle;
+  set('heroTitle', l.heroTitle); set('heroSub', l.heroSub);
+  set('heroAddr', l.heroAddr); set('heroTel', l.heroTel);
+  set('t_basic', l.t_basic);
+  set('lbl_dob', l.lbl_dob); set('lbl_address', l.lbl_address); set('lbl_howFound', l.lbl_howFound);
+  document.querySelectorAll('.badge-req').forEach(el => el.textContent = l.req);
+  document.querySelectorAll('.badge-opt').forEach(el => el.textContent = l.opt);
+  set('sep_y', l.sep_y); set('sep_m', l.sep_m); set('sep_d', l.sep_d);
+  document.getElementById('address_pref').placeholder = l.ph_pref;
+  document.getElementById('address_city').placeholder = l.ph_city;
+  set('how_kuchikomi', l.how_kuchikomi); set('how_instagram', l.how_instagram);
+  set('how_shokai', l.how_shokai); set('how_kanban', l.how_kanban); set('how_other_found', l.how_other_found);
+  set('back_label', l.back_label || '戻る');
+  set('t_q1', l.t_q1);
+  set('q1_none', l.q1_none); set('q1_fever', l.q1_fever); set('q1_pain', l.q1_pain);
+  set('q1_swelling', l.q1_swelling); set('q1_pregnant', l.q1_pregnant); set('q1_other_label', l.q1_other_label);
+  document.getElementById('q1_other_text').placeholder = l.ph_q1;
+  set('t_q2', l.t_q2);
+  set('q2_none', l.q2_none); set('q2_hernia', l.q2_hernia); set('q2_stenosis', l.q2_stenosis);
+  set('q2_shoulder', l.q2_shoulder); set('q2_sciatica', l.q2_sciatica); set('q2_fracture', l.q2_fracture); set('q2_other_label', l.q2_other_label);
+  document.getElementById('q2_other_text').placeholder = l.ph_q2;
+  set('t_q3', l.t_q3); set('q3_none', l.q3_none); set('q3_yes', l.q3_yes);
+  document.getElementById('q3_where').placeholder = l.ph_q3;
+  set('t_q4', l.t_q4); set('q4_pain', l.q4_pain); set('q4_relax', l.q4_relax); set('q4_posture', l.q4_posture); set('q4_other', l.q4_other);
+  document.getElementById('q4_other_text').placeholder = l.ph_q4;
+  set('t_q5', l.t_q5); set('q5_none', l.q5_none); set('q5_weak', l.q5_weak); set('q5_strong', l.q5_strong);
+  set('t_q6', l.t_q6);
+  set('q6_neck', l.q6_neck); set('q6_rShoulder', l.q6_rShoulder); set('q6_lShoulder', l.q6_lShoulder);
+  set('q6_back', l.q6_back); set('q6_waist', l.q6_waist); set('q6_elbow', l.q6_elbow);
+  set('q6_wrist', l.q6_wrist); set('q6_hip', l.q6_hip); set('q6_knee', l.q6_knee); set('q6_ankle', l.q6_ankle);
+  set('q6_drawHint', l.q6_drawHint); set('q6_clear', l.q6_clear);
+  set('l_submit', l.l_submit); set('t_submitting', l.t_submitting);
+  set('bs_title', l.bs_title); set('bs_subtitle', l.bs_subtitle);
+  set('s_title', l.s_title); set('s_msg', l.s_msg); set('s_back', l.s_back);
+  // 言語切り替え時にサマリー行ラベルを再構築
+  if (document.getElementById('bookingSummary').style.display !== 'none') {
+    const p2 = new URLSearchParams(window.location.search);
+    const rows2 = [
+      [l.bs_name,     p2.get('name')],
+      [l.bs_course,   (p2.get('courseName') || '') + (p2.get('courseDur') ? ` (${p2.get('courseDur')})` : '')],
+      [l.bs_datetime, formatBookingDate(p2.get('date') || '', p2.get('time') || '', Q.lang)],
+      [l.bs_visit,    (p2.get('visitType') || 'first') === 'first' ? l.l_first : l.l_return],
+    ].filter(([, v]) => v);
+    document.getElementById('bsRows').innerHTML = rows2
+      .map(([k, v]) => `<div class="bs-row"><span class="bs-label">${escHtml(k)}</span><span class="bs-val">${escHtml(v)}</span></div>`)
+      .join('');
+  }
+  calcAge();
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', async () => {
+  const p = new URLSearchParams(window.location.search);
+
+  const lang = p.get('lang') || 'ja';
+  setLang(lang);
+
+  const name = p.get('name');
+  const phone = p.get('phone');
+  const email = p.get('email');
+  const booking = p.get('booking');
+  const visit = p.get('visit');
+
+  // 予約フォームからの引き継ぎデータを dataset に保存
+  const bk = document.getElementById('bookingNum');
+  bk.dataset.email       = email                  || '';
+  bk.dataset.furigana    = p.get('furigana')      || '';
+  bk.dataset.courseId    = p.get('courseId')      || '';
+  bk.dataset.courseName  = p.get('courseName')    || '';
+  bk.dataset.courseDur   = p.get('courseDur')     || '';
+  bk.dataset.coursePrice = p.get('coursePrice')   || '';
+  bk.dataset.date        = p.get('date')          || '';
+  bk.dataset.time        = p.get('time')          || '';
+  bk.dataset.visitType   = p.get('visitType')     || 'first';
+  bk.dataset.returnNotes = p.get('returnNotes')   || '';
+  bk.dataset.patientId   = p.get('patientId')     || '';
+  bk.dataset.staffNote   = p.get('staffNote')     || '';
+  bk.dataset.isStaff     = p.get('isStaff')       || '0';
+
+  // hidden inputs に値をセット（バリデーション・送信用）
+  if (name)     document.getElementById('name').value     = name;
+  if (phone)    document.getElementById('phone').value    = phone;
+  const furigana = p.get('furigana');
+  if (furigana) document.getElementById('furigana').value = furigana;
+
+  // 予約フォームから来た場合: 戻るボタンを表示
+  if (name || p.get('courseId')) {
+    document.getElementById('btnBack').style.display = 'flex';
+  }
+
+  // 予約サマリーカードを表示
+  if (p.get('courseId') || p.get('date')) {
+    const l = I18N[Q.lang];
+    const rows = [
+      [l.bs_name,     name],
+      [l.bs_course,   (p.get('courseName') || '') + (p.get('courseDur') ? ` (${p.get('courseDur')})` : '')],
+      [l.bs_datetime, formatBookingDate(p.get('date') || '', p.get('time') || '', Q.lang)],
+      [l.bs_visit,    (p.get('visitType') || 'first') === 'first' ? l.l_first : l.l_return],
+    ].filter(([, v]) => v);
+    document.getElementById('bsRows').innerHTML = rows
+      .map(([k, v]) => `<div class="bs-row"><span class="bs-label">${escHtml(k)}</span><span class="bs-val">${escHtml(v)}</span></div>`)
+      .join('');
+    document.getElementById('bookingSummary').style.display = 'block';
+  }
+
+  initPainScale();
+  await initCanvas();
+});
+
+/* ============================================================
+   AGE
+   ============================================================ */
+function calcAge() {
+  const y = parseInt(document.getElementById('dob_y').value);
+  const m = parseInt(document.getElementById('dob_m').value);
+  const d = parseInt(document.getElementById('dob_d').value);
+  const badge = document.getElementById('ageBadge');
+  if (!y || !m || !d || y < 1900 || y > new Date().getFullYear()) { badge.style.display = 'none'; return; }
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  if (age < 0 || age > 130) return;
+  badge.dataset.age = age; // Notion送信用に保持（表示はしない）
+}
+
+/* ============================================================
+   CHECKBOX LOGIC
+   ============================================================ */
+function handleNone(group, noneId) {
+  const noneChk = document.getElementById(noneId);
+  if (noneChk.checked) {
+    document.querySelectorAll(`.${group}_other_cb`).forEach(cb => { cb.checked = false; });
+    document.getElementById(`${group}_other_wrap`).classList.remove('visible');
+    document.getElementById(`${group}_other_text`).value = '';
+  }
+}
+
+function handleOther(group) {
+  const hasChecked = document.querySelectorAll(`.${group}_other_cb:checked`).length > 0;
+  if (hasChecked) document.getElementById(`${group}_none_chk`).checked = false;
+}
+
+function toggleOtherText(group) {
+  const trigger = document.querySelector(`.${group}_text_trigger`);
+  const wrap = document.getElementById(`${group}_other_wrap`);
+  if (trigger && wrap) {
+    wrap.classList.toggle('visible', trigger.checked);
+    if (!trigger.checked) document.getElementById(`${group}_other_text`).value = '';
+  }
+}
+
+/* ============================================================
+   Q3 WHERE
+   ============================================================ */
+function toggleQ3Where() {
+  const isYes = document.querySelector('input[name="q3"][value="yes"]')?.checked;
+  const wrap = document.getElementById('q3_where_wrap');
+  wrap.style.display = isYes ? 'block' : 'none';
+  if (!isYes) document.getElementById('q3_where').value = '';
+}
+
+/* ============================================================
+   PAIN SCALE
+   ============================================================ */
+function initPainScale() {
+  document.querySelectorAll('.pain-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      Q.painLevel = parseInt(btn.dataset.val);
+      document.getElementById('q5_no_pain').checked = false;
+      document.getElementById('painScaleArea').style.opacity = '1';
+      renderPainScale();
+    });
+  });
+}
+
+function renderPainScale() {
+  document.querySelectorAll('.pain-btn').forEach(btn => {
+    const v = parseInt(btn.dataset.val);
+    btn.classList.toggle('selected', Q.painLevel !== null && v <= Q.painLevel);
+    btn.classList.toggle('dim', Q.painLevel !== null && v > Q.painLevel);
+  });
+}
+
+function togglePainScale() {
+  const noPain = document.getElementById('q5_no_pain').checked;
+  const area = document.getElementById('painScaleArea');
+  area.style.opacity = noPain ? '0.3' : '1';
+  area.style.pointerEvents = noPain ? 'none' : '';
+  if (noPain) {
+    Q.painLevel = null;
+    document.querySelectorAll('.pain-btn').forEach(b => { b.classList.remove('selected','dim'); });
+  }
+}
+
+/* ============================================================
+   CANVAS BODY DIAGRAM
+   ============================================================ */
+let _drawing = false, _lx = 0, _ly = 0;
+
+const BODY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+<rect width="240" height="360" fill="#f5f8f6"/>
+<!-- HEAD -->
+<ellipse cx="120" cy="26" rx="20" ry="24" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
+<ellipse cx="112" cy="23" rx="3" ry="2.5" fill="#7a5230"/>
+<ellipse cx="128" cy="23" rx="3" ry="2.5" fill="#7a5230"/>
+<path d="M116 32 Q120 35 124 32" fill="none" stroke="#7a5230" stroke-width="0.8"/>
+<path d="M118 26 Q120 30 122 26" fill="none" stroke="#a07050" stroke-width="0.6"/>
+<!-- NECK -->
+<path d="M110 47 L110 63 L130 63 L130 47 Q120 44 110 47Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<path d="M112 48 L116 62" stroke="#b08060" stroke-width="1.5" fill="none"/>
+<path d="M128 48 L124 62" stroke="#b08060" stroke-width="1.5" fill="none"/>
+<!-- TRAPEZIUS -->
+<path d="M110 62 Q90 58 72 70 L78 82 Q96 74 110 72Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
+<path d="M130 62 Q150 58 168 70 L162 82 Q144 74 130 72Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
+<!-- TORSO -->
+<path d="M78 82 Q76 110 76 140 L78 195 L162 195 L164 140 Q164 110 162 82Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
+<!-- Clavicle -->
+<path d="M110 66 Q95 63 78 70" fill="none" stroke="#c8a070" stroke-width="2"/>
+<path d="M130 66 Q145 63 162 70" fill="none" stroke="#c8a070" stroke-width="2"/>
+<!-- Pectoralis Major L -->
+<path d="M110 70 Q96 68 78 80 Q76 100 88 114 Q104 118 118 108 Q114 90 110 70Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.8"/>
+<!-- Pectoralis Major R -->
+<path d="M130 70 Q144 68 162 80 Q164 100 152 114 Q136 118 122 108 Q126 90 130 70Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.8"/>
+<!-- Sternum -->
+<line x1="120" y1="68" x2="120" y2="192" stroke="#a0714a" stroke-width="0.6" stroke-dasharray="3,2"/>
+<!-- Abs - Rectus Abdominis 3 pairs -->
+<rect x="110" y="118" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<rect x="121" y="118" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<rect x="110" y="137" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<rect x="121" y="137" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<rect x="110" y="156" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<rect x="121" y="156" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<!-- External Obliques -->
+<path d="M98 112 Q82 130 80 172 L88 180 Q96 152 100 128Z" fill="#c8906a" stroke="#a0714a" stroke-width="0.7" opacity="0.85"/>
+<path d="M142 112 Q158 130 160 172 L152 180 Q144 152 140 128Z" fill="#c8906a" stroke="#a0714a" stroke-width="0.7" opacity="0.85"/>
+<!-- Serratus Anterior -->
+<path d="M88 98 Q80 102 77 107" fill="none" stroke="#a0714a" stroke-width="0.9"/>
+<path d="M88 110 Q80 114 77 119" fill="none" stroke="#a0714a" stroke-width="0.9"/>
+<path d="M88 122 Q80 126 77 131" fill="none" stroke="#a0714a" stroke-width="0.9"/>
+<path d="M152 98 Q160 102 163 107" fill="none" stroke="#a0714a" stroke-width="0.9"/>
+<path d="M152 110 Q160 114 163 119" fill="none" stroke="#a0714a" stroke-width="0.9"/>
+<path d="M152 122 Q160 126 163 131" fill="none" stroke="#a0714a" stroke-width="0.9"/>
+<!-- Inguinal crease -->
+<path d="M84 186 Q100 193 120 194 Q140 193 156 186" fill="none" stroke="#a0714a" stroke-width="1"/>
+<!-- LEFT ARM: Deltoid -->
+<path d="M78 80 Q62 76 56 90 Q54 104 62 110 L72 105 Q68 96 70 86Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
+<!-- L Upper arm -->
+<path d="M62 110 Q56 122 52 156 L66 159 Q70 126 72 108Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<!-- Bicep brachii -->
+<path d="M64 114 Q60 126 58 148 Q63 140 67 128 Q67 118 64 114Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<!-- Tricep hint -->
+<path d="M70 112 Q72 128 70 156" fill="none" stroke="#a0714a" stroke-width="0.6" stroke-dasharray="2,2"/>
+<!-- L Forearm -->
+<path d="M52 156 Q48 178 48 212 L64 214 Q66 178 66 159Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<path d="M52 160 Q50 182 50 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M58 159 Q57 182 57 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<!-- L Hand -->
+<ellipse cx="55" cy="222" rx="9" ry="11" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<!-- RIGHT ARM: Deltoid -->
+<path d="M162 80 Q178 76 184 90 Q186 104 178 110 L168 105 Q172 96 170 86Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
+<!-- R Upper arm -->
+<path d="M178 110 Q184 122 188 156 L174 159 Q170 126 168 108Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<path d="M176 114 Q180 126 182 148 Q177 140 173 128 Q173 118 176 114Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M170 112 Q168 128 170 156" fill="none" stroke="#a0714a" stroke-width="0.6" stroke-dasharray="2,2"/>
+<!-- R Forearm -->
+<path d="M188 156 Q192 178 192 212 L176 214 Q174 178 174 159Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<path d="M188 160 Q190 182 190 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M182 159 Q183 182 183 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<!-- R Hand -->
+<ellipse cx="185" cy="222" rx="9" ry="11" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<!-- LEFT LEG: Thigh -->
+<path d="M84 193 Q80 228 78 270 L100 272 Q104 230 104 196Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
+<!-- Quad separation -->
+<path d="M87 197 Q85 232 83 264" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M93 195 Q93 232 91 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M99 195 Q101 232 101 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<!-- Vastus medialis teardrop -->
+<path d="M93 252 Q89 262 87 270 Q93 268 99 264 Q99 256 95 252Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<!-- L Kneecap -->
+<ellipse cx="90" cy="276" rx="11" ry="9" fill="#c8b090" stroke="#7a5230" stroke-width="1.2"/>
+<!-- L Calf -->
+<path d="M78 282 Q74 304 74 334 L106 336 L104 282Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
+<!-- Gastrocnemius 2 heads -->
+<path d="M80 286 Q76 302 76 320 Q82 314 84 300 L84 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M86 286 Q89 302 90 318 Q96 312 96 298 L92 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<!-- Tibialis anterior -->
+<path d="M98 283 Q100 303 100 328" fill="none" stroke="#a0714a" stroke-width="0.8"/>
+<!-- L Foot -->
+<ellipse cx="89" cy="341" rx="15" ry="8" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<!-- RIGHT LEG: Thigh -->
+<path d="M156 193 Q160 228 162 270 L140 272 Q136 230 136 196Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
+<path d="M153 197 Q155 232 157 264" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M147 195 Q147 232 149 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M141 195 Q139 232 139 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M147 252 Q151 262 153 270 Q147 268 141 264 Q141 256 145 252Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<!-- R Kneecap -->
+<ellipse cx="150" cy="276" rx="11" ry="9" fill="#c8b090" stroke="#7a5230" stroke-width="1.2"/>
+<!-- R Calf -->
+<path d="M162 282 Q166 304 166 334 L134 336 L136 282Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
+<path d="M160 286 Q164 302 164 320 Q158 314 156 300 L156 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M154 286 Q151 302 150 318 Q144 312 144 298 L148 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
+<path d="M142 283 Q140 303 140 328" fill="none" stroke="#a0714a" stroke-width="0.8"/>
+<!-- R Foot -->
+<ellipse cx="151" cy="341" rx="15" ry="8" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
+<!-- Labels -->
+<text x="120" y="357" text-anchor="middle" fill="#2c7a5c" font-size="10" font-weight="bold" font-family="sans-serif">— 正 面 —</text>
+<text x="48" y="76" text-anchor="middle" fill="#999" font-size="8" font-family="sans-serif">R</text>
+<text x="192" y="76" text-anchor="middle" fill="#999" font-size="8" font-family="sans-serif">L</text>
+</svg>`;
+
+async function initCanvas() {
+  const canvas = document.getElementById('bodyCanvas');
+  const ctx = canvas.getContext('2d');
+
+  await new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      Q.baseImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      resolve();
+    };
+    img.onerror = () => {
+      // フォールバック: 単色背景のみ
+      ctx.fillStyle = '#f5f8f6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      Q.baseImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      resolve();
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(BODY_SVG);
+  });
+
+  canvas.addEventListener('mousedown',  e => startDraw(e, canvas));
+  canvas.addEventListener('mousemove',  e => draw(e, canvas));
+  canvas.addEventListener('mouseup',    () => (_drawing = false));
+  canvas.addEventListener('mouseleave', () => (_drawing = false));
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); startDraw(e.touches[0], canvas); }, { passive: false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); draw(e.touches[0], canvas); },     { passive: false });
+  canvas.addEventListener('touchend',   () => (_drawing = false));
+}
+
+function canvasPos(e, canvas) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (canvas.width / r.width),
+    y: (e.clientY - r.top)  * (canvas.height / r.height),
+  };
+}
+
+function startDraw(e, canvas) {
+  _drawing = true;
+  const p = canvasPos(e, canvas);
+  _lx = p.x; _ly = p.y;
+}
+
+function draw(e, canvas) {
+  if (!_drawing) return;
+  const p = canvasPos(e, canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#e53935';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(_lx, _ly);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  _lx = p.x; _ly = p.y;
+  Q.canvasDrawn = true;
+}
+
+function clearCanvas() {
+  const canvas = document.getElementById('bodyCanvas');
+  if (Q.baseImageData) canvas.getContext('2d').putImageData(Q.baseImageData, 0, 0);
+  Q.canvasDrawn = false;
+}
+
+
+/* ============================================================
+   VALIDATION
+   ============================================================ */
+function validate() {
+  const l = I18N[Q.lang];
+  let ok = true;
+
+  const y = document.getElementById('dob_y').value;
+  const m = document.getElementById('dob_m').value;
+  const d = document.getElementById('dob_d').value;
+  if (!y || !m || !d) {
+    showErr('e_dob', l.e_dob);
+    ok = false;
+  } else {
+    clearErr('e_dob');
+  }
+
+  const howFound = document.querySelectorAll('input[name="howFound"]:checked').length > 0;
+  if (!howFound) {
+    showErr('e_howFound', l.e_howFound);
+    ok = false;
+  } else {
+    clearErr('e_howFound');
+  }
+
+  return ok;
+}
+
+function showErr(id, msg, inputId) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
+  if (inputId) document.getElementById(inputId)?.classList.add('is-error');
+}
+function clearErr(id, inputId) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('visible');
+  if (inputId) document.getElementById(inputId)?.classList.remove('is-error');
+}
+
+/* ============================================================
+   SUBMIT
+   ============================================================ */
+async function submitQuestionnaire() {
+  if (Q.submitting) return;
+  if (!validate()) {
+    document.querySelector('.field-error.visible')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast(Q.lang === 'ja' ? '未入力・エラーの項目を確認してください' : Q.lang === 'es' ? 'Revise los campos con error' : 'Verifique os campos com erro', 'error');
+    return;
+  }
+
+  Q.submitting = true;
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('loadingRow').style.display = 'block';
+
+  const dob_y = document.getElementById('dob_y').value;
+  const dob_m = document.getElementById('dob_m').value;
+  const dob_d = document.getElementById('dob_d').value;
+  const dob = (dob_y && dob_m && dob_d) ? `${dob_y}-${String(dob_m).padStart(2,'0')}-${String(dob_d).padStart(2,'0')}` : '';
+
+  const bk = document.getElementById('bookingNum');
+  const payload = {
+    action: 'submitAll',
+    lang:        Q.lang,
+    // ── 予約データ（index.html から引き継ぎ）──
+    name:        document.getElementById('name').value.trim(),
+    furigana:    bk.dataset.furigana    || document.getElementById('furigana').value.trim(),
+    phone:       document.getElementById('phone').value.replace(/[-\s]/g, ''),
+    email:       bk.dataset.email       || '',
+    courseId:    bk.dataset.courseId    || '',
+    courseName:  bk.dataset.courseName  || '',
+    date:        bk.dataset.date        || '',
+    time:        bk.dataset.time        || '',
+    visitType:   bk.dataset.visitType   || 'first',
+    returnNotes: bk.dataset.returnNotes || '',
+    patientId:   bk.dataset.patientId   || '',
+    staffNote:   bk.dataset.staffNote   || '',
+    isStaffMode: bk.dataset.isStaff === '1',
+    // ── 問診票データ ──
+    dob,
+    addressPref: document.getElementById('address_pref').value.trim(),
+    addressCity: document.getElementById('address_city').value.trim(),
+    howFound:    [...document.querySelectorAll('input[name="howFound"]:checked')].map(c => c.value),
+    q1: [...document.querySelectorAll('input[name="q1"]:checked')].map(c => c.value),
+    q1Other: document.getElementById('q1_other_text').value.trim(),
+    q2: [...document.querySelectorAll('input[name="q2"]:checked')].map(c => c.value),
+    q2Other: document.getElementById('q2_other_text').value.trim(),
+    q3: document.querySelector('input[name="q3"]:checked')?.value || 'none',
+    q3Where: document.getElementById('q3_where').value.trim(),
+    q4: [...document.querySelectorAll('input[name="q4"]:checked')].map(c => c.value),
+    q4Other: document.getElementById('q4_other_text').value.trim(),
+    q5NoPain: document.getElementById('q5_no_pain').checked,
+    q5: Q.painLevel,
+    q6: [...document.querySelectorAll('input[name="q6"]:checked')].map(c => c.value),
+    bodyImage: Q.canvasDrawn ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : '',
+  };
+
+  if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
+    await new Promise(r => setTimeout(r, 800));
+    document.getElementById('loadingRow').style.display = 'none';
+    Q.submitting = false;
+    try { sessionStorage.removeItem('lbc_form'); } catch {}
+    showSuccess();
+    return;
+  }
+
+  try {
+    const res = await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.success) {
+      try { sessionStorage.removeItem('lbc_form'); } catch {}
+      showSuccess();
+    } else {
+      toast(data.error || L('err_srv'), 'error');
+      document.getElementById('submitBtn').disabled = false;
+    }
+  } catch {
+    toast(L('err_net'), 'error');
+    document.getElementById('submitBtn').disabled = false;
+  } finally {
+    Q.submitting = false;
+    document.getElementById('loadingRow').style.display = 'none';
+  }
+}
+
+function showSuccess() {
+  document.getElementById('mainForm').style.display = 'none';
+  document.getElementById('successScreen').classList.add('visible');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type === 'error' ? ' is-error' : type === 'success' ? ' is-success' : '');
+  el.classList.add('show');
+  clearTimeout(Q.toastTm);
+  Q.toastTm = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatBookingDate(dateStr, timeStr, lang) {
+  if (!dateStr) return timeStr || '';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return dateStr + (timeStr ? ' ' + timeStr : '');
+  if (lang === 'ja') {
+    const wd = ['日','月','火','水','木','金','土'];
+    return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${wd[d.getDay()]}）${timeStr}`;
+  }
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  return `${d.getDate()} ${mo} ${d.getFullYear()}  ${timeStr}`;
+}
+</script>
+</body>
+</html>

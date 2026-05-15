@@ -757,8 +757,8 @@
   <h1 id="heroTitle">ご予約</h1>
   <p id="heroSub">背骨・関節のプロフェッショナル。お気軽にご予約ください。</p>
   <div class="hero-meta">
-    <span>📍 <span id="heroAddr">〒XXX-XXXX 東京都XX区XX</span></span>
-    <span>📞 <span id="heroTel">TEL: 03-XXXX-XXXX</span></span>
+    <span>📍 <span id="heroAddr">〒510-0835 三重県四日市市大井手</span></span>
+    <span>📞 <span id="heroTel">TEL: 070-9233-4084</span></span>
     <span>🕐 <span id="heroHours">8:00〜22:00</span></span>
   </div>
 </div>
@@ -916,14 +916,11 @@
         <div class="field-error" id="e_slot" style="margin-top:10px;"></div>
       </div>
 
-      <!-- Confirm -->
+      <!-- Submit -->
       <div class="card" id="cardConfirm">
-        <div class="card-title"><span class="icon">✅</span><span id="t_confirm"></span></div>
-        <div class="summary-card" id="summaryCard" style="display:none;"></div>
         <button class="btn-submit" id="submitBtn" onclick="submitBooking()" disabled>
           <span id="l_submit"></span>
         </button>
-        <div class="submit-note" id="l_submitNote"></div>
         <div class="loading-row" id="loadingRow">
           <span class="spinner"></span><span id="t_submitting"></span>
         </div>
@@ -1020,11 +1017,12 @@ const I18N = {
     t_selectTime: '時間を選択してください',
     noSlots: 'この日は空きがありません',
     l_submit: '仮予約を送信する',
+    l_next: '問診票へ進む →',
     l_submitNote: '送信後、担当の方が確認して予約完了のご連絡をいたします。',
     t_submitting: '送信中...',
     s_title: '仮予約を受け付けました！',
     s_msg: 'ルカスが内容を確認後、確定のご連絡をいたします。',
-    s_note: '問診票のご記入をお忘れなく。\nメッセージにてURLをお送りします。',
+    s_note: '以下のボタンより問診票をご記入ください。',
     s_note_return: '担当者が確認後、確定のご連絡をいたします。',
     s_qBtn: '問診票を記入する',
     s_back: '別の予約をする',
@@ -1085,11 +1083,12 @@ const I18N = {
     t_selectTime: 'Seleccione un horario',
     noSlots: 'Sin disponibilidad este día',
     l_submit: 'Enviar reserva provisional',
+    l_next: 'Ir al cuestionario →',
     l_submitNote: 'Lucas revisará y confirmará su reserva',
     t_submitting: 'Enviando...',
     s_title: '¡Reserva recibida!',
     s_msg: 'Lucas revisará la solicitud y le avisará a la brevedad.',
-    s_note: 'Recuerde completar el cuestionario.\nLe enviaremos el enlace por mensaje.',
+    s_note: 'Complete el cuestionario usando el botón de abajo.',
     s_note_return: 'Lucas revisará y le confirmará a la brevedad.',
     s_qBtn: 'Completar cuestionario',
     s_back: 'Hacer otra reserva',
@@ -1150,11 +1149,12 @@ const I18N = {
     t_selectTime: 'Selecione um horário',
     noSlots: 'Sem disponibilidade neste dia',
     l_submit: 'Enviar agendamento provisório',
+    l_next: 'Ir ao questionário →',
     l_submitNote: 'Lucas revisará e confirmará seu agendamento',
     t_submitting: 'Enviando...',
     s_title: 'Agendamento recebido!',
     s_msg: 'Lucas revisará o pedido e entrará em contato em breve.',
-    s_note: 'Não esqueça de preencher o questionário.\nEnviaremos o link por mensagem.',
+    s_note: 'Preencha o questionário usando o botão abaixo.',
     s_note_return: 'Lucas revisará e entrará em contato em breve.',
     s_qBtn: 'Preencher questionário',
     s_back: 'Fazer outro agendamento',
@@ -1313,8 +1313,12 @@ window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('sec_notes').style.display = isReturn ? 'block' : 'none';
       if (!isReturn) document.querySelector('input[name="hasNewSymptom"][value="no"]').checked = true;
       updateSummary();
+      updateSubmitBtn();
       saveSession();
     })
+  );
+  document.querySelectorAll('input[name="hasNewSymptom"]').forEach(r =>
+    r.addEventListener('change', () => updateSubmitBtn())
   );
   document.getElementById('staffModal').addEventListener('click', e => {
     if (e.target === document.getElementById('staffModal')) closeModal();
@@ -1332,6 +1336,7 @@ function setLang(lang) {
   buildCourses();
   renderCal();
   updateSummary();
+  updateSubmitBtn();
 }
 
 function L(key) { return I18N[S.lang][key]; }
@@ -1350,13 +1355,12 @@ function applyTexts() {
   set('t_info',   l.t_info);
   set('t_course', l.t_course);
   set('t_slot',   l.t_slot);
-  set('t_confirm',l.t_confirm);
+
   set('t_note',   l.t_note);
   set('t_pickDate', l.t_pickDate);
   set('t_loading',  l.t_loading);
   set('t_selectTime', l.t_selectTime);
   set('l_submit',    l.l_submit);
-  set('l_submitNote',l.l_submitNote);
   set('t_submitting',l.t_submitting);
   set('s_title', l.s_title);
   set('s_msg',   l.s_msg);
@@ -1708,6 +1712,7 @@ function setStep(n, state) {
 function updateSummary() {
   updateStepIndicator();
   const box = document.getElementById('summaryCard');
+  if (!box) return;
   if (!S.course || !S.date || !S.time) { box.style.display = 'none'; return; }
 
   const l = I18N[S.lang];
@@ -1734,7 +1739,14 @@ function updateSummary() {
 }
 
 function updateSubmitBtn() {
-  document.getElementById('submitBtn').disabled = !(S.course && S.date && S.time);
+  const enabled = !!(S.course && S.date && S.time);
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = !enabled;
+  const vt = document.querySelector('input[name="visitType"]:checked')?.value || 'first';
+  const hasNew = document.querySelector('input[name="hasNewSymptom"]:checked')?.value === 'yes';
+  btn.textContent = (vt === 'first' || hasNew)
+    ? (I18N[S.lang].l_next || '問診票へ進む →')
+    : (I18N[S.lang].l_submit || '仮予約を送信する');
 }
 
 /* ============================================================
@@ -1783,6 +1795,38 @@ async function submitBooking() {
     toast(errMsg[S.lang] || errMsg.ja, 'error');
     return;
   }
+
+  S.visitType = document.querySelector('input[name="visitType"]:checked')?.value || 'first';
+  const hasNewSymptom = document.querySelector('input[name="hasNewSymptom"]:checked')?.value === 'yes';
+  const needsQuestionnaire = S.visitType === 'first' || hasNewSymptom;
+
+  if (needsQuestionnaire) {
+    // 問診票ページへ予約情報を渡して遷移。GAS送信は問診票ページで一括して行う
+    const l = I18N[S.lang];
+    const course = l.courses.find(c => c.id === S.course);
+    const params = new URLSearchParams({
+      lang:        S.lang,
+      name:        document.getElementById('name').value.trim(),
+      furigana:    document.getElementById('furigana').value.trim(),
+      phone:       document.getElementById('phone').value.trim(),
+      email:       document.getElementById('email').value.trim(),
+      courseId:    S.course || '',
+      courseName:  course?.name  || '',
+      courseDur:   course?.dur   || '',
+      coursePrice: course?.price || '',
+      date:        S.date || '',
+      time:        S.time || '',
+      visitType:   S.visitType,
+      returnNotes: document.getElementById('returnNotes')?.value.trim() || '',
+      patientId:   document.getElementById('patientId')?.value.trim()  || '',
+      staffNote:   document.getElementById('staffNote')?.value.trim()  || '',
+      isStaff:     S.staff ? '1' : '0',
+    });
+    window.location.href = 'questionnaire.html?' + params.toString();
+    return;
+  }
+
+  // 再来院・新症状なし → GASへ直接送信
   S.submitting = true;
   document.getElementById('submitBtn').disabled = true;
   const email = document.getElementById('email').value.trim();
@@ -1791,26 +1835,34 @@ async function submitBooking() {
     toast(warn[S.lang] || warn.ja);
     await new Promise(r => setTimeout(r, 2500));
   }
-  S.visitType = document.querySelector('input[name="visitType"]:checked')?.value || 'first';
+
+  if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
+    clearSession();
+    showSuccess(genTempNum());
+    document.getElementById('loadingRow').style.display = 'none';
+    S.submitting = false;
+    return;
+  }
+
   const l = I18N[S.lang];
   const course = l.courses.find(c => c.id === S.course);
   const payload = {
-    action: 'submitBooking',
-    name:     document.getElementById('name').value.trim(),
-    furigana: document.getElementById('furigana').value.trim(),
-    phone:    document.getElementById('phone').value.replace(/[-\s]/g, ''),
-    email:    document.getElementById('email').value.trim(),
-    courseId: S.course,
-    courseName: course?.name || '',
-    date: S.date,
-    time: S.time,
-    visitType: document.querySelector('input[name="visitType"]:checked')?.value || 'first',
-    hasNewSymptom: document.querySelector('input[name="hasNewSymptom"]:checked')?.value || 'no',
-    lang: S.lang,
+    action:      'submitBooking',
+    name:        document.getElementById('name').value.trim(),
+    furigana:    document.getElementById('furigana').value.trim(),
+    phone:       document.getElementById('phone').value.replace(/[-\s]/g, ''),
+    email:       email,
+    courseId:    S.course,
+    courseName:  course?.name || '',
+    date:        S.date,
+    time:        S.time,
+    visitType:   S.visitType,
+    hasNewSymptom: 'no',
+    lang:        S.lang,
     isStaffMode: S.staff,
     returnNotes: document.getElementById('returnNotes')?.value.trim() || '',
-    patientId: document.getElementById('patientId')?.value.trim() || '',
-    staffNote: document.getElementById('staffNote')?.value.trim() || '',
+    patientId:   document.getElementById('patientId')?.value.trim()  || '',
+    staffNote:   document.getElementById('staffNote')?.value.trim()  || '',
   };
 
   document.getElementById('loadingRow').style.display = 'block';
@@ -1824,7 +1876,7 @@ async function submitBooking() {
     const data = await res.json();
     if (data.success) {
       clearSession();
-      showSuccess(data.bookingNumber || genTempNum(), data.questionnaireUrl);
+      showSuccess(data.bookingNumber || genTempNum());
     } else {
       toast(data.error || l.err_srv, 'error');
       document.getElementById('submitBtn').disabled = false;
@@ -1904,29 +1956,17 @@ function genTempNum() {
          pad(d.getHours()) + pad(d.getMinutes());
 }
 
-function showSuccess(num, questionnaireUrl) {
+function showSuccess(num) {
   const l = I18N[S.lang];
   document.getElementById('mainForm').style.display = 'none';
   document.getElementById('stepsWrap').style.display = 'none';
   document.getElementById('heroSection').style.display = 'none';
   document.getElementById('staffBanner').classList.remove('visible');
-  const sc = document.getElementById('successScreen');
-  sc.classList.add('visible');
+  document.getElementById('successScreen').classList.add('visible');
   document.getElementById('s_num').textContent = l.s_numPrefix + num;
-  const isFirst = S.visitType === 'first';
-  const hasNewSymptom = document.querySelector('input[name="hasNewSymptom"]:checked')?.value === 'yes';
-  const needsQuestionnaire = isFirst || hasNewSymptom;
-  set('s_note', (needsQuestionnaire ? l.s_note : (l.s_note_return || '')).replace('\n', '<br>'), true);
+  set('s_note', (l.s_note_return || '').replace('\n', '<br>'), true);
   const qBtn = document.getElementById('s_qBtn');
-  if (qBtn) {
-    if (needsQuestionnaire && questionnaireUrl) {
-      qBtn.href = questionnaireUrl;
-      qBtn.textContent = l.s_qBtn || '問診票を記入する';
-      qBtn.style.display = 'inline-block';
-    } else {
-      qBtn.style.display = 'none';
-    }
-  }
+  if (qBtn) qBtn.style.display = 'none';
 }
 
 function resetForm() {

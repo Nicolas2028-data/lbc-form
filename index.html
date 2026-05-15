@@ -808,6 +808,20 @@
     }
     .q-section-header h2 { font-size: 1.1rem; font-weight: 800; margin-bottom: 4px; }
     .q-section-header p { font-size: 0.82rem; opacity: 0.82; }
+    .btn-back-q {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: rgba(255,255,255,0.9);
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 12px;
+      display: inline-block;
+      transition: background 0.15s;
+    }
+    .btn-back-q:hover { background: rgba(255,255,255,0.25); }
 
     /* ── Desktop (2カラム) ── */
     @media (min-width: 768px) {
@@ -1023,11 +1037,21 @@
 
   </div><!-- /mainForm -->
 
-  <!-- 問診票セクション -->
-  <div id="questionnaireSection">
+  <!-- STEP1 → STEP2 ボタン -->
+  <div id="cardNext" style="max-width:580px;margin:0 auto 16px;padding:0 14px">
+    <button class="btn-submit" id="nextBtn" onclick="proceedToQuestionnaire()" disabled>
+      <span id="l_next">問診票へ進む →</span>
+    </button>
+  </div>
 
-    <!-- セクションヘッダー -->
+  <!-- 問診票セクション（STEP2） -->
+  <div id="questionnaireSection" style="display:none">
+
+    <!-- STEP2 ヘッダー -->
     <div class="q-section-header">
+      <button class="btn-back-q" id="btnBackQ" onclick="backToBooking()">
+        <span id="l_back_q">← 予約内容を変更する</span>
+      </button>
       <h2 id="q_section_title_el">問診票</h2>
       <p id="q_section_sub_el">予約情報と合わせて送信されます。以下の項目をご記入ください。</p>
     </div>
@@ -1288,7 +1312,7 @@ const I18N = {
     t_selectTime: '時間を選択してください',
     noSlots: 'この日は空きがありません',
     l_submit: '仮予約を送信する',
-    l_next: '問診票へ進む →',
+    l_next: '問診票へ進む →', l_back_q: '← 予約内容を変更する',
     l_submitNote: '送信後、担当の方が確認して予約完了のご連絡をいたします。',
     t_submitting: '送信中...',
     s_title: '仮予約を送信しました！',
@@ -1380,7 +1404,7 @@ const I18N = {
     t_selectTime: 'Seleccione un horario',
     noSlots: 'Sin disponibilidad este día',
     l_submit: 'Enviar reserva provisional',
-    l_next: 'Ir al cuestionario →',
+    l_next: 'Ir al cuestionario →', l_back_q: '← Cambiar reserva',
     l_submitNote: 'Lucas revisará y confirmará su reserva',
     t_submitting: 'Enviando...',
     s_title: '¡Reserva recibida!',
@@ -1472,7 +1496,7 @@ const I18N = {
     t_selectTime: 'Selecione um horário',
     noSlots: 'Sem disponibilidade neste dia',
     l_submit: 'Enviar agendamento provisório',
-    l_next: 'Ir ao questionário →',
+    l_next: 'Ir ao questionário →', l_back_q: '← Alterar agendamento',
     l_submitNote: 'Lucas revisará e confirmará seu agendamento',
     t_submitting: 'Enviando...',
     s_title: 'Agendamento recebido!',
@@ -1790,6 +1814,8 @@ function applyTexts() {
   set('q6_back', ql('q6_back')); set('q6_waist', ql('q6_waist')); set('q6_elbow', ql('q6_elbow'));
   set('q6_wrist', ql('q6_wrist')); set('q6_hip', ql('q6_hip')); set('q6_knee', ql('q6_knee')); set('q6_ankle', ql('q6_ankle'));
   set('q6_drawHint', ql('q6_drawHint')); set('q6_clear', ql('q6_clear'));
+  set('l_next',   I18N[S.lang].l_next   || '問診票へ進む →');
+  set('l_back_q', I18N[S.lang].l_back_q || '← 戻る');
 }
 
 
@@ -2132,9 +2158,40 @@ function updateSummary() {
 
 function updateSubmitBtn() {
   const enabled = !!(S.course && S.date && S.time);
-  const btn = document.getElementById('submitBtn');
+  const btn = document.getElementById('nextBtn');
+  if (!btn) return;
   btn.disabled = !enabled;
-  btn.textContent = I18N[S.lang].l_submit || '仮予約を送信する';
+  set('l_next', I18N[S.lang].l_next || '問診票へ進む →');
+}
+
+function proceedToQuestionnaire() {
+  const l = I18N[S.lang];
+  let ok = true;
+  const name = document.getElementById('name').value.trim();
+  name ? clearErr('e_name','name') : (showErr('e_name', l.e_name, 'name'), ok = false);
+  const phone = document.getElementById('phone').value.replace(/[-\s]/g,'');
+  l.phonePattern.test(phone) ? clearErr('e_phone','phone') : (showErr('e_phone', l.e_phone, 'phone'), ok = false);
+  S.course ? clearErr('e_course') : (showErr('e_course', l.e_course), ok = false);
+  (S.date && S.time) ? clearErr('e_slot') : (showErr('e_slot', l.e_slot), ok = false);
+  if (!ok) {
+    document.querySelector('.field-error.visible')?.scrollIntoView({ behavior:'smooth', block:'center' });
+    const errMsg = { ja:'未入力・エラーの項目を確認してください', es:'Revise los campos con error', pt:'Verifique os campos com erro' };
+    toast(errMsg[S.lang] || errMsg.ja, 'error');
+    return;
+  }
+  document.getElementById('mainForm').style.display = 'none';
+  document.getElementById('stepsWrap').style.display = 'none';
+  document.getElementById('cardNext').style.display = 'none';
+  document.getElementById('questionnaireSection').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function backToBooking() {
+  document.getElementById('questionnaireSection').style.display = 'none';
+  document.getElementById('mainForm').style.display = 'block';
+  document.getElementById('stepsWrap').style.display = 'block';
+  document.getElementById('cardNext').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 /* ============================================================
@@ -2367,6 +2424,7 @@ function showSuccess(num) {
   document.getElementById('heroSection').style.display = 'none';
   document.getElementById('staffBanner').classList.remove('visible');
   document.getElementById('questionnaireSection').style.display = 'none';
+  document.getElementById('cardNext').style.display = 'none';
   document.getElementById('successScreen').classList.add('visible');
   document.getElementById('s_num').textContent = l.s_numPrefix + num;
   const sTitle = { ja:'仮予約を送信しました！', es:'¡Reserva enviada!', pt:'Agendamento enviado!' };
@@ -2399,7 +2457,8 @@ function resetForm() {
   document.querySelectorAll('.other-text').forEach(el => el.classList.remove('visible'));
   const q3wrap = document.getElementById('q3_where_wrap'); if (q3wrap) q3wrap.style.display = 'none';
   if (S.baseImageData) { const cv = document.getElementById('bodyCanvas'); if (cv) cv.getContext('2d').putImageData(S.baseImageData, 0, 0); }
-  document.getElementById('questionnaireSection').style.display = 'block';
+  document.getElementById('questionnaireSection').style.display = 'none';
+  document.getElementById('cardNext').style.display = 'block';
 
   document.getElementById('sec_notes').style.display = 'none';
   document.querySelector('input[name="hasNewSymptom"][value="no"]').checked = true;

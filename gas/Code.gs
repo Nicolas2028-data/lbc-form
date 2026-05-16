@@ -271,6 +271,7 @@ function findMostRecentKarte(cfg, customerId) {
 }
 
 function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
+  // Notion は社内管理用のため常に日本語で記録する
   const labelMap = {
     ja: {
       title: '問診票',
@@ -282,23 +283,25 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
       first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
     },
     es: {
-      title: 'Cuestionario', howFound: 'Cómo nos conoció', visitType: 'Tipo de visita',
-      q1: 'P1 Síntomas', q2: 'P2 Enfermedades / lesiones', q3: 'P3 Dolor actual',
-      q4: 'P4 Objetivo', q5: 'P5 Nivel de dolor', q6: 'P6 Zonas de dolor',
-      bodyDiagram: 'Figura corporal', address: 'Dirección',
-      first: 'Primera vez', return: 'Revisita', none: 'Ninguno', yes: 'Sí', noPain: 'Sin dolor',
+      title: '問診票',
+      howFound: '来院のきっかけ',
+      visitType: '来院歴',
+      q1: 'Q1 症状', q2: 'Q2 病歴・過去の怪我', q3: 'Q3 現在の痛み',
+      q4: 'Q4 施術の目標', q5: 'Q5 痛みの強度', q6: 'Q6 痛み部位',
+      bodyDiagram: '人体図', address: '住所',
+      first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
     },
     pt: {
-      title: 'Questionário', howFound: 'Como nos conheceu', visitType: 'Tipo de visita',
-      q1: 'Q1 Sintomas', q2: 'Q2 Doenças / lesões', q3: 'Q3 Dor atual',
+      title: '問診票', howFound: '来院のきっかけ', visitType: '来院歴',
+      q1: 'Q1 症状', q2: 'Q2 病歴・過去の怪我', q3: 'Q3 現在の痛み',
       q4: 'Q4 Objetivo', q5: 'Q5 Nível de dor', q6: 'Q6 Áreas com dor',
-      bodyDiagram: 'Figura corporal', address: 'Endereço',
-      first: 'Primeira vez', return: 'Retorno', none: 'Nenhum', yes: 'Sim', noPain: 'Sem dor',
+      bodyDiagram: '人体図', address: '住所',
+      first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
     },
   };
   const lbl = labelMap[data.lang] || labelMap.ja;
 
-  const sep = data.lang === 'ja' ? '、' : ', ';
+  const sep = '、';
   function fmt(arr, other, noneVal) {
     if (!arr || arr.length === 0) return lbl.none;
     if (arr.includes('none') || arr[0] === noneVal) return lbl.none;

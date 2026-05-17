@@ -335,7 +335,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
     pt: {
       title: '問診票', howFound: '来院のきっかけ', visitType: '来院歴',
       q1: 'Q1 症状', q2: 'Q2 病歴・過去の怪我', q3: 'Q3 現在の痛み',
-      q4: 'Q4 Objetivo', q5: 'Q5 Nível de dor', q6: 'Q6 Áreas com dor',
+      q4: 'Q4 施術の目標', q5: 'Q5 痛みの強度', q6: 'Q6 痛み部位',
       bodyDiagram: '人体図', address: '住所',
       first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
     },

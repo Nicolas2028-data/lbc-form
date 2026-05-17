@@ -114,7 +114,7 @@ function handleSubmitAll(data) {
     var addr = [data.addressPref, data.addressCity].filter(Boolean).join(' ');
     if (addr) updateProps['住所'] = richText(addr);
     if (data.howFound && data.howFound.length) {
-      updateProps['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: v }; }) };
+      updateProps['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: VALUE_LABEL[v] || v }; }) };
     }
     if (data.lang) updateProps['言語'] = { select: { name: data.lang } };
     if (Object.keys(updateProps).length) updateCustomerProp(cfg, customerId, updateProps);
@@ -217,7 +217,7 @@ function createCustomer(cfg, data, patientNum) {
   const addr = [data.addressPref, data.addressCity].filter(Boolean).join(' ');
   if (addr) props['住所'] = richText(addr);
   if (data.howFound && data.howFound.length) {
-    props['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: v }; }) };
+    props['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: VALUE_LABEL[v] || v }; }) };
   }
   return notionPost(cfg, '/pages', { parent: { database_id: cfg.CUSTOMER_DB_ID }, properties: props });
 }
@@ -245,14 +245,32 @@ function generatePatientNumber(cfg) {
    Notion — カルテ操作
    ============================================================ */
 
+// コース名：フォームの表示名 → Notionのセレクト選択肢に変換
+var COURSE_NAME_MAP = {
+  'カイロプラクティック': 'カイロプラクティック',
+  '筋膜リリース':         '筋膜リリース',
+  '吸玉（カッピング）':   '吸い玉・カッピング',
+  'トータルケア':         'トータルケア',
+  // スペイン語
+  'Quiropráctica':        'カイロプラクティック',
+  'Liberación Miofascial':'筋膜リリース',
+  'Ventosa':              '吸い玉・カッピング',
+  'Cuidado Total':        'トータルケア',
+  // ポルトガル語
+  'Quiropraxia':          'カイロプラクティック',
+  'Liberação Miofascial': '筋膜リリース',
+  'Cuidado Total':        'トータルケア',
+};
+
 function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
   const langMap = { ja: '日本語', es: 'Español', pt: 'Português' };
+  const courseName = COURSE_NAME_MAP[data.courseName] || data.courseName || 'その他';
   const props = {
     '名前':     { title: [{ text: { content: (data.name || '不明') + '（' + patientNum + '）' } }] },
     '日付':     { date: { start: todayStr() } },
     '予約日':   { date: { start: data.date || todayStr() } },
     '予約時間': richText(data.time || ''),
-    'コース':   { select: { name: data.courseName || 'その他' } },
+    'コース':   { select: { name: courseName } },
     'ステータス': { status: { name: '未着手' } },
     '対応言語': { select: { name: langMap[data.lang] || '日本語' } },
     '顧客マスタ': { relation: [{ id: customerId }] },
@@ -268,6 +286,29 @@ function findMostRecentKarte(cfg, customerId) {
     page_size: 1,
   });
   return res.results[0] || null;
+}
+
+// フォームの内部値 → 日本語表示名
+var VALUE_LABEL = {
+  // Q1 症状
+  fever: '発熱', pain: '激しい痛み', swelling: '炎症・腫れ', pregnant: '妊娠中',
+  // Q2 病歴
+  hernia: '椎間板ヘルニア', stenosis: '脊柱管狭窄症', shoulder: '五十肩',
+  sciatica: '坐骨神経痛', fracture: '骨折・脱臼',
+  // Q4 目標
+  relax: 'リラックス', posture: '姿勢改善',
+  // Q6 部位
+  neck: '首', rShoulder: '右肩', lShoulder: '左肩', back: '背中',
+  waist: '腰', elbow: '肘', wrist: '手首', hip: '股関節',
+  knee: '膝', ankle: '足首',
+  // 来院のきっかけ
+  kuchikomi: '口コミ', instagram: 'Instagram', shokai: '紹介',
+  kanban: '看板', other: 'その他',
+};
+
+function toJa(arr) {
+  if (!arr || !arr.length) return null;
+  return arr.map(function(v) { return VALUE_LABEL[v] || v; });
 }
 
 function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
@@ -305,8 +346,9 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
   function fmt(arr, other, noneVal) {
     if (!arr || arr.length === 0) return lbl.none;
     if (arr.includes('none') || arr[0] === noneVal) return lbl.none;
-    const parts = arr.filter(v => v !== 'none');
-    if (other) parts.push('(' + other + ')');
+    const parts = arr.filter(function(v) { return v !== 'none'; })
+                     .map(function(v) { return VALUE_LABEL[v] || v; });
+    if (other) parts.push('（' + other + '）');
     return parts.join(sep);
   }
 
@@ -335,7 +377,9 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
     '━━━ ' + lbl.title + ' (' + new Date().toLocaleString('ja-JP') + ') ━━━',
     '',
     '【' + lbl.visitType + '】 ' + (data.visitType === 'first' ? lbl.first : lbl.return),
-    '【' + lbl.howFound + '】 ' + (data.howFound && data.howFound.length ? data.howFound.join(', ') : '—'),
+    '【' + lbl.howFound + '】 ' + (data.howFound && data.howFound.length
+      ? data.howFound.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep)
+      : '—'),
     data.dob ? '【生年月日】 ' + data.dob + ageStr : null,
     (data.addressPref || data.addressCity) ? '【' + lbl.address + '】 ' + [data.addressPref, data.addressCity].filter(Boolean).join(' ') : null,
     '',
@@ -344,14 +388,26 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
     '【' + lbl.q3 + '】 ' + q3val,
     '【' + lbl.q4 + '】 ' + fmt(data.q4, data.q4Other),
     '【' + lbl.q5 + '】 ' + q5val,
-    '【' + lbl.q6 + '】 ' + (data.q6 && data.q6.length ? data.q6.join(sep) : '—'),
-    bodyImageUrl ? '【' + lbl.bodyDiagram + '】 ' + bodyImageUrl : null,
+    '【' + lbl.q6 + '】 ' + (data.q6 && data.q6.length
+      ? data.q6.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep)
+      : '—'),
   ].filter(function(l) { return l !== null; });
 
-  const blocks = lines.map(line =>
-    line === '' ? { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }
-    : { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } }
-  );
+  const blocks = lines.map(function(line) {
+    return line === ''
+      ? { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }
+      : { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } };
+  });
+
+  // 人体図：Driveの直リンクでNotionに画像ブロックとして埋め込む
+  if (bodyImageUrl) {
+    var fileIdMatch = bodyImageUrl.match(/\/d\/([^\/\?]+)/);
+    var embedUrl = fileIdMatch
+      ? 'https://drive.google.com/uc?export=view&id=' + fileIdMatch[1]
+      : bodyImageUrl;
+    blocks.push({ object: 'block', type: 'image',
+      image: { type: 'external', external: { url: embedUrl } } });
+  }
 
   notionPatch(cfg, '/blocks/' + karteId + '/children', { children: blocks });
 }

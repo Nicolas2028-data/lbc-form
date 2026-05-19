@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LBC Care – システム設計図</title>
+  <style>
+    :root {
+      --green-dark: #051F20;
+      --green-mid: #0B2B26;
+      --green: #2c7a5c;
+      --green-light: #e8f5ef;
+      --green-mid-light: #c2e0d4;
+      --accent: #f0a500;
+      --accent-light: #fff8e6;
+      --blue: #1a73e8;
+      --blue-light: #e8f0fe;
+      --purple: #7c3aed;
+      --purple-light: #f3eeff;
+      --red: #e53935;
+      --red-light: #fdecea;
+      --text: #1a1a1a;
+      --text-sub: #555;
+      --text-muted: #888;
+      --border: #e0e0e0;
+      --bg: #f5f7f6;
+      --white: #fff;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Header */
+    header {
+      background: var(--green-dark);
+      color: var(--white);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; }
+    .logo span { color: var(--accent); }
+    .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.7; display: block; }
+    .doc-badge {
+      background: var(--accent);
+      color: var(--green-dark);
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    /* Layout */
+    .container { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+
+    /* Section */
+    .section { margin-bottom: 36px; }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--green-dark);
+      margin-bottom: 16px;
+      padding: 10px 16px;
+      background: var(--green-dark);
+      color: var(--white);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title .num {
+      background: var(--accent);
+      color: var(--green-dark);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    /* Overview card */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 600px) { .overview-grid { grid-template-columns: 1fr; } }
+    .overview-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+      box-shadow: var(--shadow);
+      border-top: 4px solid var(--green);
+      text-align: center;
+    }
+    .overview-card.accent { border-top-color: var(--accent); }
+    .overview-card.blue { border-top-color: var(--blue); }
+    .overview-icon { font-size: 2rem; margin-bottom: 8px; }
+    .overview-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px; }
+    .overview-title { font-size: 0.95rem; font-weight: 800; color: var(--text); }
+    .overview-desc { font-size: 0.78rem; color: var(--text-sub); margin-top: 6px; line-height: 1.5; }
+
+    /* Flow diagram */
+    .flow-wrap {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 20px;
+    }
+    .flow-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .flow-step {
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+    .flow-box {
+      width: 100%;
+      padding: 12px 10px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .flow-box.patient { background: var(--green-light); border: 2px solid var(--green); color: var(--green-dark); }
+    .flow-box.system  { background: var(--blue-light); border: 2px solid var(--blue); color: #1a3e6e; }
+    .flow-box.notion  { background: var(--purple-light); border: 2px solid var(--purple); color: #4a1e9e; }
+    .flow-box.lucas   { background: var(--accent-light); border: 2px solid var(--accent); color: #7a5000; }
+    .flow-box.result  { background: #f0fdf4; border: 2px solid #16a34a; color: #14532d; }
+    .flow-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 5px; line-height: 1.4; }
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      padding-top: 20px;
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .flow-arrow-down {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      margin: 4px 0;
+    }
+
+    /* Branch */
+    .branch-wrap {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .branch-entry {
+      background: var(--green-light);
+      border: 2px solid var(--green);
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--green-dark);
+      margin-bottom: 12px;
+    }
+    .branch-entry small { display: block; font-weight: 400; font-size: 0.78rem; color: var(--text-sub); margin-top: 3px; }
+    .branch-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    @media (max-width: 560px) { .branch-row { flex-direction: column; } }
+    .branch-col {
+      flex: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+    }
+    .branch-col.new { border-color: var(--blue); }
+    .branch-col.return { border-color: var(--accent); }
+    .branch-header {
+      padding: 10px 14px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .branch-header.new { background: var(--blue); color: var(--white); }
+    .branch-header.return { background: var(--accent); color: var(--green-dark); }
+    .branch-body { padding: 12px 14px; }
+    .field-list { list-style: none; }
+    .field-list li {
+      padding: 5px 0;
+      font-size: 0.82rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .field-list li:last-child { border-bottom: none; }
+    .field-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .tag-req { background: var(--red); color: var(--white); }
+    .tag-opt { background: var(--border); color: var(--text-muted); }
+    .tag-auto { background: var(--purple); color: var(--white); }
+    .tag-new { background: var(--blue); color: var(--white); }
+
+    /* Condition branch */
+    .cond-wrap {
+      margin-top: 10px;
+      background: #fffbf0;
+      border: 1.5px solid var(--accent);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .cond-title { font-size: 0.8rem; font-weight: 700; color: #7a5000; margin-bottom: 6px; }
+    .cond-row { display: flex; gap: 8px; }
+    .cond-btn {
+      flex: 1;
+      padding: 8px;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .cond-btn.no { background: #e8f5ef; border: 1.5px solid var(--green); color: var(--green-dark); }
+    .cond-btn.yes { background: var(--red-light); border: 1.5px solid var(--red); color: #7a1a1a; }
+    .cond-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* Code format */
+    .code-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 20px;
+    }
+    .code-display {
+      text-align: center;
+      margin: 16px 0;
+    }
+    .code-text {
+      font-family: 'Courier New', monospace;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--green-dark);
+      background: var(--green-light);
+      border: 2px solid var(--green);
+      padding: 12px 24px;
+      border-radius: 8px;
+      display: inline-block;
+      letter-spacing: 2px;
+    }
+    .code-breakdown {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .code-part {
+      text-align: center;
+      padding: 8px 12px;
+    }
+    .code-part-val {
+      font-family: 'Courier New', monospace;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--green-dark);
+    }
+    .code-part-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .code-sep { padding-top: 10px; color: var(--text-muted); font-size: 1.2rem; font-weight: 300; }
+
+    /* Notion layout */
+    .notion-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .notion-header {
+      background: var(--purple);
+      color: var(--white);
+      padding: 14px 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .notion-body { padding: 20px; }
+    .notion-section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      margin-top: 16px;
+    }
+    .notion-section-title:first-child { margin-top: 0; }
+    .notion-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    @media (max-width: 480px) { .notion-fields { grid-template-columns: 1fr; } }
+    .notion-field {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+    }
+    .notion-field-key { color: var(--text-muted); font-size: 0.72rem; }
+    .notion-field-val { font-weight: 700; color: var(--text); }
+    .notion-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* Sheet preview */
+    .sheet-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .sheet-header {
+      background: var(--accent);
+      color: var(--green-dark);
+      padding: 14px 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sheet-body { padding: 20px; }
+    .sheet-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .sheet-input {
+      flex: 1;
+      min-width: 180px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      font-family: 'Courier New', monospace;
+      color: var(--text-muted);
+    }
+    .sheet-btn {
+      background: var(--green);
+      color: var(--white);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    .sheet-result {
+      background: var(--green-light);
+      border: 2px solid var(--green);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .sheet-result-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      padding: 3px 0;
+    }
+    .sheet-result-key { color: var(--text-muted); }
+    .sheet-result-val { font-weight: 700; }
+    .sheet-fields-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .sheet-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    @media (max-width: 480px) { .sheet-fields { grid-template-columns: 1fr; } }
+    .sheet-field {
+      background: #fffbf0;
+      border: 1.5px solid var(--accent);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      color: #7a5000;
+      font-weight: 600;
+    }
+
+    /* Normalization rules */
+    .norm-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .norm-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .norm-row:last-child { border-bottom: none; }
+    .norm-before {
+      font-family: 'Courier New', monospace;
+      background: var(--red-light);
+      border: 1px solid #f5a0a0;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #7a1a1a;
+    }
+    .norm-after {
+      font-family: 'Courier New', monospace;
+      background: var(--green-light);
+      border: 1px solid var(--green-mid-light);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--green-dark);
+    }
+    .norm-arrow { color: var(--text-muted); font-size: 1rem; }
+    .norm-rule { font-size: 0.8rem; color: var(--text-sub); flex: 1; min-width: 120px; }
+
+    /* Footer note */
+    .footnote {
+      background: var(--white);
+      border-left: 4px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: var(--text-sub);
+      margin-top: 12px;
+    }
+    .footnote strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LBC<span>Care</span><small>Lucas Body Care</small></div>
+  <div class="doc-badge">システム設計図 v1.0</div>
+</header>
+
+<div class="container">
+
+  <!-- ① 全体像 -->
+  <div class="section">
+    <div class="section-title"><span class="num">1</span>システム全体像</div>
+    <div class="overview-grid">
+      <div class="overview-card">
+        <div class="overview-icon">📋</div>
+        <div class="overview-label">患者が使う</div>
+        <div class="overview-title">問診票フォーム</div>
+        <div class="overview-desc">来院時にiPadで記入。初回・再来院を自動判定し、適切なフォームを表示。</div>
+      </div>
+      <div class="overview-card accent">
+        <div class="overview-icon">🗂️</div>
+        <div class="overview-label">ルカスが使う</div>
+        <div class="overview-title">施術記録シート</div>
+        <div class="overview-desc">施術コードを入力するだけで患者情報が表示。施術内容を記録して送信。</div>
+      </div>
+      <div class="overview-card blue">
+        <div class="overview-icon">📁</div>
+        <div class="overview-label">自動で生成</div>
+        <div class="overview-title">Notion 患者カルテ</div>
+        <div class="overview-desc">問診票＋施術記録が一つのページにまとまる。過去の記録も全て参照可能。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 問診票フォームの分岐 -->
+  <div class="section">
+    <div class="section-title"><span class="num">2</span>問診票フォーム：初回 / 再来院の自動判定</div>
+    <div class="branch-wrap">
+
+      <div class="branch-entry">
+        📱 患者がiPadを受け取り、問診票フォームを開く
+        <small>まず「姓・名・電話番号」を入力 → システムが自動でNotionを照合</small>
+      </div>
+
+      <div style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin: 8px 0;">
+        ▼ 照合結果によって自動分岐
+      </div>
+
+      <div class="branch-row">
+
+        <!-- 初回 -->
+        <div class="branch-col new">
+          <div class="branch-header new">🆕 初回患者（未登録）</div>
+          <div class="branch-body">
+            <ul class="field-list">
+              <li><span class="field-tag tag-req">必須</span>姓・名（分割入力）</li>
+              <li><span class="field-tag tag-req">必須</span>フリガナ（姓・名）</li>
+              <li><span class="field-tag tag-req">必須</span>電話番号</li>
+              <li><span class="field-tag tag-req">必須</span>施術日</li>
+              <li><span class="field-tag tag-req">必須</span>生年月日</li>
+              <li><span class="field-tag tag-opt">任意</span>住所</li>
+              <li><span class="field-tag tag-req">必須</span>来院のきっかけ</li>
+              <li><span class="field-tag tag-req">必須</span>Q1〜Q6（症状・目標など）</li>
+            </ul>
+            <div style="margin-top:10px; padding:8px; background:var(--blue-light); border-radius:6px; font-size:0.78rem; color:#1a3e6e;">
+              送信後 → 患者番号が自動発行（P001〜）<br>施術コードが生成される
+            </div>
+          </div>
+        </div>
+
+        <!-- 再来院 -->
+        <div class="branch-col return">
+          <div class="branch-header return">🔄 再来院患者（登録済み）</div>
+          <div class="branch-body">
+            <div style="background:var(--accent-light); border-radius:6px; padding:8px 10px; font-size:0.82rem; font-weight:700; color:#7a5000; margin-bottom:10px;">
+              「おかえりなさい、田中さん！」
+            </div>
+            <ul class="field-list">
+              <li><span class="field-tag tag-auto">自動</span>患者名（表示のみ）</li>
+              <li><span class="field-tag tag-req">必須</span>施術日</li>
+              <li><span class="field-tag tag-req">必須</span>コース選択</li>
+            </ul>
+            <div class="cond-wrap">
+              <div class="cond-title">前回から体の変化はありますか？</div>
+              <div class="cond-row">
+                <div class="cond-btn no">✅ なし<br><span style="font-weight:400;font-size:0.72rem">そのまま送信</span></div>
+                <div class="cond-btn yes">⚠️ あり<br><span style="font-weight:400;font-size:0.72rem">Q1〜Q6が展開</span></div>
+              </div>
+              <div class="cond-note">「なし」の場合、30秒以内で完了</div>
+            </div>
+            <div style="margin-top:10px; padding:8px; background:var(--accent-light); border-radius:6px; font-size:0.78rem; color:#7a5000;">
+              送信後 → 既存の患者番号を使用<br>新しい施術コードが生成される
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 施術コードの命名規則 -->
+  <div class="section">
+    <div class="section-title"><span class="num">3</span>施術コードの命名規則</div>
+    <div class="code-card">
+      <div class="code-display">
+        <div class="code-text">LBC-20260519-P001</div>
+      </div>
+      <div class="code-breakdown">
+        <div class="code-part">
+          <div class="code-part-val" style="color:var(--green)">LBC</div>
+          <div class="code-part-label">院の識別子</div>
+        </div>
+        <div class="code-sep">-</div>
+        <div class="code-part">
+          <div class="code-part-val" style="color:var(--blue)">20260519</div>
+          <div class="code-part-label">施術日（YYYYMMDD）</div>
+        </div>
+        <div class="code-sep">-</div>
+        <div class="code-part">
+          <div class="code-part-val" style="color:var(--purple)">P001</div>
+          <div class="code-part-label">患者番号（永続）</div>
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px; background:var(--purple-light); border-radius:8px; padding:12px 14px; font-size:0.82rem;">
+          <strong style="color:var(--purple)">患者番号（P001〜）</strong><br>
+          <span style="color:var(--text-sub)">初回来院時に自動採番。以降、同じ患者は永続的に同じ番号を使用。</span>
+        </div>
+        <div style="flex:1; min-width:200px; background:var(--blue-light); border-radius:8px; padding:12px 14px; font-size:0.82rem;">
+          <strong style="color:var(--blue)">施術コード（1回ごとに新しく生成）</strong><br>
+          <span style="color:var(--text-sub)">同じ患者が再来院するたびに、日付が変わるため自動的にユニークになる。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 照合キーの正規化 -->
+  <div class="section">
+    <div class="section-title"><span class="num">4</span>初回・再来院の照合ロジック</div>
+    <div class="norm-card">
+      <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:14px;">
+        入力された名前・電話番号を以下のルールで正規化し、Notionのデータと照合します。両方一致した場合のみ「再来院」と判定します。
+      </div>
+      <div class="norm-row">
+        <div style="font-size:0.8rem; font-weight:700; min-width:70px;">姓・名</div>
+        <div class="norm-before">田中　太郎</div>
+        <div class="norm-arrow">→</div>
+        <div class="norm-after">田中太郎</div>
+        <div class="norm-rule">スペース除去・全角統一・姓名を分割入力でズレ防止</div>
+      </div>
+      <div class="norm-row">
+        <div style="font-size:0.8rem; font-weight:700; min-width:70px;">電話番号</div>
+        <div class="norm-before">090-1234-5678</div>
+        <div class="norm-arrow">→</div>
+        <div class="norm-after">09012345678</div>
+        <div class="norm-rule">ハイフン・スペース除去・数字のみ</div>
+      </div>
+      <div class="norm-row">
+        <div style="font-size:0.8rem; font-weight:700; min-width:70px;">フリガナ</div>
+        <div class="norm-before">たなか たろう</div>
+        <div class="norm-arrow">→</div>
+        <div class="norm-after">タナカタロウ</div>
+        <div class="norm-rule">ひらがな→カタカナ変換・スペース除去（補助照合用）</div>
+      </div>
+      <div class="footnote" style="margin-top:14px;">
+        <strong>照合の優先順位：</strong>名前（正規化）＋ 電話番号（正規化）の両方一致で再来院確定。どちらか不一致の場合は初回フォームを表示。電話番号を変えた既存客はルカスがNotionで手動修正。
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 施術記録シート -->
+  <div class="section">
+    <div class="section-title"><span class="num">5</span>施術記録シート（ルカス専用）</div>
+    <div class="sheet-card">
+      <div class="sheet-header">🗂️ 施術記録シート — ルカスが施術後に入力</div>
+      <div class="sheet-body">
+        <div class="sheet-input-row">
+          <div class="sheet-input">LBC-20260519-P001</div>
+          <div class="sheet-btn">🔍 検索</div>
+        </div>
+        <div class="sheet-result">
+          <div class="sheet-result-row">
+            <span class="sheet-result-key">患者名</span>
+            <span class="sheet-result-val">田中 太郎</span>
+          </div>
+          <div class="sheet-result-row">
+            <span class="sheet-result-key">施術日</span>
+            <span class="sheet-result-val">2026年05月19日（火）</span>
+          </div>
+          <div class="sheet-result-row">
+            <span class="sheet-result-key">患者番号</span>
+            <span class="sheet-result-val">P001</span>
+          </div>
+        </div>
+        <div class="sheet-fields-title">↓ 施術内容を記録（ルカスが入力）</div>
+        <div class="sheet-fields">
+          <div class="sheet-field">✅ 選択コース</div>
+          <div class="sheet-field">💴 売上金額</div>
+          <div class="sheet-field">⏱️ 施術時間</div>
+          <div class="sheet-field">📝 施術メモ（任意）</div>
+          <div class="sheet-field">🎯 次回への申し送り（任意）</div>
+          <div class="sheet-field">🔁 プラン回数消化</div>
+        </div>
+        <div style="margin-top:14px; background:#f0fdf4; border:1.5px solid #16a34a; border-radius:8px; padding:10px 12px; font-size:0.82rem; color:#14532d;">
+          送信 → Notion上の患者カルテに施術記録が追記される
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ Notionカルテイメージ -->
+  <div class="section">
+    <div class="section-title"><span class="num">6</span>Notion 患者カルテのイメージ</div>
+    <div class="notion-card">
+      <div class="notion-header">📁 田中 太郎｜P001｜LBC-20260519-P001</div>
+      <div class="notion-body">
+        <div class="notion-section-title">👤 基本情報（問診票より）</div>
+        <div class="notion-fields">
+          <div class="notion-field"><div class="notion-field-key">氏名</div><div class="notion-field-val">田中 太郎</div></div>
+          <div class="notion-field"><div class="notion-field-key">電話番号</div><div class="notion-field-val">090-1234-5678</div></div>
+          <div class="notion-field"><div class="notion-field-key">生年月日</div><div class="notion-field-val">1985年3月12日</div></div>
+          <div class="notion-field"><div class="notion-field-key">来院のきっかけ</div><div class="notion-field-val">Instagram</div></div>
+        </div>
+
+        <hr class="notion-divider">
+
+        <div class="notion-section-title">🩺 問診票（Q1〜Q6）</div>
+        <div class="notion-fields">
+          <div class="notion-field"><div class="notion-field-key">Q1 現在の症状</div><div class="notion-field-val">腰痛、肩こり</div></div>
+          <div class="notion-field"><div class="notion-field-key">Q3 痛みの有無</div><div class="notion-field-val">あり（腰・左肩）</div></div>
+          <div class="notion-field"><div class="notion-field-key">Q4 目標</div><div class="notion-field-val">痛みを解消したい</div></div>
+          <div class="notion-field"><div class="notion-field-key">Q5 痛みの強さ</div><div class="notion-field-val">3 / 5</div></div>
+        </div>
+
+        <hr class="notion-divider">
+
+        <div class="notion-section-title">🗂️ 施術記録</div>
+        <div class="notion-fields">
+          <div class="notion-field"><div class="notion-field-key">施術日</div><div class="notion-field-val">2026年05月19日</div></div>
+          <div class="notion-field"><div class="notion-field-key">コース</div><div class="notion-field-val">トータルケア</div></div>
+          <div class="notion-field"><div class="notion-field-key">売上</div><div class="notion-field-val">¥6,000</div></div>
+          <div class="notion-field"><div class="notion-field-key">プラン消化</div><div class="notion-field-val">月2回プラン 1回目</div></div>
+        </div>
+
+      </div>
+    </div>
+    <div class="footnote">
+      <strong>再来院のたびに施術記録が追加されます。</strong>同一患者の過去の施術履歴がすべてNotionで一覧できます。
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

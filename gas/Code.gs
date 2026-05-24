@@ -281,7 +281,7 @@ function generatePatientNumber(cfg) {
     const n = parseInt((existing || '').replace(/\D/g, '')) || 0;
     max = n;
   }
-  return 'LBC-' + String(max + 1).padStart(4, '0');
+  return 'P' + String(max + 1).padStart(3, '0');
 }
 
 /* ============================================================
@@ -320,8 +320,10 @@ function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
     || COURSE_NAME_MAP[data.courseName]
     || data.courseName
     || '未定';
+  var dateCode = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd');
+  var karteCode = 'LBC-' + dateCode + '-' + patientNum;
   const props = {
-    '名前':     { title: [{ text: { content: (data.name || '不明') + '（' + patientNum + '）' } }] },
+    '名前':     { title: [{ text: { content: karteCode } }] },
     '日付':     { date: { start: todayStr() } },
     '予約日':   { date: { start: data.date || todayStr() } },
     '予約時間': richText(data.time || ''),

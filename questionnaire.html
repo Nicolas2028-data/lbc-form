@@ -513,8 +513,14 @@
       <div class="form-group">
         <div class="field-label"><span id="lbl_furiganaGroup">フリガナ</span><span class="badge-opt">任意</span></div>
         <div class="name-row">
-          <input type="text" id="seiKana" style="flex:1" autocomplete="off">
-          <input type="text" id="meiKana" style="flex:1" autocomplete="off">
+          <div class="name-col">
+            <div class="field-sub-label" id="lbl_seiKana">姓</div>
+            <input type="text" id="seiKana" autocomplete="off">
+          </div>
+          <div class="name-col">
+            <div class="field-sub-label" id="lbl_meiKana">名</div>
+            <input type="text" id="meiKana" autocomplete="off">
+          </div>
         </div>
       </div>
 
@@ -542,7 +548,10 @@
     <!-- 初回バナー -->
     <div id="firstBanner" class="banner first" style="display:none">
       <span class="banner-icon">🆕</span>
-      <div><div class="banner-title" id="t_firstBanner">初回のお客様として登録します</div></div>
+      <div>
+        <div class="banner-title" id="t_firstBanner">初回のお客様として登録します</div>
+        <div class="banner-sub" id="firstWelcomeName" style="font-weight:700;font-size:0.9rem;margin-top:2px"></div>
+      </div>
     </div>
 
     <!-- 再来院バナー -->
@@ -785,7 +794,7 @@ const I18N = {
     heroAddr: '📍 〒510-0835 三重県四日市市大井手', heroTel: '📞 TEL: 070-9233-4084',
     t_namePhone: 'お名前・連絡先',
     lbl_nameGroup: 'お名前', lbl_sei: '姓', lbl_mei: '名',
-    lbl_furiganaGroup: 'フリガナ', lbl_phone: '電話番号',
+    lbl_furiganaGroup: 'フリガナ', lbl_seiKana: '姓', lbl_meiKana: '名', lbl_phone: '電話番号',
     ph_sei: '田中', ph_mei: '太郎', ph_seiKana: 'タナカ', ph_meiKana: 'タロウ', ph_phone: '例: 090-1234-5678',
     e_sei: '姓を入力してください', e_mei: '名を入力してください', e_phone: '電話番号を入力してください',
     l_lookup: '次へ', t_lookingUp: '確認中...',
@@ -831,7 +840,7 @@ const I18N = {
     heroAddr: '📍 〒510-0835 Mie-ken Yokkaichi-shi Ooide', heroTel: '📞 TEL: 070-9233-4084',
     t_namePhone: 'Nombre y contacto',
     lbl_nameGroup: 'Nombre completo', lbl_sei: 'Apellido', lbl_mei: 'Nombre',
-    lbl_furiganaGroup: 'Furigana', lbl_phone: 'Teléfono',
+    lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Apellido', lbl_meiKana: 'Nombre', lbl_phone: 'Teléfono',
     ph_sei: 'Apellido', ph_mei: 'Nombre', ph_seiKana: '(opcional)', ph_meiKana: '(opcional)', ph_phone: 'Ej: 090-1234-5678',
     e_sei: 'Ingrese su apellido', e_mei: 'Ingrese su nombre', e_phone: 'Ingrese su teléfono',
     l_lookup: 'Continuar', t_lookingUp: 'Verificando...',
@@ -877,7 +886,7 @@ const I18N = {
     heroAddr: '📍 〒510-0835 Mie-ken Yokkaichi-shi Ooide', heroTel: '📞 TEL: 070-9233-4084',
     t_namePhone: 'Nome e contato',
     lbl_nameGroup: 'Nome completo', lbl_sei: 'Sobrenome', lbl_mei: 'Nome',
-    lbl_furiganaGroup: 'Furigana', lbl_phone: 'Telefone',
+    lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Sobrenome', lbl_meiKana: 'Nome', lbl_phone: 'Telefone',
     ph_sei: 'Sobrenome', ph_mei: 'Nome', ph_seiKana: '(opcional)', ph_meiKana: '(opcional)', ph_phone: 'Ex: 090-1234-5678',
     e_sei: 'Digite seu sobrenome', e_mei: 'Digite seu nome', e_phone: 'Digite seu telefone',
     l_lookup: 'Continuar', t_lookingUp: 'Verificando...',
@@ -958,7 +967,8 @@ function applyTexts() {
   set('heroAddr', l.heroAddr); set('heroTel', l.heroTel);
   set('t_namePhone', l.t_namePhone);
   set('lbl_nameGroup', l.lbl_nameGroup); set('lbl_sei', l.lbl_sei); set('lbl_mei', l.lbl_mei);
-  set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_phone', l.lbl_phone);
+  set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_seiKana', l.lbl_seiKana); set('lbl_meiKana', l.lbl_meiKana);
+  set('lbl_phone', l.lbl_phone);
   document.getElementById('sei').placeholder     = l.ph_sei     || '';
   document.getElementById('mei').placeholder     = l.ph_mei     || '';
   document.getElementById('seiKana').placeholder = l.ph_seiKana || '';
@@ -1045,9 +1055,9 @@ async function lookupPatient() {
     document.getElementById('lookupLoading').style.display = 'none';
     const demoType = new URLSearchParams(window.location.search).get('demo');
     if (demoType === 'return') {
-      showPhase2('return', 'demo-id', 'LBC-0001', name);
+      showPhase2('return', 'demo-id', 'P001', name);
     } else {
-      showPhase2('first', null, null, null);
+      showPhase2('first', null, null, name);
     }
     return;
   }
@@ -1063,7 +1073,7 @@ async function lookupPatient() {
     if (data.found) {
       showPhase2('return', data.customerId, data.patientNum, data.name);
     } else {
-      showPhase2('first', null, null, null);
+      showPhase2('first', null, null, name);
     }
   } catch {
     document.getElementById('lookupLoading').style.display = 'none';
@@ -1084,6 +1094,7 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
     document.getElementById('firstBanner').style.display = 'flex';
     document.getElementById('basicCard').style.display   = 'block';
     document.getElementById('qSection').style.display    = 'block';
+    if (patientName) document.getElementById('firstWelcomeName').textContent = patientName + ' 様';
   } else {
     document.getElementById('returnBanner').style.display = 'flex';
     document.getElementById('courseCard').style.display   = 'block';

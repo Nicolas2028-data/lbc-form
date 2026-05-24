@@ -133,10 +133,8 @@ function handleSubmitAll(data) {
   let patientNum = data.patientNum || '';
 
   if (data.visitType === 'return' && customerId) {
-    // 再来院：照合済み customerId を直接使用。基本情報は更新しない
-    patientNum = patientNum || getTextProp(
-      notionPost(cfg, '/pages/' + customerId, null, 'GET').properties, '診察番号'
-    );
+    // 再来院：照合済み customerId + patientNum を直接使用。基本情報は更新しない
+    // patientNum は lookupPatient で返却済みのため frontend から受け取る
   } else {
     // 初回：名前＋電話で再確認してから新規作成
     var normName  = (data.name  || '').replace(/[\s　]/g, '');
@@ -166,11 +164,11 @@ function handleSubmitAll(data) {
     }
   }
 
-  // コース名解決（courseId 優先、courseName フォールバック）
+  // コース名解決（courseId 優先。初回患者はコース未選択のため '未定'）
   data.resolvedCourseName = COURSE_ID_MAP[data.courseId]
     || COURSE_NAME_MAP[data.courseName]
     || data.courseName
-    || 'その他';
+    || '未定';
 
   // カルテ作成
   var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';

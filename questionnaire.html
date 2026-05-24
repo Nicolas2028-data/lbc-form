@@ -998,12 +998,17 @@ async function lookupPatient() {
 
   const btn = document.getElementById('lookupBtn');
   btn.disabled = true;
-  document.getElementById('lookupLoading').style.display = 'flex';
+  document.getElementById('lookupLoading').style.display = 'block';
 
   if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
     await new Promise(r => setTimeout(r, 700));
     document.getElementById('lookupLoading').style.display = 'none';
-    showPhase2('first', null, null, null);
+    const demoType = new URLSearchParams(window.location.search).get('demo');
+    if (demoType === 'return') {
+      showPhase2('return', 'demo-id', 'LBC-0001', name);
+    } else {
+      showPhase2('first', null, null, null);
+    }
     return;
   }
 
@@ -1326,6 +1331,7 @@ function clearCanvas() {
    VALIDATION
    ============================================================ */
 function validate() {
+  if (!Q.visitType) return false;
   let ok = true;
 
   if (Q.visitType === 'return') {

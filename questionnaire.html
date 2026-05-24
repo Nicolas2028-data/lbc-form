@@ -511,15 +511,17 @@
 
       <!-- フリガナ（分割・任意） -->
       <div class="form-group">
-        <div class="field-label"><span id="lbl_furiganaGroup">フリガナ</span><span class="badge-opt">任意</span></div>
+        <div class="field-label"><span id="lbl_furiganaGroup">フリガナ</span><span class="badge-req">必須</span></div>
         <div class="name-row">
           <div class="name-col">
             <div class="field-sub-label" id="lbl_seiKana">姓</div>
             <input type="text" id="seiKana" autocomplete="off">
+            <div class="field-error" id="e_seiKana"></div>
           </div>
           <div class="name-col">
             <div class="field-sub-label" id="lbl_meiKana">名</div>
             <input type="text" id="meiKana" autocomplete="off">
+            <div class="field-error" id="e_meiKana"></div>
           </div>
         </div>
       </div>
@@ -796,7 +798,9 @@ const I18N = {
     lbl_nameGroup: 'お名前', lbl_sei: '姓', lbl_mei: '名',
     lbl_furiganaGroup: 'フリガナ', lbl_seiKana: '姓', lbl_meiKana: '名', lbl_phone: '電話番号',
     ph_sei: '田中', ph_mei: '太郎', ph_seiKana: 'タナカ', ph_meiKana: 'タロウ', ph_phone: '例: 090-1234-5678',
-    e_sei: '姓を入力してください', e_mei: '名を入力してください', e_phone: '電話番号を入力してください',
+    e_sei: '姓を入力してください', e_mei: '名を入力してください',
+    e_seiKana: '姓フリガナを入力してください', e_meiKana: '名フリガナを入力してください',
+    e_phone: '電話番号を入力してください',
     l_lookup: '次へ', t_lookingUp: '確認中...',
     t_firstBanner: '初回のお客様として登録します',
     t_welcomeBack: 'おかえりなさい！', t_welcomeSub: '本日のご来院をお待ちしておりました',
@@ -842,7 +846,9 @@ const I18N = {
     lbl_nameGroup: 'Nombre completo', lbl_sei: 'Apellido', lbl_mei: 'Nombre',
     lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Apellido', lbl_meiKana: 'Nombre', lbl_phone: 'Teléfono',
     ph_sei: 'Apellido', ph_mei: 'Nombre', ph_seiKana: '(opcional)', ph_meiKana: '(opcional)', ph_phone: 'Ej: 090-1234-5678',
-    e_sei: 'Ingrese su apellido', e_mei: 'Ingrese su nombre', e_phone: 'Ingrese su teléfono',
+    e_sei: 'Ingrese su apellido', e_mei: 'Ingrese su nombre',
+    e_seiKana: 'Ingrese el furigana del apellido', e_meiKana: 'Ingrese el furigana del nombre',
+    e_phone: 'Ingrese su teléfono',
     l_lookup: 'Continuar', t_lookingUp: 'Verificando...',
     t_firstBanner: 'Lo registraremos como cliente nuevo',
     t_welcomeBack: '¡Bienvenido de nuevo!', t_welcomeSub: 'Le esperábamos',
@@ -888,7 +894,9 @@ const I18N = {
     lbl_nameGroup: 'Nome completo', lbl_sei: 'Sobrenome', lbl_mei: 'Nome',
     lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Sobrenome', lbl_meiKana: 'Nome', lbl_phone: 'Telefone',
     ph_sei: 'Sobrenome', ph_mei: 'Nome', ph_seiKana: '(opcional)', ph_meiKana: '(opcional)', ph_phone: 'Ex: 090-1234-5678',
-    e_sei: 'Digite seu sobrenome', e_mei: 'Digite seu nome', e_phone: 'Digite seu telefone',
+    e_sei: 'Digite seu sobrenome', e_mei: 'Digite seu nome',
+    e_seiKana: 'Digite o furigana do sobrenome', e_meiKana: 'Digite o furigana do nome',
+    e_phone: 'Digite seu telefone',
     l_lookup: 'Continuar', t_lookingUp: 'Verificando...',
     t_firstBanner: 'Você será registrado como novo paciente',
     t_welcomeBack: 'Bem-vindo de volta!', t_welcomeSub: 'Estávamos esperando por você',
@@ -1025,21 +1033,50 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 /* ============================================================
+   正規化ヘルパー
+   ============================================================ */
+// ひらがな → カタカナ変換
+function toKatakana(str) {
+  return str.replace(/[ぁ-ゖ]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x60));
+}
+// 名前: 全角・半角スペースをすべて除去
+function normName(str) {
+  return str.replace(/[\s　]+/g, '');
+}
+// 電話番号: 全角数字→半角、全角ハイフン→半角、ダッシュ/スペース除去
+function normPhone(str) {
+  return str
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[－]/g, '-')
+    .replace(/[-\s　]/g, '');
+}
+
+/* ============================================================
    LOOKUP FLOW
    ============================================================ */
 async function lookupPatient() {
-  const sei      = document.getElementById('sei').value.trim();
-  const mei      = document.getElementById('mei').value.trim();
+  // 名前: スペース・全角スペースをすべて除去して正規化
+  const sei      = normName(document.getElementById('sei').value);
+  const mei      = normName(document.getElementById('mei').value);
   const name     = sei + ' ' + mei;
-  const rawPhone = document.getElementById('phone').value.trim();
-  const phone    = rawPhone.replace(/[-\s]/g, '');
+  // フリガナ: ひらがな→カタカナ + スペース除去
+  const seiKana  = toKatakana(normName(document.getElementById('seiKana').value));
+  const meiKana  = toKatakana(normName(document.getElementById('meiKana').value));
+  // 電話番号: 全角→半角 + ダッシュ除去
+  const phone    = normPhone(document.getElementById('phone').value);
+  // バリデーション用に元の入力値（全角→半角済み）も保持
+  const rawPhone = document.getElementById('phone').value.trim()
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[－]/g, '-');
 
   let ok = true;
   if (!sei) { showErr('e_sei', L('e_sei'), 'sei'); ok = false; } else clearErr('e_sei', 'sei');
   if (!mei) { showErr('e_mei', L('e_mei'), 'mei'); ok = false; } else clearErr('e_mei', 'mei');
-  if (!rawPhone) {
+  if (!seiKana) { showErr('e_seiKana', L('e_seiKana'), 'seiKana'); ok = false; } else clearErr('e_seiKana', 'seiKana');
+  if (!meiKana) { showErr('e_meiKana', L('e_meiKana'), 'meiKana'); ok = false; } else clearErr('e_meiKana', 'meiKana');
+  if (!phone) {
     showErr('e_phone', L('e_phone'), 'phone'); ok = false;
-  } else if (!I18N[Q.lang].phonePattern.test(phone)) {
+  } else if (!I18N[Q.lang].phonePattern.test(rawPhone.replace(/[-\s]/g, ''))) {
     showErr('e_phone', L('e_phone'), 'phone'); ok = false;
   } else {
     clearErr('e_phone', 'phone');
@@ -1449,10 +1486,10 @@ async function submitQuestionnaire() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const _sei     = document.getElementById('sei').value.trim();
-  const _mei     = document.getElementById('mei').value.trim();
-  const _seiKana = document.getElementById('seiKana').value.trim();
-  const _meiKana = document.getElementById('meiKana').value.trim();
+  const _sei     = normName(document.getElementById('sei').value);
+  const _mei     = normName(document.getElementById('mei').value);
+  const _seiKana = toKatakana(normName(document.getElementById('seiKana').value));
+  const _meiKana = toKatakana(normName(document.getElementById('meiKana').value));
 
   const payload = {
     action:     'submitAll',
@@ -1462,7 +1499,7 @@ async function submitQuestionnaire() {
     patientNum: Q.patientNum || '',
     name:       _sei + ' ' + _mei,
     furigana:   (_seiKana || _meiKana) ? _seiKana + ' ' + _meiKana : '',
-    phone:      document.getElementById('phone').value.replace(/[-\s]/g, ''),
+    phone:      normPhone(document.getElementById('phone').value),
     date:       today,
     courseId:   document.querySelector('input[name="course"]:checked')?.value || '',
     hasChanges,

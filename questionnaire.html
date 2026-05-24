@@ -570,7 +570,7 @@
           <span class="dob-sep" id="sep_m">月</span>
           <input type="number" class="dob-d" id="dob_d" placeholder="1" min="1" max="31" oninput="calcAge()">
           <span class="dob-sep" id="sep_d">日</span>
-          <span id="ageBadge" style="display:none" aria-hidden="true"></span>
+          <span id="ageBadge" class="age-badge" style="display:none"></span>
         </div>
         <div class="field-error" id="e_dob"></div>
       </div>
@@ -652,7 +652,7 @@
   <div class="card">
     <div class="card-title"><span class="icon">🎯</span><span id="t_q4">Q4. 本日の施術で、何を解決したいですか？（複数可）</span></div>
     <div class="check-group" id="q4_group">
-      <label class="check-item"><input type="checkbox" name="q4" value="pain"><span id="q4_pain">痛みを解消したい</span></label>
+      <label class="check-item"><input type="checkbox" name="q4" value="painRelief"><span id="q4_pain">痛みを解消したい</span></label>
       <label class="check-item"><input type="checkbox" name="q4" value="relax"><span id="q4_relax">体をリラックスさせたい</span></label>
       <label class="check-item"><input type="checkbox" name="q4" value="posture"><span id="q4_posture">姿勢を改善したい</span></label>
       <label class="check-item"><input type="checkbox" name="q4" value="other" class="q4_text_trigger" onchange="toggleOtherText('q4')"><span id="q4_other">その他</span></label>
@@ -748,7 +748,7 @@
    CONFIG
    ============================================================ */
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbyWR8G7mZ64mnP7TOq-TBhniOiGNb4XZXyXoFWLw2oL9eUHP2SkJ7dLy0umsz6mu7qZ/exec',
 };
 
 /* ============================================================
@@ -988,12 +988,19 @@ window.addEventListener('DOMContentLoaded', async () => {
    LOOKUP FLOW
    ============================================================ */
 async function lookupPatient() {
-  const name  = document.getElementById('name').value.trim();
-  const phone = document.getElementById('phone').value.replace(/[-\s]/g, '');
+  const name     = document.getElementById('name').value.trim();
+  const rawPhone = document.getElementById('phone').value.trim();
+  const phone    = rawPhone.replace(/[-\s]/g, '');
 
   let ok = true;
-  if (!name)  { showErr('e_name',  L('e_name'),  'name');  ok = false; } else clearErr('e_name',  'name');
-  if (!phone) { showErr('e_phone', L('e_phone'), 'phone'); ok = false; } else clearErr('e_phone', 'phone');
+  if (!name) { showErr('e_name', L('e_name'), 'name'); ok = false; } else clearErr('e_name', 'name');
+  if (!rawPhone) {
+    showErr('e_phone', L('e_phone'), 'phone'); ok = false;
+  } else if (!I18N[Q.lang].phonePattern.test(phone)) {
+    showErr('e_phone', L('e_phone'), 'phone'); ok = false;
+  } else {
+    clearErr('e_phone', 'phone');
+  }
   if (!ok) return;
 
   const btn = document.getElementById('lookupBtn');
@@ -1067,12 +1074,13 @@ function calcAge() {
   const m = parseInt(document.getElementById('dob_m').value);
   const d = parseInt(document.getElementById('dob_d').value);
   const badge = document.getElementById('ageBadge');
-  if (!y || !m || !d || y < 1900 || y > new Date().getFullYear()) { badge.style.display = 'none'; return; }
+  if (!y || !m || !d || y < 1900 || y > new Date().getFullYear()) { badge.style.display = 'none'; badge.textContent = ''; return; }
   const today = new Date();
   let age = today.getFullYear() - y;
   if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
   if (age < 0 || age > 130) return;
-  badge.dataset.age = age; // Notion送信用に保持（表示はしない）
+  badge.textContent = age + '歳';
+  badge.style.display = 'inline-block';
 }
 
 /* ============================================================

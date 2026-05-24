@@ -319,7 +319,7 @@ function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
     || COURSE_ID_MAP[data.courseId]
     || COURSE_NAME_MAP[data.courseName]
     || data.courseName
-    || 'その他';
+    || '未定';
   const props = {
     '名前':     { title: [{ text: { content: (data.name || '不明') + '（' + patientNum + '）' } }] },
     '日付':     { date: { start: todayStr() } },
@@ -350,8 +350,8 @@ var VALUE_LABEL = {
   // Q2 病歴
   hernia: '椎間板ヘルニア', stenosis: '脊柱管狭窄症', shoulder: '五十肩',
   sciatica: '坐骨神経痛', fracture: '骨折・脱臼',
-  // Q4 目標
-  relax: 'リラックス', posture: '姿勢改善',
+  // Q4 目標（painRelief は Q1 の pain と衝突しないよう別キー）
+  painRelief: '痛みを解消したい', relax: 'リラックス', posture: '姿勢改善',
   // Q6 部位
   neck: '首', rShoulder: '右肩', lShoulder: '左肩', back: '背中',
   waist: '腰', elbow: '肘', wrist: '手首', hip: '股関節',

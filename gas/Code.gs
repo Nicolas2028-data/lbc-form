@@ -18,6 +18,7 @@ const NOTION_VER = '2022-06-28';
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.action === 'lookupPatient')       return jsonRes(handleLookupPatient(data));
     if (data.action === 'submitBooking')       return jsonRes(handleSubmitBooking(data));
     if (data.action === 'submitAll')           return jsonRes(handleSubmitAll(data));
     if (data.action === 'submitQuestionnaire') return jsonRes(handleSubmitQuestionnaire(data));
@@ -60,6 +61,39 @@ function doGet(e) {
   }
 }
 
+/* ── 患者照合 ── */
+
+function handleLookupPatient(data) {
+  const cfg = getConfig();
+  const name  = (data.name  || '').replace(/[\s　]/g, '');
+  const phone = (data.phone || '').replace(/[\s\-\(\)\.]/g, '');
+  if (!name || !phone) return { success: true, found: false };
+
+  const customer = findCustomerByNamePhone(cfg, name, phone);
+  if (!customer) return { success: true, found: false };
+
+  return {
+    success:    true,
+    found:      true,
+    customerId: customer.id,
+    patientNum: getTextProp(customer.properties, '診察番号'),
+    name:       getTextProp(customer.properties, '名前'),
+    furigana:   getTextProp(customer.properties, 'フリガナ'),
+  };
+}
+
+function findCustomerByNamePhone(cfg, normName, normPhone) {
+  const res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, { page_size: 100 });
+  for (var i = 0; i < res.results.length; i++) {
+    var page = res.results[i];
+    var storedName  = getTextProp(page.properties, '名前').replace(/[\s　]/g, '');
+    var storedPhone = ((page.properties['電話番号'] && page.properties['電話番号'].phone_number) || '')
+                       .replace(/[\s\-\(\)\.]/g, '');
+    if (storedName === normName && storedPhone === normPhone) return page;
+  }
+  return null;
+}
+
 /* ── 予約送信 ── */
 
 function handleSubmitBooking(data) {
@@ -91,56 +125,67 @@ function handleSubmitBooking(data) {
   return { success: true, bookingNumber: patientNum };
 }
 
-/* ── 予約＋問診票 一括送信 ── */
+/* ── 問診票送信（スタンドアロン・メインエントリ） ── */
 
 function handleSubmitAll(data) {
   const cfg = getConfig();
+  let customerId = data.customerId || '';
+  let patientNum = data.patientNum || '';
 
-  // 顧客マスタ検索 or 新規作成
-  let customer = data.email ? findCustomerByEmail(cfg, data.email) : null;
-  let customerId, patientNum;
-
-  if (customer) {
-    customerId = customer.id;
-    patientNum = getTextProp(customer.properties, '診察番号');
-    if (!patientNum) {
-      patientNum = generatePatientNumber(cfg);
-      updateCustomerProp(cfg, customerId, { '診察番号': richText(patientNum) });
-    }
-    // 新規フィールドを既存顧客にも更新
-    var updateProps = {};
-    if (data.dob) updateProps['生年月日'] = { date: { start: data.dob } };
-    if (data.furigana) updateProps['フリガナ'] = richText(data.furigana);
-    var addr = [data.addressPref, data.addressCity].filter(Boolean).join(' ');
-    if (addr) updateProps['住所'] = richText(addr);
-    if (data.howFound && data.howFound.length) {
-      updateProps['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: VALUE_LABEL[v] || v }; }) };
-    }
-    if (data.lang) updateProps['言語'] = { select: { name: data.lang } };
-    if (Object.keys(updateProps).length) updateCustomerProp(cfg, customerId, updateProps);
+  if (data.visitType === 'return' && customerId) {
+    // 再来院：照合済み customerId を直接使用。基本情報は更新しない
+    patientNum = patientNum || getTextProp(
+      notionPost(cfg, '/pages/' + customerId, null, 'GET').properties, '診察番号'
+    );
   } else {
-    patientNum = generatePatientNumber(cfg);
-    const page = createCustomer(cfg, data, patientNum);
-    customerId = page.id;
+    // 初回：名前＋電話で再確認してから新規作成
+    var normName  = (data.name  || '').replace(/[\s　]/g, '');
+    var normPhone = (data.phone || '').replace(/[\s\-\(\)\.]/g, '');
+    var existing  = findCustomerByNamePhone(cfg, normName, normPhone);
+
+    if (existing) {
+      customerId = existing.id;
+      patientNum = getTextProp(existing.properties, '診察番号');
+      if (!patientNum) {
+        patientNum = generatePatientNumber(cfg);
+        updateCustomerProp(cfg, customerId, { '診察番号': richText(patientNum) });
+      }
+      var upd = {};
+      if (data.dob) upd['生年月日'] = { date: { start: data.dob } };
+      if (data.furigana) upd['フリガナ'] = richText(data.furigana);
+      var addr = [data.addressPref, data.addressCity].filter(Boolean).join(' ');
+      if (addr) upd['住所'] = richText(addr);
+      if (data.howFound && data.howFound.length)
+        upd['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: VALUE_LABEL[v] || v }; }) };
+      if (data.lang) upd['言語'] = { select: { name: data.lang } };
+      if (Object.keys(upd).length) updateCustomerProp(cfg, customerId, upd);
+    } else {
+      patientNum = generatePatientNumber(cfg);
+      var page = createCustomer(cfg, data, patientNum);
+      customerId = page.id;
+    }
   }
 
-  // カルテ作成（問診票あり）
-  const karte = createKarte(cfg, data, customerId, patientNum, true);
-  const karteId = karte.id;
+  // コース名解決（courseId 優先、courseName フォールバック）
+  data.resolvedCourseName = COURSE_ID_MAP[data.courseId]
+    || COURSE_NAME_MAP[data.courseName]
+    || data.courseName
+    || 'その他';
 
-  // 人体図を Drive に保存
-  let bodyImageUrl = '';
-  if (data.bodyImage && data.bodyImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
+  // カルテ作成
+  var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';
+  var karte = createKarte(cfg, data, customerId, patientNum, hasQ);
+
+  // 人体図保存
+  var bodyImageUrl = '';
+  if (hasQ && data.bodyImage && data.bodyImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
     bodyImageUrl = saveBodyImage(cfg, data.bodyImage, patientNum);
   }
 
-  // カルテページに問診票内容を追記
-  appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl);
+  // 問診票ブロック追記
+  if (hasQ) appendQuestionnaireBlocks(cfg, karte.id, data, bodyImageUrl);
 
-  // 確認メール送信（問診票は送信済みなのでリンク不要）
-  if (data.email) sendBookingEmail(cfg, data, patientNum, false);
-
-  return { success: true, bookingNumber: patientNum };
+  return { success: true, patientNum: patientNum };
 }
 
 /* ── 問診票送信 ── */
@@ -245,7 +290,15 @@ function generatePatientNumber(cfg) {
    Notion — カルテ操作
    ============================================================ */
 
-// コース名：フォームの表示名 → Notionのセレクト選択肢に変換
+// コースID（フォームの value）→ Notion セレクト名
+var COURSE_ID_MAP = {
+  'chiro':   'カイロプラクティック',
+  'fascia':  '筋膜リリース',
+  'cupping': '吸い玉・カッピング',
+  'total':   'トータルケア',
+};
+
+// コース表示名 → Notion セレクト名（後方互換）
 var COURSE_NAME_MAP = {
   'カイロプラクティック': 'カイロプラクティック',
   '筋膜リリース':         '筋膜リリース',
@@ -264,7 +317,11 @@ var COURSE_NAME_MAP = {
 
 function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
   const langMap = { ja: '日本語', es: 'Español', pt: 'Português' };
-  const courseName = COURSE_NAME_MAP[data.courseName] || data.courseName || 'その他';
+  const courseName = data.resolvedCourseName
+    || COURSE_ID_MAP[data.courseId]
+    || COURSE_NAME_MAP[data.courseName]
+    || data.courseName
+    || 'その他';
   const props = {
     '名前':     { title: [{ text: { content: (data.name || '不明') + '（' + patientNum + '）' } }] },
     '日付':     { date: { start: todayStr() } },

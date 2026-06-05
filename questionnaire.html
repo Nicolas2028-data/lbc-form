@@ -71,18 +71,6 @@
     }
     .lang-select:focus { outline: none; }
     .lang-select option { background: #1e5c42; color: var(--white); }
-    .btn-back-header {
-      color: rgba(255,255,255,0.85);
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-decoration: none;
-      padding: 6px 12px;
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 16px;
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-    .btn-back-header:hover { background: rgba(255,255,255,0.15); color: var(--white); }
 
     /* ── Hero ── */
     .hero {
@@ -129,6 +117,11 @@
       gap: 8px;
     }
     .card-title .icon { font-size: 1.1rem; }
+    .section-hint {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
 
     /* ── Form fields ── */
     .form-group { margin-bottom: 16px; }
@@ -160,6 +153,7 @@
     }
     input[type="text"],
     input[type="tel"],
+    input[type="email"],
     input[type="number"],
     textarea, select.field-select {
       width: 100%;
@@ -171,10 +165,11 @@
       background: var(--white);
       transition: border-color 0.15s, box-shadow 0.15s;
       -webkit-appearance: none;
+      appearance: none;
     }
-    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
     input::placeholder, textarea::placeholder { color: #bbb; }
     input:focus, textarea:focus, select.field-select:focus {
       outline: none;
@@ -193,9 +188,11 @@
     .field-error.visible { display: flex; align-items: center; gap: 4px; }
     .field-error::before { content: '!'; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; background:var(--danger); color:var(--white); border-radius:50%; font-size:0.65rem; font-weight:700; flex-shrink:0; }
     .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    textarea { resize: vertical; min-height: 72px; }
 
     /* ── Radio ── */
     .radio-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+    .radio-group-col { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
     .radio-item {
       flex: 1;
       min-width: 100px;
@@ -210,8 +207,9 @@
       transition: all 0.15s;
       user-select: none;
     }
+    .radio-group-col .radio-item { min-width: unset; flex: unset; }
     .radio-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
-    .radio-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
+    .radio-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── Checkboxes ── */
     .check-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
@@ -234,17 +232,8 @@
     .other-text.visible { display: block; }
 
     /* ── DOB row ── */
-    .dob-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .dob-row input[type="number"] {
-      width: auto;
-      padding: 11px 8px;
-      text-align: center;
-    }
+    .dob-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .dob-row input[type="number"] { width: auto; padding: 11px 8px; text-align: center; }
     .dob-y { min-width: 80px; }
     .dob-m, .dob-d { min-width: 56px; }
     .dob-sep { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
@@ -259,60 +248,81 @@
       white-space: nowrap;
     }
 
-    /* ── Pain scale ── */
-    .pain-scale-wrap { margin-top: 6px; }
-    .pain-scale {
+    /* ── Pain slider ── */
+    .pain-slider-wrap { margin-top: 8px; }
+    .pain-value-display {
       display: flex;
-      gap: 8px;
-      margin-bottom: 6px;
+      align-items: baseline;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 10px;
     }
-    .pain-btn {
-      flex: 1;
-      padding: 12px 4px;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--white);
-      font-size: 1.1rem;
-      font-weight: 700;
-      cursor: pointer;
+    .pain-value-num {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .pain-value-label-inline {
+      font-size: 0.82rem;
       color: var(--text-muted);
-      transition: all 0.15s;
     }
-    .pain-btn:hover { border-color: var(--primary); color: var(--primary); }
-    .pain-btn.selected { background: var(--primary); border-color: var(--primary); color: var(--white); }
-    .pain-btn.dim { opacity: 0.35; }
-    .pain-labels {
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+      margin: 4px 0;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(44,122,92,0.4);
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.15); }
+    input[type="range"]::-moz-range-thumb {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      border: none;
+    }
+    .pain-range-labels {
       display: flex;
       justify-content: space-between;
       font-size: 0.75rem;
       color: var(--text-muted);
-      padding: 0 2px;
+      margin-top: 4px;
     }
-    .pain-none-row { margin-bottom: 10px; }
 
     /* ── Canvas body diagram ── */
-    .canvas-section { margin-top: 14px; }
+    .canvas-section { margin-top: 4px; }
     .canvas-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; }
-    .canvas-wrap {
-      display: flex;
-      justify-content: center;
-    }
+    .canvas-wrap { display: flex; justify-content: center; }
     .canvas-inner {
       position: relative;
       display: inline-block;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
       overflow: hidden;
-      background: #f0f7f4;
+      background: #f8faf9;
       cursor: crosshair;
       touch-action: none;
+      width: 100%;
     }
-    canvas#bodyCanvas { display: block; max-width: 100%; }
-    .canvas-controls {
-      display: flex;
-      justify-content: center;
-      margin-top: 8px;
-    }
+    canvas#bodyCanvas { display: block; width: 100%; height: auto; }
+    .canvas-controls { display: flex; justify-content: center; margin-top: 8px; }
     .btn-clear {
       background: var(--white);
       border: 1.5px solid var(--border);
@@ -324,6 +334,81 @@
       transition: all 0.15s;
     }
     .btn-clear:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Signature canvas ── */
+    .sig-wrap {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      cursor: crosshair;
+      touch-action: none;
+      overflow: hidden;
+    }
+    .sig-wrap.is-error { border-color: var(--danger); }
+    canvas#sigCanvas { display: block; width: 100%; height: auto; }
+
+    /* ── Consent section ── */
+    .consent-list {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 4px 0;
+      margin-bottom: 16px;
+    }
+    .consent-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+      color: var(--text-sub);
+      line-height: 1.65;
+    }
+    .consent-item:last-child { border-bottom: none; }
+    .consent-item::before {
+      content: '✓';
+      color: var(--primary);
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    details.consent-details { margin-top: 5px; }
+    details.consent-details summary {
+      font-size: 0.78rem;
+      color: var(--primary);
+      cursor: pointer;
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+    }
+    details.consent-details summary::-webkit-details-marker { display: none; }
+    details.consent-details summary::before { content: '▶'; font-size: 0.6rem; transition: transform 0.2s; }
+    details.consent-details[open] summary::before { transform: rotate(90deg); }
+    .consent-expand-body {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      line-height: 1.65;
+      background: var(--white);
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .consent-agree-row { margin-bottom: 16px; }
+    .consent-agree-check {
+      border-color: var(--primary-mid) !important;
+      background: var(--primary-light);
+      font-weight: 700;
+      white-space: normal !important;
+    }
+    .consent-agree-check:has(input:checked) {
+      border-color: var(--primary) !important;
+      background: var(--primary-light);
+    }
+    .date-row {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+      text-align: right;
+    }
 
     /* ── Submit ── */
     .btn-submit {
@@ -380,6 +465,8 @@
       font-weight: 700;
       text-decoration: none;
       transition: all 0.15s;
+      cursor: pointer;
+      background: none;
     }
     .btn-back:hover { background: var(--primary); color: var(--white); }
 
@@ -393,22 +480,11 @@
       gap: 14px;
       animation: fadeSlideIn 0.3s ease;
     }
-    .banner-icon {
-      font-size: 2rem;
-      flex-shrink: 0;
-    }
+    .banner-icon { font-size: 2rem; flex-shrink: 0; }
     .banner-title { font-weight: 800; font-size: 1rem; }
-    .banner-sub   { font-size: 0.82rem; margin-top: 3px; opacity: 0.85; }
-    .banner.first {
-      background: var(--primary-light);
-      border: 2px solid var(--primary);
-      color: var(--primary-dark);
-    }
-    .banner.return {
-      background: #fffbf0;
-      border: 2px solid var(--accent);
-      color: #7a5000;
-    }
+    .banner-sub { font-size: 0.82rem; margin-top: 3px; opacity: 0.85; }
+    .banner.first { background: var(--primary-light); border: 2px solid var(--primary); color: var(--primary-dark); }
+    .banner.return { background: #fffbf0; border: 2px solid var(--accent); color: #7a5000; }
 
     /* ── Course radio ── */
     .course-item {
@@ -427,12 +503,7 @@
     .course-item:last-child { margin-bottom: 0; }
     .course-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
     .course-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
-    .course-price {
-      margin-left: auto;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--primary-dark);
-    }
+    .course-price { margin-left: auto; font-size: 0.85rem; font-weight: 700; color: var(--primary-dark); }
 
     /* ── Name row (split 姓/名) ── */
     .name-row { display: flex; gap: 8px; }
@@ -477,11 +548,6 @@
 <div class="hero">
   <div class="container" style="padding-bottom:0;padding-top:0">
     <h1 id="heroTitle">問診票</h1>
-    <p id="heroSub">来院前に以下の項目をご記入ください</p>
-    <div class="hero-meta">
-      <span id="heroAddr">📍 〒510-0835 三重県四日市市大井手</span>
-      <span id="heroTel">📞 070-9233-4084</span>
-    </div>
   </div>
 </div>
 
@@ -492,7 +558,6 @@
     <div class="card">
       <div class="card-title"><span class="icon">👤</span><span id="t_namePhone">お名前・連絡先</span></div>
 
-      <!-- 姓・名（分割） -->
       <div class="form-group">
         <div class="field-label"><span id="lbl_nameGroup">お名前</span><span class="badge-req">必須</span></div>
         <div class="name-row">
@@ -509,9 +574,8 @@
         </div>
       </div>
 
-      <!-- フリガナ（分割・任意） -->
       <div class="form-group">
-        <div class="field-label"><span id="lbl_furiganaGroup">フリガナ</span><span class="badge-req">必須</span></div>
+        <div class="field-label"><span id="lbl_furiganaGroup">フリガナ</span><span id="furiganaBadge" class="badge-req">必須</span></div>
         <div class="name-row">
           <div class="name-col">
             <div class="field-sub-label" id="lbl_seiKana">姓</div>
@@ -526,10 +590,9 @@
         </div>
       </div>
 
-      <!-- 電話番号 -->
       <div class="form-group" style="margin-bottom:0">
         <div class="field-label"><span id="lbl_phone">電話番号</span><span class="badge-req">必須</span></div>
-        <input type="tel" id="phone" autocomplete="tel">
+        <input type="tel" id="phone" autocomplete="tel" inputmode="numeric" oninput="formatPhone(this)">
         <div class="field-error" id="e_phone"></div>
       </div>
     </div>
@@ -578,11 +641,11 @@
     <!-- 体の変化（再来院のみ） -->
     <div class="card" id="changesCard" style="display:none">
       <div class="card-title"><span class="icon">🔄</span><span id="t_changes">前回からの体の変化</span></div>
-      <p style="font-size:0.88rem;color:var(--text-sub);margin-bottom:12px" id="t_changesQ">前回の来院から、体の変化や新しい症状はありますか？</p>
+      <p class="section-hint" id="t_changesQ">前回の来院から、体の変化や新しい症状はありますか？</p>
       <div class="radio-group">
         <label class="radio-item">
           <input type="radio" name="changes" value="no" onchange="toggleChanges()">
-          <span id="changes_no">なし（そのまま送信できます）</span>
+          <span id="changes_no">なし（そのまま進めます）</span>
         </label>
         <label class="radio-item">
           <input type="radio" name="changes" value="yes" onchange="toggleChanges()">
@@ -596,163 +659,224 @@
     <div class="card" id="basicCard" style="display:none">
       <div class="card-title"><span class="icon">📋</span><span id="t_basic">基本情報</span></div>
 
+      <!-- 生年月日 -->
       <div class="form-group">
         <div class="field-label"><span id="lbl_dob">生年月日</span><span class="badge-req">必須</span></div>
         <div class="dob-row">
-          <input type="number" class="dob-y" id="dob_y" placeholder="1990" min="1900" oninput="calcAge()">
+          <input type="number" class="dob-y" id="dob_y" placeholder="1990" min="1900" inputmode="numeric" oninput="calcAge()">
           <span class="dob-sep" id="sep_y">年</span>
-          <input type="number" class="dob-m" id="dob_m" placeholder="1" min="1" max="12" oninput="calcAge()">
+          <input type="number" class="dob-m" id="dob_m" placeholder="1" min="1" max="12" inputmode="numeric" oninput="calcAge()">
           <span class="dob-sep" id="sep_m">月</span>
-          <input type="number" class="dob-d" id="dob_d" placeholder="1" min="1" max="31" oninput="calcAge()">
+          <input type="number" class="dob-d" id="dob_d" placeholder="1" min="1" max="31" inputmode="numeric" oninput="calcAge()">
           <span class="dob-sep" id="sep_d">日</span>
           <span id="ageBadge" class="age-badge" style="display:none"></span>
         </div>
         <div class="field-error" id="e_dob"></div>
       </div>
 
+      <!-- メールアドレス -->
       <div class="form-group">
-        <div class="field-label"><span id="lbl_address">住所</span><span class="badge-opt">任意</span></div>
-        <input type="text" id="address_pref" style="margin-bottom:8px">
-        <input type="text" id="address_city">
+        <div class="field-label"><span id="lbl_email">メールアドレス</span><span class="badge-opt">任意</span></div>
+        <input type="email" id="email" autocomplete="email">
       </div>
 
+      <!-- 来院のきっかけ -->
       <div class="form-group" style="margin-bottom:0">
-        <div class="field-label"><span id="lbl_howFound">来院のきっかけ</span><span class="badge-req">必須</span></div>
-        <div class="check-group">
-          <label class="check-item"><input type="checkbox" name="howFound" value="kuchikomi"><span id="how_kuchikomi">口コミ</span></label>
-          <label class="check-item"><input type="checkbox" name="howFound" value="instagram"><span id="how_instagram">Instagram</span></label>
-          <label class="check-item"><input type="checkbox" name="howFound" value="shokai"><span id="how_shokai">紹介</span></label>
-          <label class="check-item"><input type="checkbox" name="howFound" value="kanban"><span id="how_kanban">看板</span></label>
-          <label class="check-item"><input type="checkbox" name="howFound" value="other"><span id="how_other_found">その他</span></label>
+        <div class="field-label"><span id="lbl_howFound">当店をどこで知りましたか？</span><span class="badge-req">必須</span></div>
+        <div class="radio-group-col">
+          <label class="radio-item"><input type="radio" name="howFound" value="instagram" onchange="toggleHowFoundExtra()"><span id="how_instagram">Instagram</span></label>
+          <label class="radio-item"><input type="radio" name="howFound" value="google" onchange="toggleHowFoundExtra()"><span id="how_google">Google</span></label>
+          <label class="radio-item"><input type="radio" name="howFound" value="google_maps" onchange="toggleHowFoundExtra()"><span id="how_google_maps">Google Maps</span></label>
+          <label class="radio-item"><input type="radio" name="howFound" value="referral" onchange="toggleHowFoundExtra()"><span id="how_referral">紹介</span></label>
+          <label class="radio-item"><input type="radio" name="howFound" value="other" onchange="toggleHowFoundExtra()"><span id="how_other_found">その他</span></label>
+        </div>
+        <div id="referrer_wrap" style="display:none;margin-top:8px">
+          <input type="text" id="referrerName">
+        </div>
+        <div id="howFound_other_wrap" style="display:none;margin-top:8px">
+          <input type="text" id="howFoundOther">
         </div>
         <div class="field-error" id="e_howFound"></div>
       </div>
     </div>
 
-    <!-- Q1〜Q6（初回は常に表示、再来院は変化あり時のみ） -->
+    <!-- ═══ Q セクション（初回は常に表示、再来院は変化ありのみ） ═══ -->
     <div id="qSection" style="display:none">
 
-  <!-- ── Q1 ── -->
-  <div class="card">
-    <div class="card-title"><span class="icon">🩺</span><span id="t_q1">Q1. 現在、お体で気になる症状（怪我・病気等）はありますか？</span></div>
-    <div class="check-group" id="q1_group">
-      <label class="check-item"><input type="checkbox" name="q1" value="none" id="q1_none_chk" onchange="handleNone('q1','q1_none_chk')"><span id="q1_none">なし</span></label>
-      <label class="check-item"><input type="checkbox" name="q1" value="fever" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_fever">発熱</span></label>
-      <label class="check-item"><input type="checkbox" name="q1" value="pain" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_pain">激しい痛み</span></label>
-      <label class="check-item"><input type="checkbox" name="q1" value="swelling" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_swelling">炎症・腫れ</span></label>
-      <label class="check-item"><input type="checkbox" name="q1" value="pregnant" class="q1_other_cb" onchange="handleOther('q1')"><span id="q1_pregnant">妊娠中</span></label>
-      <label class="check-item"><input type="checkbox" name="q1" value="other" class="q1_other_cb q1_text_trigger" onchange="handleOther('q1'); toggleOtherText('q1')"><span id="q1_other_label">その他</span></label>
-    </div>
-    <div class="other-text" id="q1_other_wrap">
-      <input type="text" id="q1_other_text">
-    </div>
-  </div>
+      <!-- ── 2. 本日のお悩み ── -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🩺</span><span id="t_s2">2. 本日のお悩み</span></div>
 
-  <!-- ── Q2 ── -->
-  <div class="card">
-    <div class="card-title"><span class="icon">📋</span><span id="t_q2">Q2. 医師の診断、または過去に大きな病気や怪我はありますか？</span></div>
-    <div class="check-group" id="q2_group">
-      <label class="check-item"><input type="checkbox" name="q2" value="none" id="q2_none_chk" onchange="handleNone('q2','q2_none_chk')"><span id="q2_none">なし</span></label>
-      <label class="check-item"><input type="checkbox" name="q2" value="hernia" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_hernia">椎間板ヘルニア</span></label>
-      <label class="check-item"><input type="checkbox" name="q2" value="stenosis" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_stenosis">脊柱管狭窄症</span></label>
-      <label class="check-item"><input type="checkbox" name="q2" value="shoulder" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_shoulder">五十肩</span></label>
-      <label class="check-item"><input type="checkbox" name="q2" value="sciatica" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_sciatica">坐骨神経痛</span></label>
-      <label class="check-item"><input type="checkbox" name="q2" value="fracture" class="q2_other_cb" onchange="handleOther('q2')"><span id="q2_fracture">骨折・脱臼</span></label>
-      <label class="check-item"><input type="checkbox" name="q2" value="other" class="q2_other_cb q2_text_trigger" onchange="handleOther('q2'); toggleOtherText('q2')"><span id="q2_other_label">その他</span></label>
-    </div>
-    <div class="other-text" id="q2_other_wrap">
-      <input type="text" id="q2_other_text">
-    </div>
-  </div>
-
-  <!-- ── Q3 ── -->
-  <div class="card">
-    <div class="card-title"><span class="icon">💢</span><span id="t_q3">Q3. 現在、痛みはありますか？</span></div>
-    <div class="radio-group">
-      <label class="radio-item">
-        <input type="radio" name="q3" value="none" checked onchange="toggleQ3Where()">
-        <span id="q3_none">なし</span>
-      </label>
-      <label class="radio-item">
-        <input type="radio" name="q3" value="yes" onchange="toggleQ3Where()">
-        <span id="q3_yes">あり</span>
-      </label>
-    </div>
-    <div id="q3_where_wrap" style="margin-top:10px;display:none">
-      <input type="text" id="q3_where">
-    </div>
-  </div>
-
-  <!-- ── Q4 ── -->
-  <div class="card">
-    <div class="card-title"><span class="icon">🎯</span><span id="t_q4">Q4. 本日の施術で、何を解決したいですか？（複数可）</span></div>
-    <div class="check-group" id="q4_group">
-      <label class="check-item"><input type="checkbox" name="q4" value="painRelief"><span id="q4_pain">痛みを解消したい</span></label>
-      <label class="check-item"><input type="checkbox" name="q4" value="relax"><span id="q4_relax">体をリラックスさせたい</span></label>
-      <label class="check-item"><input type="checkbox" name="q4" value="posture"><span id="q4_posture">姿勢を改善したい</span></label>
-      <label class="check-item"><input type="checkbox" name="q4" value="other" class="q4_text_trigger" onchange="toggleOtherText('q4')"><span id="q4_other">その他</span></label>
-    </div>
-    <div class="other-text" id="q4_other_wrap">
-      <input type="text" id="q4_other_text">
-    </div>
-  </div>
-
-  <!-- ── Q5 ── -->
-  <div class="card">
-    <div class="card-title"><span class="icon">📊</span><span id="t_q5">Q5. 現在の痛みの強さを教えてください（5段階）</span></div>
-    <div class="pain-scale-wrap">
-      <div class="pain-none-row">
-        <label class="check-item" style="display:inline-flex">
-          <input type="checkbox" id="q5_no_pain" onchange="togglePainScale()">
-          <span id="q5_none">痛みなし</span>
-        </label>
-      </div>
-      <div id="painScaleArea">
-        <div class="pain-scale">
-          <button type="button" class="pain-btn" data-val="1">1</button>
-          <button type="button" class="pain-btn" data-val="2">2</button>
-          <button type="button" class="pain-btn" data-val="3">3</button>
-          <button type="button" class="pain-btn" data-val="4">4</button>
-          <button type="button" class="pain-btn" data-val="5">5</button>
+        <!-- ① 人体図 -->
+        <div class="form-group">
+          <div class="field-label"><span id="lbl_bodyMap">① 痛みや気になる部位を図にタッチして描いてください</span><span class="badge-opt">任意</span></div>
+          <div class="canvas-section">
+            <div class="canvas-hint" id="q_drawHint">前面・背面の気になる箇所に赤ペンでマークしてください</div>
+            <div class="canvas-wrap">
+              <div class="canvas-inner">
+                <canvas id="bodyCanvas"></canvas>
+              </div>
+            </div>
+            <div class="canvas-controls">
+              <button type="button" class="btn-clear" onclick="clearCanvas()">🗑 <span id="q_clear">描き直す</span></button>
+            </div>
+          </div>
         </div>
-        <div class="pain-labels">
-          <span id="q5_weak">弱</span>
-          <span id="q5_strong">強</span>
+
+        <!-- ② 主症状 -->
+        <div class="form-group">
+          <div class="field-label"><span id="lbl_mainSymptom">② 現在一番気になる症状</span><span class="badge-req">必須</span></div>
+          <div class="radio-group">
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="shoulder_stiff" onchange="toggleMainSymptomOther()"><span id="sym_shoulder">肩こり</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="lower_back" onchange="toggleMainSymptomOther()"><span id="sym_lower_back">腰痛</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="neck_stiff" onchange="toggleMainSymptomOther()"><span id="sym_neck">首こり</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="headache" onchange="toggleMainSymptomOther()"><span id="sym_headache">頭痛</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="posture" onchange="toggleMainSymptomOther()"><span id="sym_posture">姿勢</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="fatigue" onchange="toggleMainSymptomOther()"><span id="sym_fatigue">疲労</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="swelling" onchange="toggleMainSymptomOther()"><span id="sym_swelling">むくみ</span></label>
+            <label class="radio-item"><input type="radio" name="mainSymptom" value="other" onchange="toggleMainSymptomOther()"><span id="sym_other">その他</span></label>
+          </div>
+          <div class="other-text" id="mainSymptom_other_wrap">
+            <input type="text" id="mainSymptom_other_text">
+          </div>
+          <div class="field-error" id="e_mainSymptom"></div>
+        </div>
+
+        <!-- ③ いつから -->
+        <div class="form-group">
+          <div class="field-label"><span id="lbl_symptomDuration">③ 症状はいつ頃からですか？</span><span class="badge-req">必須</span></div>
+          <div class="radio-group">
+            <label class="radio-item"><input type="radio" name="symptomDuration" value="within_week"><span id="dur_week">1週間以内</span></label>
+            <label class="radio-item"><input type="radio" name="symptomDuration" value="within_month"><span id="dur_month">1ヶ月以内</span></label>
+            <label class="radio-item"><input type="radio" name="symptomDuration" value="over_month"><span id="dur_over_month">1ヶ月以上</span></label>
+            <label class="radio-item"><input type="radio" name="symptomDuration" value="over_half_year"><span id="dur_half_year">半年以上</span></label>
+          </div>
+          <div class="field-error" id="e_symptomDuration"></div>
+        </div>
+
+        <!-- ④ 痛み・つらさレベル -->
+        <div class="form-group" style="margin-bottom:0">
+          <div class="field-label"><span id="lbl_painLevel">④ 痛み・つらさレベル（0〜10）</span><span class="badge-opt">任意</span></div>
+          <div class="pain-slider-wrap">
+            <div class="pain-value-display">
+              <span class="pain-value-num" id="painValueNum">0</span>
+              <span class="pain-value-label-inline" id="painValueLabel">気にならない</span>
+            </div>
+            <input type="range" id="painRange" min="0" max="10" step="1" value="0" oninput="updatePainDisplay()">
+            <div class="pain-range-labels">
+              <span id="pain_min_label">0 = 気にならない</span>
+              <span id="pain_max_label">10 = かなりつらい</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── Q6 ── -->
-  <div class="card">
-    <div class="card-title"><span class="icon">🦴</span><span id="t_q6">Q6. 痛みがある部位を選択してください（複数可）</span></div>
-    <div class="check-group">
-      <label class="check-item"><input type="checkbox" name="q6" value="neck"><span id="q6_neck">首</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="rShoulder"><span id="q6_rShoulder">右肩</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="lShoulder"><span id="q6_lShoulder">左肩</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="back"><span id="q6_back">背中</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="waist"><span id="q6_waist">腰</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="elbow"><span id="q6_elbow">肘</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="wrist"><span id="q6_wrist">手首</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="hip"><span id="q6_hip">股関節</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="knee"><span id="q6_knee">膝</span></label>
-      <label class="check-item"><input type="checkbox" name="q6" value="ankle"><span id="q6_ankle">足首</span></label>
-    </div>
-
-    <div class="canvas-section">
-      <div class="canvas-hint" id="q6_drawHint">人体図に痛みのある部位を描いてください（任意・赤ペン）</div>
-      <div class="canvas-wrap">
-        <div class="canvas-inner">
-          <canvas id="bodyCanvas" width="240" height="360"></canvas>
+      <!-- ── 3. 安全確認 ── -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🔒</span><span id="t_s3">3. 安全確認</span></div>
+        <p class="section-hint" id="s3_hint">当てはまるものをすべて選択してください</p>
+        <div class="check-group">
+          <label class="check-item"><input type="checkbox" name="safety" value="pregnant" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_pregnant">妊娠中／妊娠の可能性</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="hospital" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_hospital">通院中</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="osteoporosis" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_osteoporosis">骨粗しょう症</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="blood_thinner" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_blood_thinner">血液をサラサラにする薬を服用</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="numbness" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_numbness">強いしびれ</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="recent_injury" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_injury">最近の怪我・手術</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="none" id="safety_none_chk" onchange="handleSafetyNone()"><span id="safety_none">特になし</span></label>
+        </div>
+        <div class="field-error" id="e_safety"></div>
+        <div class="form-group" style="margin-top:14px;margin-bottom:0">
+          <div class="field-label"><span id="lbl_safetyNote">持病・気になること</span><span class="badge-opt">任意</span></div>
+          <textarea id="safetyNote" rows="2"></textarea>
         </div>
       </div>
-      <div class="canvas-controls">
-        <button type="button" class="btn-clear" id="btnClear" onclick="clearCanvas()">🗑 <span id="q6_clear">描き直す</span></button>
+
+      <!-- ── 4. 本日のご希望 ── -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🎯</span><span id="t_s4">4. 本日のご希望</span></div>
+
+        <!-- 施術の目的 -->
+        <div class="form-group">
+          <div class="field-label"><span id="lbl_treatmentGoal">施術の目的</span><span class="badge-req">必須</span></div>
+          <div class="radio-group-col">
+            <label class="radio-item"><input type="radio" name="treatmentGoal" value="relax"><span id="goal_relax">リラックスしたい</span></label>
+            <label class="radio-item"><input type="radio" name="treatmentGoal" value="pain_relief"><span id="goal_pain">痛みを改善したい</span></label>
+            <label class="radio-item"><input type="radio" name="treatmentGoal" value="posture_goal"><span id="goal_posture">姿勢を整えたい</span></label>
+            <label class="radio-item"><input type="radio" name="treatmentGoal" value="root_cause"><span id="goal_root">根本改善を目指したい</span></label>
+            <label class="radio-item"><input type="radio" name="treatmentGoal" value="maintenance"><span id="goal_maintenance">身体のメンテナンス</span></label>
+          </div>
+          <div class="field-error" id="e_treatmentGoal"></div>
+        </div>
+
+        <!-- 施術の強さ希望 -->
+        <div class="form-group">
+          <div class="field-label"><span id="lbl_treatmentStrength">施術の強さ希望</span><span class="badge-req">必須</span></div>
+          <div class="radio-group">
+            <label class="radio-item"><input type="radio" name="treatmentStrength" value="light"><span id="strength_light">弱め</span></label>
+            <label class="radio-item"><input type="radio" name="treatmentStrength" value="normal"><span id="strength_normal">普通</span></label>
+            <label class="radio-item"><input type="radio" name="treatmentStrength" value="strong"><span id="strength_strong">強め</span></label>
+          </div>
+          <div class="field-error" id="e_treatmentStrength"></div>
+        </div>
+
+        <!-- 苦手な施術 -->
+        <div class="form-group" style="margin-bottom:0">
+          <div class="field-label"><span id="lbl_disliked">苦手な施術</span><span class="badge-req">必須</span></div>
+          <div class="check-group">
+            <label class="check-item"><input type="checkbox" name="disliked" value="strong_pressure" class="disliked_other_cb" onchange="handleDislikedOther()"><span id="dis_pressure">強い圧</span></label>
+            <label class="check-item"><input type="checkbox" name="disliked" value="joint_adjustment" class="disliked_other_cb" onchange="handleDislikedOther()"><span id="dis_joint">関節調整（ボキボキ）</span></label>
+            <label class="check-item"><input type="checkbox" name="disliked" value="none" id="disliked_none_chk" onchange="handleDislikedNone()"><span id="dis_none">特になし</span></label>
+          </div>
+          <div class="field-error" id="e_disliked"></div>
+        </div>
       </div>
-    </div>
-  </div>
 
     </div><!-- /qSection -->
+
+    <!-- ═══ 5. 同意事項（常に表示） ═══ -->
+    <div id="consentSection" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📜</span><span id="t_s5">5. 同意事項</span></div>
+
+        <div class="consent-list">
+          <div class="consent-item">
+            <span id="consent_1">当店の施術は医療行為ではありません。</span>
+            <details class="consent-details">
+              <summary id="consent_1_expand">「医療行為とは」を確認する</summary>
+              <div class="consent-expand-body" id="consent_1_body">侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。</div>
+            </details>
+          </div>
+          <div class="consent-item"><span id="consent_2">身体状態により施術内容を変更または中止する場合があります。</span></div>
+          <div class="consent-item"><span id="consent_3">吸い玉（カッピング）は1〜2週間跡が残る場合があります。</span></div>
+          <div class="consent-item"><span id="consent_4">施術後にだるさや筋肉痛のような反応（好転反応）が出る場合があります。</span></div>
+          <div class="consent-item"><span id="consent_5">貴重品の管理はご自身でお願いいたします。</span></div>
+        </div>
+
+        <div class="consent-agree-row">
+          <label class="check-item consent-agree-check" style="white-space:normal">
+            <input type="checkbox" id="consentCheck" onchange="clearErr('e_consent')">
+            <span id="lbl_consentAgree">上記の内容に同意します</span>
+          </label>
+          <div class="field-error" id="e_consent"></div>
+        </div>
+
+        <div class="form-group">
+          <div class="field-label"><span id="lbl_signature">署名</span><span class="badge-req">必須</span></div>
+          <div class="canvas-hint" id="sig_hint">枠内に署名してください</div>
+          <div class="sig-wrap" id="sigWrap">
+            <canvas id="sigCanvas" width="560" height="140"></canvas>
+          </div>
+          <div class="canvas-controls" style="margin-top:8px">
+            <button type="button" class="btn-clear" onclick="clearSig()">🗑 <span id="sig_clear">書き直す</span></button>
+          </div>
+          <div class="field-error" id="e_signature"></div>
+        </div>
+
+        <div class="date-row">
+          <span id="lbl_date">日付：</span><span id="todayDate"></span>
+        </div>
+      </div>
+    </div><!-- /consentSection -->
 
     <!-- ── Submit ── -->
     <div class="card">
@@ -772,7 +896,7 @@
 <div id="successScreen">
   <div class="success-anim">✓</div>
   <div class="success-title" id="s_title">問診票を受け付けました！</div>
-  <div class="success-msg" id="s_msg">ありがとうございます。当日は何もお持ちいただく必要はありません。</div>
+  <div class="success-msg" id="s_msg">ありがとうございます。スタッフにお声がけください。</div>
   <button class="btn-back" id="s_back" onclick="location.reload()">ホームに戻る</button>
 </div>
 
@@ -792,8 +916,7 @@ const CONFIG = {
 const I18N = {
   ja: {
     pageTitle: 'LBC整体院 – 問診票',
-    heroTitle: '問診票', heroSub: '来院前に以下の項目をご記入ください',
-    heroAddr: '📍 〒510-0835 三重県四日市市大井手', heroTel: '📞 TEL: 070-9233-4084',
+    heroTitle: '問診票',
     t_namePhone: 'お名前・連絡先',
     lbl_nameGroup: 'お名前', lbl_sei: '姓', lbl_mei: '名',
     lbl_furiganaGroup: 'フリガナ', lbl_seiKana: '姓', lbl_meiKana: '名', lbl_phone: '電話番号',
@@ -810,44 +933,79 @@ const I18N = {
     e_course: 'コースを選択してください',
     t_changes: '前回からの体の変化',
     t_changesQ: '前回の来院から、体の変化や新しい症状はありますか？',
-    changes_no: 'なし（そのまま送信できます）', changes_yes: 'あり（問診票を記入します）',
+    changes_no: 'なし（そのまま進めます）', changes_yes: 'あり（問診票を記入します）',
     e_changes: '選択してください',
-    t_basic: '基本情報',
-    lbl_dob: '生年月日', lbl_address: '住所', lbl_howFound: '来院のきっかけ',
+    t_basic: '1. 基本情報',
+    lbl_dob: '生年月日',
     req: '必須', opt: '任意',
     sep_y: '年', sep_m: '月', sep_d: '日',
-    ph_pref: '都道府県（例: 三重県）', ph_city: '市区町村以降（例: 四日市市大井手）',
-    how_kuchikomi: '口コミ', how_instagram: 'Instagram', how_shokai: '紹介', how_kanban: '看板', how_other_found: 'その他',
-    e_dob: '生年月日を入力してください', e_howFound: '来院のきっかけを選択してください',
-    t_q1: 'Q1. 現在、お体で気になる症状（怪我・病気等）はありますか？',
-    q1_none: 'なし', q1_fever: '発熱', q1_pain: '激しい痛み', q1_swelling: '炎症・腫れ', q1_pregnant: '妊娠中', q1_other_label: 'その他', ph_q1: '具体的にご記入ください',
-    t_q2: 'Q2. 医師の診断、または過去に大きな病気や怪我はありますか？',
-    q2_none: 'なし', q2_hernia: '椎間板ヘルニア', q2_stenosis: '脊柱管狭窄症', q2_shoulder: '五十肩', q2_sciatica: '坐骨神経痛', q2_fracture: '骨折・脱臼', q2_other_label: 'その他', ph_q2: '病名・状態をご記入ください',
-    t_q3: 'Q3. 現在、痛みはありますか？',
-    q3_none: 'なし', q3_yes: 'あり', ph_q3: 'どこが痛みますか？（例: 腰、左肩）',
-    t_q4: 'Q4. 本日の施術で、何を解決したいですか？（複数可）',
-    q4_pain: '痛みを解消したい', q4_relax: '体をリラックスさせたい', q4_posture: '姿勢を改善したい', q4_other: 'その他', ph_q4: '具体的にご記入ください',
-    t_q5: 'Q5. 現在の痛みの強さを教えてください（5段階）',
-    q5_none: '痛みなし', q5_weak: '弱', q5_strong: '強',
-    t_q6: 'Q6. 痛みがある部位を選択してください（複数可）',
-    q6_neck: '首', q6_rShoulder: '右肩', q6_lShoulder: '左肩', q6_back: '背中', q6_waist: '腰', q6_elbow: '肘', q6_wrist: '手首', q6_hip: '股関節', q6_knee: '膝', q6_ankle: '足首',
-    q6_drawHint: '人体図に痛みのある部位を描いてください（任意・赤ペン）', q6_clear: '描き直す',
+    e_dob: '生年月日を入力してください',
+    lbl_email: 'メールアドレス', ph_email: 'example@mail.com',
+    lbl_howFound: '当店をどこで知りましたか？',
+    how_instagram: 'Instagram', how_google: 'Google', how_google_maps: 'Google Maps',
+    how_referral: '紹介', how_other_found: 'その他',
+    ph_referrer: '紹介者名をご記入ください', ph_howFound_other: '具体的にご記入ください',
+    e_howFound: '選択してください',
+    t_s2: '2. 本日のお悩み',
+    lbl_bodyMap: '① 痛みや気になる部位を図にタッチして描いてください',
+    q_drawHint: '前面・背面の気になる箇所に赤ペンでマークしてください（任意）', q_clear: '描き直す',
+    lbl_mainSymptom: '② 現在一番気になる症状',
+    sym_shoulder: '肩こり', sym_lower_back: '腰痛', sym_neck: '首こり', sym_headache: '頭痛',
+    sym_posture: '姿勢', sym_fatigue: '疲労', sym_swelling: 'むくみ', sym_other: 'その他',
+    ph_mainSymptom_other: '具体的にご記入ください',
+    e_mainSymptom: '症状を選択してください',
+    lbl_symptomDuration: '③ 症状はいつ頃からですか？',
+    dur_week: '1週間以内', dur_month: '1ヶ月以内', dur_over_month: '1ヶ月以上', dur_half_year: '半年以上',
+    e_symptomDuration: '期間を選択してください',
+    lbl_painLevel: '④ 痛み・つらさレベル（0〜10）',
+    pain_min_label: '0 = 気にならない', pain_max_label: '10 = かなりつらい',
+    pain_labels: ['気にならない','','','少し気になる','','','つらい','','','かなりつらい','非常につらい'],
+    t_s3: '3. 安全確認',
+    s3_hint: '当てはまるものをすべて選択してください',
+    safety_pregnant: '妊娠中／妊娠の可能性', safety_hospital: '通院中',
+    safety_osteoporosis: '骨粗しょう症', safety_blood_thinner: '血液をサラサラにする薬を服用',
+    safety_numbness: '強いしびれ', safety_injury: '最近の怪我・手術', safety_none: '特になし',
+    lbl_safetyNote: '持病・気になること',
+    e_safety: '選択してください（「特になし」を含む）',
+    t_s4: '4. 本日のご希望',
+    lbl_treatmentGoal: '施術の目的',
+    goal_relax: 'リラックスしたい', goal_pain: '痛みを改善したい', goal_posture: '姿勢を整えたい',
+    goal_root: '根本改善を目指したい', goal_maintenance: '身体のメンテナンス',
+    e_treatmentGoal: '施術の目的を選択してください',
+    lbl_treatmentStrength: '施術の強さ希望',
+    strength_light: '弱め', strength_normal: '普通', strength_strong: '強め',
+    e_treatmentStrength: '施術の強さを選択してください',
+    lbl_disliked: '苦手な施術',
+    dis_pressure: '強い圧', dis_joint: '関節調整（ボキボキ）', dis_none: '特になし',
+    e_disliked: '選択してください（「特になし」を含む）',
+    t_s5: '5. 同意事項',
+    consent_1: '当店の施術は医療行為ではありません。',
+    consent_1_expand: '「医療行為とは」を確認する',
+    consent_1_body: '侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。',
+    consent_2: '身体状態により施術内容を変更または中止する場合があります。',
+    consent_3: '吸い玉（カッピング）は1〜2週間跡が残る場合があります。',
+    consent_4: '施術後にだるさや筋肉痛のような反応（好転反応）が出る場合があります。',
+    consent_5: '貴重品の管理はご自身でお願いいたします。',
+    lbl_consentAgree: '上記の内容に同意します',
+    e_consent: '同意のチェックが必要です',
+    lbl_signature: '署名', sig_hint: '枠内に署名してください', sig_clear: '書き直す',
+    e_signature: '署名が必要です',
+    lbl_date: '日付：',
     t_submitting: '送信中...', l_submit: '問診票を送信する',
-    s_title: '問診票を受け付けました！', s_msg: 'ありがとうございます。当日は何もお持ちいただく必要はありません。', s_back: 'ホームに戻る',
+    s_title: '問診票を受け付けました！', s_msg: 'ありがとうございます。スタッフにお声がけください。', s_back: 'ホームに戻る',
     err_net: '通信エラーが発生しました。再度お試しください。', err_srv: 'サーバーエラーが発生しました。',
     err_lookup: '照合中にエラーが発生しました。再度お試しください。',
     phonePattern: /^0\d{9,10}$/,
   },
   es: {
     pageTitle: 'LBC Care – Cuestionario',
-    heroTitle: 'Cuestionario médico', heroSub: 'Por favor complete los campos antes de su visita',
-    heroAddr: '📍 〒510-0835 Mie-ken Yokkaichi-shi Ooide', heroTel: '📞 TEL: 070-9233-4084',
+    heroTitle: 'Cuestionario médico',
     t_namePhone: 'Nombre y contacto',
     lbl_nameGroup: 'Nombre completo', lbl_sei: 'Apellido', lbl_mei: 'Nombre',
     lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Apellido', lbl_meiKana: 'Nombre', lbl_phone: 'Teléfono',
     ph_sei: 'Apellido', ph_mei: 'Nombre', ph_seiKana: '(opcional)', ph_meiKana: '(opcional)', ph_phone: 'Ej: 090-1234-5678',
     e_sei: 'Ingrese su apellido', e_mei: 'Ingrese su nombre',
-    e_seiKana: 'Ingrese el furigana del apellido', e_meiKana: 'Ingrese el furigana del nombre',
+    e_seiKana: 'Furigana del apellido', e_meiKana: 'Furigana del nombre',
     e_phone: 'Ingrese su teléfono',
     l_lookup: 'Continuar', t_lookingUp: 'Verificando...',
     t_firstBanner: 'Lo registraremos como cliente nuevo',
@@ -858,44 +1016,83 @@ const I18N = {
     e_course: 'Seleccione un servicio',
     t_changes: 'Cambios desde la última visita',
     t_changesQ: '¿Ha tenido algún cambio o nuevo síntoma desde su última visita?',
-    changes_no: 'No (puede enviar directamente)', changes_yes: 'Sí (completar cuestionario)',
+    changes_no: 'No (continuar directamente)', changes_yes: 'Sí (completar cuestionario)',
     e_changes: 'Seleccione una opción',
-    t_basic: 'Información básica',
-    lbl_dob: 'Fecha de nacimiento', lbl_address: 'Dirección', lbl_howFound: '¿Cómo nos conoció?',
+    t_basic: '1. Información básica',
+    lbl_dob: 'Fecha de nacimiento',
     req: 'Req.', opt: 'Opc.',
     sep_y: '/', sep_m: '/', sep_d: '',
-    ph_pref: 'Ciudad / Prefectura', ph_city: 'Dirección detallada',
-    how_kuchikomi: 'Recomendación', how_instagram: 'Instagram', how_shokai: 'Referido', how_kanban: 'Cartel', how_other_found: 'Otro',
-    e_dob: 'Ingrese su fecha de nacimiento', e_howFound: 'Seleccione cómo nos conoció',
-    t_q1: 'P1. ¿Tiene algún síntoma actual (lesión, enfermedad, etc.)?',
-    q1_none: 'Ninguno', q1_fever: 'Fiebre', q1_pain: 'Dolor intenso', q1_swelling: 'Inflamación', q1_pregnant: 'Embarazada', q1_other_label: 'Otro', ph_q1: 'Especifique',
-    t_q2: 'P2. ¿Ha tenido alguna enfermedad o lesión importante diagnosticada?',
-    q2_none: 'Ninguna', q2_hernia: 'Hernia de disco', q2_stenosis: 'Estenosis espinal', q2_shoulder: 'Hombro congelado', q2_sciatica: 'Ciática', q2_fracture: 'Fractura/Luxación', q2_other_label: 'Otro', ph_q2: 'Nombre y estado',
-    t_q3: 'P3. ¿Tiene dolor actualmente?',
-    q3_none: 'No', q3_yes: 'Sí', ph_q3: '¿Dónde le duele? (ej: cintura, hombro izquierdo)',
-    t_q4: 'P4. ¿Qué desea resolver con el tratamiento de hoy? (múltiple)',
-    q4_pain: 'Aliviar el dolor', q4_relax: 'Relajar el cuerpo', q4_posture: 'Mejorar la postura', q4_other: 'Otro', ph_q4: 'Especifique',
-    t_q5: 'P5. ¿Cuál es su nivel de dolor actual? (escala 1-5)',
-    q5_none: 'Sin dolor', q5_weak: 'Leve', q5_strong: 'Intenso',
-    t_q6: 'P6. Seleccione las zonas con dolor (múltiple)',
-    q6_neck: 'Cuello', q6_rShoulder: 'Hombro D', q6_lShoulder: 'Hombro I', q6_back: 'Espalda', q6_waist: 'Cintura', q6_elbow: 'Codo', q6_wrist: 'Muñeca', q6_hip: 'Cadera', q6_knee: 'Rodilla', q6_ankle: 'Tobillo',
-    q6_drawHint: 'Marque en la figura las zonas con dolor (opcional)', q6_clear: 'Borrar',
+    e_dob: 'Ingrese su fecha de nacimiento',
+    lbl_email: 'Correo electrónico', ph_email: 'ejemplo@mail.com',
+    lbl_howFound: '¿Cómo nos conoció?',
+    how_instagram: 'Instagram', how_google: 'Google', how_google_maps: 'Google Maps',
+    how_referral: 'Referido/a', how_other_found: 'Otro',
+    ph_referrer: 'Nombre del referidor', ph_howFound_other: 'Especifique',
+    e_howFound: 'Seleccione una opción',
+    t_s2: '2. Molestia del día',
+    lbl_bodyMap: '① Toque la figura para marcar las zonas de dolor',
+    q_drawHint: 'Marque las zonas de dolor en la figura (opcional)', q_clear: 'Borrar',
+    lbl_mainSymptom: '② Síntoma principal actual',
+    sym_shoulder: 'Rigidez de hombros', sym_lower_back: 'Dolor lumbar', sym_neck: 'Rigidez de cuello',
+    sym_headache: 'Dolor de cabeza', sym_posture: 'Postura', sym_fatigue: 'Fatiga',
+    sym_swelling: 'Edema/Hinchazón', sym_other: 'Otro',
+    ph_mainSymptom_other: 'Especifique',
+    e_mainSymptom: 'Seleccione un síntoma',
+    lbl_symptomDuration: '③ ¿Desde cuándo tiene el síntoma?',
+    dur_week: 'Menos de 1 semana', dur_month: 'Menos de 1 mes',
+    dur_over_month: 'Más de 1 mes', dur_half_year: 'Más de 6 meses',
+    e_symptomDuration: 'Seleccione la duración',
+    lbl_painLevel: '④ Nivel de dolor/malestar (0-10)',
+    pain_min_label: '0 = Sin molestia', pain_max_label: '10 = Muy intenso',
+    pain_labels: ['Sin molestia','','','Leve','','','Moderado','','','Intenso','Muy intenso'],
+    t_s3: '3. Verificación de seguridad',
+    s3_hint: 'Seleccione todo lo que corresponda',
+    safety_pregnant: 'Embarazada / posibilidad de embarazo', safety_hospital: 'En tratamiento médico',
+    safety_osteoporosis: 'Osteoporosis', safety_blood_thinner: 'Anticoagulantes',
+    safety_numbness: 'Entumecimiento intenso', safety_injury: 'Lesión/cirugía reciente',
+    safety_none: 'Ninguno en particular',
+    lbl_safetyNote: 'Enfermedades / observaciones',
+    e_safety: 'Seleccione al menos una opción',
+    t_s4: '4. Preferencias del día',
+    lbl_treatmentGoal: 'Objetivo del tratamiento',
+    goal_relax: 'Relajarme', goal_pain: 'Aliviar el dolor',
+    goal_posture: 'Mejorar la postura', goal_root: 'Tratamiento de fondo',
+    goal_maintenance: 'Mantenimiento corporal',
+    e_treatmentGoal: 'Seleccione el objetivo',
+    lbl_treatmentStrength: 'Intensidad preferida',
+    strength_light: 'Suave', strength_normal: 'Normal', strength_strong: 'Fuerte',
+    e_treatmentStrength: 'Seleccione la intensidad',
+    lbl_disliked: 'Técnicas que prefiere evitar',
+    dis_pressure: 'Presión fuerte', dis_joint: 'Ajuste articular (crack)', dis_none: 'Ninguno en particular',
+    e_disliked: 'Seleccione al menos una opción',
+    t_s5: '5. Consentimiento',
+    consent_1: 'Los tratamientos de nuestra clínica no son actos médicos.',
+    consent_1_expand: 'Ver "¿Qué es un acto médico?"',
+    consent_1_body: 'Los actos médicos implican intervención física con riesgo de daño. Lo que no es acto médico: cuidados cotidianos sin riesgo que no requieren criterio médico.',
+    consent_2: 'El contenido del tratamiento puede modificarse o suspenderse según el estado del cuerpo.',
+    consent_3: 'Las ventosas (cupping) pueden dejar marcas por 1 a 2 semanas.',
+    consent_4: 'Después del tratamiento pueden aparecer reacciones como cansancio o dolor muscular (reacción de curación).',
+    consent_5: 'Por favor cuide sus objetos de valor personalmente.',
+    lbl_consentAgree: 'Acepto las condiciones anteriores',
+    e_consent: 'Se requiere el consentimiento',
+    lbl_signature: 'Firma', sig_hint: 'Firme dentro del recuadro', sig_clear: 'Borrar',
+    e_signature: 'Se requiere la firma',
+    lbl_date: 'Fecha:',
     t_submitting: 'Enviando...', l_submit: 'Enviar cuestionario',
-    s_title: '¡Cuestionario recibido!', s_msg: 'Gracias. No es necesario traer nada el día de la visita.', s_back: 'Volver al inicio',
+    s_title: '¡Cuestionario recibido!', s_msg: 'Gracias. Por favor avise al personal.', s_back: 'Volver al inicio',
     err_net: 'Error de conexión. Intente nuevamente.', err_srv: 'Error del servidor.',
     err_lookup: 'Error al verificar. Intente nuevamente.',
     phonePattern: /^\+?[\d\s\-().]{7,20}$/,
   },
   pt: {
     pageTitle: 'LBC Care – Questionário',
-    heroTitle: 'Questionário médico', heroSub: 'Por favor preencha os campos antes da sua visita',
-    heroAddr: '📍 〒510-0835 Mie-ken Yokkaichi-shi Ooide', heroTel: '📞 TEL: 070-9233-4084',
+    heroTitle: 'Questionário médico',
     t_namePhone: 'Nome e contato',
     lbl_nameGroup: 'Nome completo', lbl_sei: 'Sobrenome', lbl_mei: 'Nome',
     lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Sobrenome', lbl_meiKana: 'Nome', lbl_phone: 'Telefone',
     ph_sei: 'Sobrenome', ph_mei: 'Nome', ph_seiKana: '(opcional)', ph_meiKana: '(opcional)', ph_phone: 'Ex: 090-1234-5678',
     e_sei: 'Digite seu sobrenome', e_mei: 'Digite seu nome',
-    e_seiKana: 'Digite o furigana do sobrenome', e_meiKana: 'Digite o furigana do nome',
+    e_seiKana: 'Furigana do sobrenome', e_meiKana: 'Furigana do nome',
     e_phone: 'Digite seu telefone',
     l_lookup: 'Continuar', t_lookingUp: 'Verificando...',
     t_firstBanner: 'Você será registrado como novo paciente',
@@ -906,30 +1103,70 @@ const I18N = {
     e_course: 'Selecione um serviço',
     t_changes: 'Mudanças desde a última visita',
     t_changesQ: 'Houve alguma mudança ou novo sintoma desde sua última visita?',
-    changes_no: 'Não (pode enviar diretamente)', changes_yes: 'Sim (preencher questionário)',
+    changes_no: 'Não (continuar diretamente)', changes_yes: 'Sim (preencher questionário)',
     e_changes: 'Selecione uma opção',
-    t_basic: 'Informações básicas',
-    lbl_dob: 'Data de nascimento', lbl_address: 'Endereço', lbl_howFound: 'Como nos conheceu?',
+    t_basic: '1. Informações básicas',
+    lbl_dob: 'Data de nascimento',
     req: 'Obr.', opt: 'Opc.',
     sep_y: '/', sep_m: '/', sep_d: '',
-    ph_pref: 'Cidade / Prefeitura', ph_city: 'Endereço detalhado',
-    how_kuchikomi: 'Indicação', how_instagram: 'Instagram', how_shokai: 'Referido', how_kanban: 'Placa', how_other_found: 'Outro',
-    e_dob: 'Informe sua data de nascimento', e_howFound: 'Selecione como nos conheceu',
-    t_q1: 'Q1. Tem algum sintoma atual (lesão, doença, etc.)?',
-    q1_none: 'Nenhum', q1_fever: 'Febre', q1_pain: 'Dor intensa', q1_swelling: 'Inflamação/Inchaço', q1_pregnant: 'Grávida', q1_other_label: 'Outro', ph_q1: 'Especifique',
-    t_q2: 'Q2. Teve alguma doença ou lesão importante diagnosticada?',
-    q2_none: 'Nenhuma', q2_hernia: 'Hérnia de disco', q2_stenosis: 'Estenose espinhal', q2_shoulder: 'Ombro congelado', q2_sciatica: 'Ciática', q2_fracture: 'Fratura/Luxação', q2_other_label: 'Outro', ph_q2: 'Nome e estado',
-    t_q3: 'Q3. Tem dor atualmente?',
-    q3_none: 'Não', q3_yes: 'Sim', ph_q3: 'Onde dói? (ex: lombar, ombro esquerdo)',
-    t_q4: 'Q4. O que deseja resolver com o tratamento de hoje? (múltiplo)',
-    q4_pain: 'Aliviar a dor', q4_relax: 'Relaxar o corpo', q4_posture: 'Melhorar a postura', q4_other: 'Outro', ph_q4: 'Especifique',
-    t_q5: 'Q5. Qual é seu nível de dor atual? (escala 1-5)',
-    q5_none: 'Sem dor', q5_weak: 'Fraco', q5_strong: 'Forte',
-    t_q6: 'Q6. Selecione as áreas com dor (múltiplo)',
-    q6_neck: 'Pescoço', q6_rShoulder: 'Ombro D', q6_lShoulder: 'Ombro E', q6_back: 'Costas', q6_waist: 'Lombar', q6_elbow: 'Cotovelo', q6_wrist: 'Pulso', q6_hip: 'Quadril', q6_knee: 'Joelho', q6_ankle: 'Tornozelo',
-    q6_drawHint: 'Marque na figura as áreas com dor (opcional)', q6_clear: 'Apagar',
+    e_dob: 'Informe sua data de nascimento',
+    lbl_email: 'E-mail', ph_email: 'exemplo@mail.com',
+    lbl_howFound: 'Como nos conheceu?',
+    how_instagram: 'Instagram', how_google: 'Google', how_google_maps: 'Google Maps',
+    how_referral: 'Indicação', how_other_found: 'Outro',
+    ph_referrer: 'Nome de quem indicou', ph_howFound_other: 'Especifique',
+    e_howFound: 'Selecione uma opção',
+    t_s2: '2. Queixa do dia',
+    lbl_bodyMap: '① Toque na figura para marcar as áreas de dor',
+    q_drawHint: 'Marque as áreas de dor na figura (opcional)', q_clear: 'Apagar',
+    lbl_mainSymptom: '② Sintoma principal atual',
+    sym_shoulder: 'Tensão nos ombros', sym_lower_back: 'Dor lombar', sym_neck: 'Tensão no pescoço',
+    sym_headache: 'Dor de cabeça', sym_posture: 'Postura', sym_fatigue: 'Fadiga',
+    sym_swelling: 'Inchaço/Edema', sym_other: 'Outro',
+    ph_mainSymptom_other: 'Especifique',
+    e_mainSymptom: 'Selecione um sintoma',
+    lbl_symptomDuration: '③ Há quanto tempo tem o sintoma?',
+    dur_week: 'Menos de 1 semana', dur_month: 'Menos de 1 mês',
+    dur_over_month: 'Mais de 1 mês', dur_half_year: 'Mais de 6 meses',
+    e_symptomDuration: 'Selecione a duração',
+    lbl_painLevel: '④ Nível de dor/desconforto (0-10)',
+    pain_min_label: '0 = Sem desconforto', pain_max_label: '10 = Muito intenso',
+    pain_labels: ['Sem desconforto','','','Leve','','','Moderado','','','Intenso','Muito intenso'],
+    t_s3: '3. Verificação de segurança',
+    s3_hint: 'Selecione tudo que se aplica',
+    safety_pregnant: 'Grávida / possibilidade de gravidez', safety_hospital: 'Em tratamento médico',
+    safety_osteoporosis: 'Osteoporose', safety_blood_thinner: 'Anticoagulantes',
+    safety_numbness: 'Formigamento intenso', safety_injury: 'Lesão/cirurgia recente',
+    safety_none: 'Nenhum em particular',
+    lbl_safetyNote: 'Doenças / observações',
+    e_safety: 'Selecione ao menos uma opção',
+    t_s4: '4. Preferências do dia',
+    lbl_treatmentGoal: 'Objetivo do tratamento',
+    goal_relax: 'Relaxar', goal_pain: 'Aliviar a dor',
+    goal_posture: 'Melhorar a postura', goal_root: 'Tratamento de fundo',
+    goal_maintenance: 'Manutenção corporal',
+    e_treatmentGoal: 'Selecione o objetivo',
+    lbl_treatmentStrength: 'Intensidade preferida',
+    strength_light: 'Leve', strength_normal: 'Normal', strength_strong: 'Forte',
+    e_treatmentStrength: 'Selecione a intensidade',
+    lbl_disliked: 'Técnicas que prefere evitar',
+    dis_pressure: 'Pressão forte', dis_joint: 'Ajuste articular (estalo)', dis_none: 'Nenhuma em particular',
+    e_disliked: 'Selecione ao menos uma opção',
+    t_s5: '5. Consentimento',
+    consent_1: 'Os tratamentos da nossa clínica não são atos médicos.',
+    consent_1_expand: 'Ver "O que é um ato médico?"',
+    consent_1_body: 'Atos médicos envolvem intervenção física com risco de dano. O que não é ato médico: cuidados cotidianos sem risco que não requerem julgamento médico.',
+    consent_2: 'O conteúdo do tratamento pode ser alterado ou interrompido conforme o estado corporal.',
+    consent_3: 'As ventosas (cupping) podem deixar marcas por 1 a 2 semanas.',
+    consent_4: 'Após o tratamento podem aparecer reações como cansaço ou dor muscular (reação de cura).',
+    consent_5: 'Por favor cuide dos seus objetos de valor pessoalmente.',
+    lbl_consentAgree: 'Concordo com as condições acima',
+    e_consent: 'O consentimento é obrigatório',
+    lbl_signature: 'Assinatura', sig_hint: 'Assine dentro do quadro', sig_clear: 'Apagar',
+    e_signature: 'A assinatura é obrigatória',
+    lbl_date: 'Data:',
     t_submitting: 'Enviando...', l_submit: 'Enviar questionário',
-    s_title: 'Questionário recebido!', s_msg: 'Obrigado. Não é necessário trazer nada no dia da visita.', s_back: 'Voltar ao início',
+    s_title: 'Questionário recebido!', s_msg: 'Obrigado. Por favor avise o nosso pessoal.', s_back: 'Voltar ao início',
     err_net: 'Erro de conexão. Tente novamente.', err_srv: 'Erro no servidor.',
     err_lookup: 'Erro ao verificar. Tente novamente.',
     phonePattern: /^\+?[\d\s\-().]{7,20}$/,
@@ -941,12 +1178,12 @@ const I18N = {
    ============================================================ */
 const Q = {
   lang: 'ja',
-  painLevel: null,
   submitting: false,
   toastTm: null,
   baseImageData: null,
   canvasDrawn: false,
-  visitType: null,    // 'first' | 'return'
+  sigDrawn: false,
+  visitType: null,
   customerId: null,
   patientNum: null,
 };
@@ -971,11 +1208,12 @@ function set(id, val) {
 function applyTexts() {
   const l = I18N[Q.lang];
   document.title = l.pageTitle;
-  set('heroTitle', l.heroTitle); set('heroSub', l.heroSub);
-  set('heroAddr', l.heroAddr); set('heroTel', l.heroTel);
+  set('heroTitle', l.heroTitle);
   set('t_namePhone', l.t_namePhone);
   set('lbl_nameGroup', l.lbl_nameGroup); set('lbl_sei', l.lbl_sei); set('lbl_mei', l.lbl_mei);
   set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_seiKana', l.lbl_seiKana); set('lbl_meiKana', l.lbl_meiKana);
+  const _fb = document.getElementById('furiganaBadge');
+  if (_fb) { _fb.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb.textContent = Q.lang === 'ja' ? l.req : l.opt; }
   set('lbl_phone', l.lbl_phone);
   document.getElementById('sei').placeholder     = l.ph_sei     || '';
   document.getElementById('mei').placeholder     = l.ph_mei     || '';
@@ -991,34 +1229,55 @@ function applyTexts() {
   set('t_changes', l.t_changes); set('t_changesQ', l.t_changesQ);
   set('changes_no', l.changes_no); set('changes_yes', l.changes_yes);
   set('t_basic', l.t_basic);
-  set('lbl_dob', l.lbl_dob); set('lbl_address', l.lbl_address); set('lbl_howFound', l.lbl_howFound);
+  set('lbl_dob', l.lbl_dob);
   document.querySelectorAll('.badge-req').forEach(el => el.textContent = l.req);
   document.querySelectorAll('.badge-opt').forEach(el => el.textContent = l.opt);
   set('sep_y', l.sep_y); set('sep_m', l.sep_m); set('sep_d', l.sep_d);
-  document.getElementById('address_pref').placeholder = l.ph_pref;
-  document.getElementById('address_city').placeholder = l.ph_city;
-  set('how_kuchikomi', l.how_kuchikomi); set('how_instagram', l.how_instagram);
-  set('how_shokai', l.how_shokai); set('how_kanban', l.how_kanban); set('how_other_found', l.how_other_found);
-  set('t_q1', l.t_q1);
-  set('q1_none', l.q1_none); set('q1_fever', l.q1_fever); set('q1_pain', l.q1_pain);
-  set('q1_swelling', l.q1_swelling); set('q1_pregnant', l.q1_pregnant); set('q1_other_label', l.q1_other_label);
-  document.getElementById('q1_other_text').placeholder = l.ph_q1;
-  set('t_q2', l.t_q2);
-  set('q2_none', l.q2_none); set('q2_hernia', l.q2_hernia); set('q2_stenosis', l.q2_stenosis);
-  set('q2_shoulder', l.q2_shoulder); set('q2_sciatica', l.q2_sciatica); set('q2_fracture', l.q2_fracture); set('q2_other_label', l.q2_other_label);
-  document.getElementById('q2_other_text').placeholder = l.ph_q2;
-  set('t_q3', l.t_q3); set('q3_none', l.q3_none); set('q3_yes', l.q3_yes);
-  document.getElementById('q3_where').placeholder = l.ph_q3;
-  set('t_q4', l.t_q4); set('q4_pain', l.q4_pain); set('q4_relax', l.q4_relax); set('q4_posture', l.q4_posture); set('q4_other', l.q4_other);
-  document.getElementById('q4_other_text').placeholder = l.ph_q4;
-  set('t_q5', l.t_q5); set('q5_none', l.q5_none); set('q5_weak', l.q5_weak); set('q5_strong', l.q5_strong);
-  set('t_q6', l.t_q6);
-  set('q6_neck', l.q6_neck); set('q6_rShoulder', l.q6_rShoulder); set('q6_lShoulder', l.q6_lShoulder);
-  set('q6_back', l.q6_back); set('q6_waist', l.q6_waist); set('q6_elbow', l.q6_elbow);
-  set('q6_wrist', l.q6_wrist); set('q6_hip', l.q6_hip); set('q6_knee', l.q6_knee); set('q6_ankle', l.q6_ankle);
-  set('q6_drawHint', l.q6_drawHint); set('q6_clear', l.q6_clear);
+  set('lbl_email', l.lbl_email);
+  document.getElementById('email').placeholder = l.ph_email || '';
+  set('lbl_howFound', l.lbl_howFound);
+  set('how_instagram', l.how_instagram); set('how_google', l.how_google);
+  set('how_google_maps', l.how_google_maps); set('how_referral', l.how_referral);
+  set('how_other_found', l.how_other_found);
+  document.getElementById('referrerName').placeholder = l.ph_referrer || '';
+  document.getElementById('howFoundOther').placeholder = l.ph_howFound_other || '';
+  set('t_s2', l.t_s2);
+  set('lbl_bodyMap', l.lbl_bodyMap); set('q_drawHint', l.q_drawHint); set('q_clear', l.q_clear);
+  set('lbl_mainSymptom', l.lbl_mainSymptom);
+  set('sym_shoulder', l.sym_shoulder); set('sym_lower_back', l.sym_lower_back);
+  set('sym_neck', l.sym_neck); set('sym_headache', l.sym_headache);
+  set('sym_posture', l.sym_posture); set('sym_fatigue', l.sym_fatigue);
+  set('sym_swelling', l.sym_swelling); set('sym_other', l.sym_other);
+  document.getElementById('mainSymptom_other_text').placeholder = l.ph_mainSymptom_other || '';
+  set('lbl_symptomDuration', l.lbl_symptomDuration);
+  set('dur_week', l.dur_week); set('dur_month', l.dur_month);
+  set('dur_over_month', l.dur_over_month); set('dur_half_year', l.dur_half_year);
+  set('lbl_painLevel', l.lbl_painLevel);
+  set('pain_min_label', l.pain_min_label); set('pain_max_label', l.pain_max_label);
+  set('t_s3', l.t_s3); set('s3_hint', l.s3_hint);
+  set('safety_pregnant', l.safety_pregnant); set('safety_hospital', l.safety_hospital);
+  set('safety_osteoporosis', l.safety_osteoporosis); set('safety_blood_thinner', l.safety_blood_thinner);
+  set('safety_numbness', l.safety_numbness); set('safety_injury', l.safety_injury);
+  set('safety_none', l.safety_none); set('lbl_safetyNote', l.lbl_safetyNote);
+  set('t_s4', l.t_s4);
+  set('lbl_treatmentGoal', l.lbl_treatmentGoal);
+  set('goal_relax', l.goal_relax); set('goal_pain', l.goal_pain); set('goal_posture', l.goal_posture);
+  set('goal_root', l.goal_root); set('goal_maintenance', l.goal_maintenance);
+  set('lbl_treatmentStrength', l.lbl_treatmentStrength);
+  set('strength_light', l.strength_light); set('strength_normal', l.strength_normal); set('strength_strong', l.strength_strong);
+  set('lbl_disliked', l.lbl_disliked);
+  set('dis_pressure', l.dis_pressure); set('dis_joint', l.dis_joint); set('dis_none', l.dis_none);
+  set('t_s5', l.t_s5);
+  set('consent_1', l.consent_1); set('consent_1_expand', l.consent_1_expand);
+  set('consent_1_body', l.consent_1_body);
+  set('consent_2', l.consent_2); set('consent_3', l.consent_3);
+  set('consent_4', l.consent_4); set('consent_5', l.consent_5);
+  set('lbl_consentAgree', l.lbl_consentAgree);
+  set('lbl_signature', l.lbl_signature); set('sig_hint', l.sig_hint); set('sig_clear', l.sig_clear);
+  set('lbl_date', l.lbl_date);
   set('l_submit', l.l_submit); set('t_submitting', l.t_submitting);
   set('s_title', l.s_title); set('s_msg', l.s_msg); set('s_back', l.s_back);
+  updatePainDisplay();
   calcAge();
 }
 
@@ -1028,22 +1287,19 @@ function applyTexts() {
 window.addEventListener('DOMContentLoaded', async () => {
   const lang = new URLSearchParams(window.location.search).get('lang') || 'ja';
   setLang(lang);
-  initPainScale();
   await initCanvas();
+  initSigCanvas();
 });
 
 /* ============================================================
    正規化ヘルパー
    ============================================================ */
-// ひらがな → カタカナ変換
 function toKatakana(str) {
   return str.replace(/[ぁ-ゖ]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x60));
 }
-// 名前: 全角・半角スペースをすべて除去
 function normName(str) {
   return str.replace(/[\s　]+/g, '');
 }
-// 電話番号: 全角数字→半角、全角ハイフン→半角、ダッシュ/スペース除去
 function normPhone(str) {
   return str
     .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
@@ -1051,20 +1307,26 @@ function normPhone(str) {
     .replace(/[-\s　]/g, '');
 }
 
+function formatPhone(input) {
+  if (Q.lang !== 'ja') return;
+  const raw = input.value
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[^0-9]/g, '');
+  if (raw.length <= 3)      input.value = raw;
+  else if (raw.length <= 7) input.value = raw.slice(0, 3) + '-' + raw.slice(3);
+  else                       input.value = raw.slice(0, 3) + '-' + raw.slice(3, 7) + '-' + raw.slice(7, 11);
+}
+
 /* ============================================================
    LOOKUP FLOW
    ============================================================ */
 async function lookupPatient() {
-  // 名前: スペース・全角スペースをすべて除去して正規化
   const sei      = normName(document.getElementById('sei').value);
   const mei      = normName(document.getElementById('mei').value);
   const name     = sei + ' ' + mei;
-  // フリガナ: ひらがな→カタカナ + スペース除去
   const seiKana  = toKatakana(normName(document.getElementById('seiKana').value));
   const meiKana  = toKatakana(normName(document.getElementById('meiKana').value));
-  // 電話番号: 全角→半角 + ダッシュ除去
   const phone    = normPhone(document.getElementById('phone').value);
-  // バリデーション用に元の入力値（全角→半角済み）も保持
   const rawPhone = document.getElementById('phone').value.trim()
     .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
     .replace(/[－]/g, '-');
@@ -1072,8 +1334,13 @@ async function lookupPatient() {
   let ok = true;
   if (!sei) { showErr('e_sei', L('e_sei'), 'sei'); ok = false; } else clearErr('e_sei', 'sei');
   if (!mei) { showErr('e_mei', L('e_mei'), 'mei'); ok = false; } else clearErr('e_mei', 'mei');
-  if (!seiKana) { showErr('e_seiKana', L('e_seiKana'), 'seiKana'); ok = false; } else clearErr('e_seiKana', 'seiKana');
-  if (!meiKana) { showErr('e_meiKana', L('e_meiKana'), 'meiKana'); ok = false; } else clearErr('e_meiKana', 'meiKana');
+  if (Q.lang === 'ja') {
+    if (!seiKana) { showErr('e_seiKana', L('e_seiKana'), 'seiKana'); ok = false; } else clearErr('e_seiKana', 'seiKana');
+    if (!meiKana) { showErr('e_meiKana', L('e_meiKana'), 'meiKana'); ok = false; } else clearErr('e_meiKana', 'meiKana');
+  } else {
+    clearErr('e_seiKana', 'seiKana');
+    clearErr('e_meiKana', 'meiKana');
+  }
   if (!phone) {
     showErr('e_phone', L('e_phone'), 'phone'); ok = false;
   } else if (!I18N[Q.lang].phonePattern.test(rawPhone.replace(/[-\s]/g, ''))) {
@@ -1099,20 +1366,30 @@ async function lookupPatient() {
     return;
   }
 
+  const lookupCtrl = new AbortController();
+  const lookupTid = setTimeout(() => lookupCtrl.abort(), 20000);
   try {
     const res  = await fetch(CONFIG.GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'lookupPatient', name, phone, lang: Q.lang }),
+      signal: lookupCtrl.signal,
     });
+    clearTimeout(lookupTid);
     const data = await res.json();
     document.getElementById('lookupLoading').style.display = 'none';
+    if (!data.success) {
+      btn.disabled = false;
+      toast(L('err_lookup'), 'error');
+      return;
+    }
     if (data.found) {
       showPhase2('return', data.customerId, data.patientNum, data.name);
     } else {
       showPhase2('first', null, null, name);
     }
   } catch {
+    clearTimeout(lookupTid);
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
     toast(L('err_lookup'), 'error');
@@ -1138,7 +1415,18 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
     document.getElementById('changesCard').style.display  = 'block';
     if (patientName) document.getElementById('welcomeName').textContent = patientName;
   }
+
+  document.getElementById('consentSection').style.display = 'block';
+  document.getElementById('todayDate').textContent = formatDate(Q.lang);
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function formatDate(lang) {
+  const t = new Date();
+  const y = t.getFullYear(), m = t.getMonth() + 1, d = t.getDate();
+  if (lang === 'ja') return `${y}年${m}月${d}日`;
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 
 function toggleChanges() {
@@ -1155,199 +1443,86 @@ function calcAge() {
   const m = parseInt(document.getElementById('dob_m').value);
   const d = parseInt(document.getElementById('dob_d').value);
   const badge = document.getElementById('ageBadge');
-  if (!y || !m || !d || y < 1900 || y > new Date().getFullYear()) { badge.style.display = 'none'; badge.textContent = ''; return; }
+  if (!y || !m || !d || y < 1900 || y > new Date().getFullYear()) { badge.style.display = 'none'; return; }
   const today = new Date();
   let age = today.getFullYear() - y;
   if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
-  if (age < 0 || age > 130) return;
-  badge.textContent = age + '歳';
+  if (age < 0 || age > 130) { badge.style.display = 'none'; return; }
+  badge.textContent = age + (Q.lang === 'ja' ? '歳' : ' y.o.');
   badge.style.display = 'inline-block';
 }
 
 /* ============================================================
-   CHECKBOX LOGIC
+   HOW FOUND CONDITIONAL
    ============================================================ */
-function handleNone(group, noneId) {
-  const noneChk = document.getElementById(noneId);
-  if (noneChk.checked) {
-    document.querySelectorAll(`.${group}_other_cb`).forEach(cb => { cb.checked = false; });
-    document.getElementById(`${group}_other_wrap`).classList.remove('visible');
-    document.getElementById(`${group}_other_text`).value = '';
-  }
-}
-
-function handleOther(group) {
-  const hasChecked = document.querySelectorAll(`.${group}_other_cb:checked`).length > 0;
-  if (hasChecked) document.getElementById(`${group}_none_chk`).checked = false;
-}
-
-function toggleOtherText(group) {
-  const trigger = document.querySelector(`.${group}_text_trigger`);
-  const wrap = document.getElementById(`${group}_other_wrap`);
-  if (trigger && wrap) {
-    wrap.classList.toggle('visible', trigger.checked);
-    if (!trigger.checked) document.getElementById(`${group}_other_text`).value = '';
-  }
+function toggleHowFoundExtra() {
+  const val = document.querySelector('input[name="howFound"]:checked')?.value;
+  clearErr('e_howFound');
+  document.getElementById('referrer_wrap').style.display     = val === 'referral' ? 'block' : 'none';
+  document.getElementById('howFound_other_wrap').style.display = val === 'other'   ? 'block' : 'none';
 }
 
 /* ============================================================
-   Q3 WHERE
+   MAIN SYMPTOM OTHER
    ============================================================ */
-function toggleQ3Where() {
-  const isYes = document.querySelector('input[name="q3"][value="yes"]')?.checked;
-  const wrap = document.getElementById('q3_where_wrap');
-  wrap.style.display = isYes ? 'block' : 'none';
-  if (!isYes) document.getElementById('q3_where').value = '';
+function toggleMainSymptomOther() {
+  const val = document.querySelector('input[name="mainSymptom"]:checked')?.value;
+  clearErr('e_mainSymptom');
+  const wrap = document.getElementById('mainSymptom_other_wrap');
+  wrap.classList.toggle('visible', val === 'other');
+  if (val !== 'other') document.getElementById('mainSymptom_other_text').value = '';
 }
 
 /* ============================================================
-   PAIN SCALE
+   PAIN DISPLAY
    ============================================================ */
-function initPainScale() {
-  document.querySelectorAll('.pain-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      Q.painLevel = parseInt(btn.dataset.val);
-      document.getElementById('q5_no_pain').checked = false;
-      document.getElementById('painScaleArea').style.opacity = '1';
-      renderPainScale();
-    });
-  });
+function updatePainDisplay() {
+  const val = parseInt(document.getElementById('painRange').value);
+  const numEl = document.getElementById('painValueNum');
+  const lblEl = document.getElementById('painValueLabel');
+  numEl.textContent = val;
+  const labels = I18N[Q.lang].pain_labels || [];
+  if (labels[val]) lblEl.textContent = labels[val];
+  else lblEl.textContent = '';
+  if (val <= 3)      numEl.style.color = 'var(--primary-dark)';
+  else if (val <= 6) numEl.style.color = '#d48000';
+  else               numEl.style.color = 'var(--danger)';
 }
 
-function renderPainScale() {
-  document.querySelectorAll('.pain-btn').forEach(btn => {
-    const v = parseInt(btn.dataset.val);
-    btn.classList.toggle('selected', Q.painLevel !== null && v <= Q.painLevel);
-    btn.classList.toggle('dim', Q.painLevel !== null && v > Q.painLevel);
-  });
+/* ============================================================
+   SAFETY CHECKBOXES (mutual exclusion with 特になし)
+   ============================================================ */
+function handleSafetyOther() {
+  const hasOther = document.querySelectorAll('.safety_other_cb:checked').length > 0;
+  if (hasOther) document.getElementById('safety_none_chk').checked = false;
+  clearErr('e_safety');
 }
-
-function togglePainScale() {
-  const noPain = document.getElementById('q5_no_pain').checked;
-  const area = document.getElementById('painScaleArea');
-  area.style.opacity = noPain ? '0.3' : '1';
-  area.style.pointerEvents = noPain ? 'none' : '';
-  if (noPain) {
-    Q.painLevel = null;
-    document.querySelectorAll('.pain-btn').forEach(b => { b.classList.remove('selected','dim'); });
+function handleSafetyNone() {
+  if (document.getElementById('safety_none_chk').checked) {
+    document.querySelectorAll('.safety_other_cb').forEach(cb => { cb.checked = false; });
   }
+  clearErr('e_safety');
+}
+
+/* ============================================================
+   DISLIKED CHECKBOXES (mutual exclusion with 特になし)
+   ============================================================ */
+function handleDislikedOther() {
+  const hasOther = document.querySelectorAll('.disliked_other_cb:checked').length > 0;
+  if (hasOther) document.getElementById('disliked_none_chk').checked = false;
+  clearErr('e_disliked');
+}
+function handleDislikedNone() {
+  if (document.getElementById('disliked_none_chk').checked) {
+    document.querySelectorAll('.disliked_other_cb').forEach(cb => { cb.checked = false; });
+  }
+  clearErr('e_disliked');
 }
 
 /* ============================================================
    CANVAS BODY DIAGRAM
    ============================================================ */
 let _drawing = false, _lx = 0, _ly = 0;
-
-const BODY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
-<rect width="240" height="360" fill="#f5f8f6"/>
-<!-- HEAD -->
-<ellipse cx="120" cy="26" rx="20" ry="24" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
-<ellipse cx="112" cy="23" rx="3" ry="2.5" fill="#7a5230"/>
-<ellipse cx="128" cy="23" rx="3" ry="2.5" fill="#7a5230"/>
-<path d="M116 32 Q120 35 124 32" fill="none" stroke="#7a5230" stroke-width="0.8"/>
-<path d="M118 26 Q120 30 122 26" fill="none" stroke="#a07050" stroke-width="0.6"/>
-<!-- NECK -->
-<path d="M110 47 L110 63 L130 63 L130 47 Q120 44 110 47Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<path d="M112 48 L116 62" stroke="#b08060" stroke-width="1.5" fill="none"/>
-<path d="M128 48 L124 62" stroke="#b08060" stroke-width="1.5" fill="none"/>
-<!-- TRAPEZIUS -->
-<path d="M110 62 Q90 58 72 70 L78 82 Q96 74 110 72Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
-<path d="M130 62 Q150 58 168 70 L162 82 Q144 74 130 72Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
-<!-- TORSO -->
-<path d="M78 82 Q76 110 76 140 L78 195 L162 195 L164 140 Q164 110 162 82Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
-<!-- Clavicle -->
-<path d="M110 66 Q95 63 78 70" fill="none" stroke="#c8a070" stroke-width="2"/>
-<path d="M130 66 Q145 63 162 70" fill="none" stroke="#c8a070" stroke-width="2"/>
-<!-- Pectoralis Major L -->
-<path d="M110 70 Q96 68 78 80 Q76 100 88 114 Q104 118 118 108 Q114 90 110 70Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.8"/>
-<!-- Pectoralis Major R -->
-<path d="M130 70 Q144 68 162 80 Q164 100 152 114 Q136 118 122 108 Q126 90 130 70Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.8"/>
-<!-- Sternum -->
-<line x1="120" y1="68" x2="120" y2="192" stroke="#a0714a" stroke-width="0.6" stroke-dasharray="3,2"/>
-<!-- Abs - Rectus Abdominis 3 pairs -->
-<rect x="110" y="118" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<rect x="121" y="118" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<rect x="110" y="137" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<rect x="121" y="137" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<rect x="110" y="156" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<rect x="121" y="156" width="9" height="15" rx="3" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<!-- External Obliques -->
-<path d="M98 112 Q82 130 80 172 L88 180 Q96 152 100 128Z" fill="#c8906a" stroke="#a0714a" stroke-width="0.7" opacity="0.85"/>
-<path d="M142 112 Q158 130 160 172 L152 180 Q144 152 140 128Z" fill="#c8906a" stroke="#a0714a" stroke-width="0.7" opacity="0.85"/>
-<!-- Serratus Anterior -->
-<path d="M88 98 Q80 102 77 107" fill="none" stroke="#a0714a" stroke-width="0.9"/>
-<path d="M88 110 Q80 114 77 119" fill="none" stroke="#a0714a" stroke-width="0.9"/>
-<path d="M88 122 Q80 126 77 131" fill="none" stroke="#a0714a" stroke-width="0.9"/>
-<path d="M152 98 Q160 102 163 107" fill="none" stroke="#a0714a" stroke-width="0.9"/>
-<path d="M152 110 Q160 114 163 119" fill="none" stroke="#a0714a" stroke-width="0.9"/>
-<path d="M152 122 Q160 126 163 131" fill="none" stroke="#a0714a" stroke-width="0.9"/>
-<!-- Inguinal crease -->
-<path d="M84 186 Q100 193 120 194 Q140 193 156 186" fill="none" stroke="#a0714a" stroke-width="1"/>
-<!-- LEFT ARM: Deltoid -->
-<path d="M78 80 Q62 76 56 90 Q54 104 62 110 L72 105 Q68 96 70 86Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
-<!-- L Upper arm -->
-<path d="M62 110 Q56 122 52 156 L66 159 Q70 126 72 108Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<!-- Bicep brachii -->
-<path d="M64 114 Q60 126 58 148 Q63 140 67 128 Q67 118 64 114Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<!-- Tricep hint -->
-<path d="M70 112 Q72 128 70 156" fill="none" stroke="#a0714a" stroke-width="0.6" stroke-dasharray="2,2"/>
-<!-- L Forearm -->
-<path d="M52 156 Q48 178 48 212 L64 214 Q66 178 66 159Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<path d="M52 160 Q50 182 50 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M58 159 Q57 182 57 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<!-- L Hand -->
-<ellipse cx="55" cy="222" rx="9" ry="11" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<!-- RIGHT ARM: Deltoid -->
-<path d="M162 80 Q178 76 184 90 Q186 104 178 110 L168 105 Q172 96 170 86Z" fill="#d4a882" stroke="#7a5230" stroke-width="1"/>
-<!-- R Upper arm -->
-<path d="M178 110 Q184 122 188 156 L174 159 Q170 126 168 108Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<path d="M176 114 Q180 126 182 148 Q177 140 173 128 Q173 118 176 114Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M170 112 Q168 128 170 156" fill="none" stroke="#a0714a" stroke-width="0.6" stroke-dasharray="2,2"/>
-<!-- R Forearm -->
-<path d="M188 156 Q192 178 192 212 L176 214 Q174 178 174 159Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<path d="M188 160 Q190 182 190 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M182 159 Q183 182 183 204" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<!-- R Hand -->
-<ellipse cx="185" cy="222" rx="9" ry="11" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<!-- LEFT LEG: Thigh -->
-<path d="M84 193 Q80 228 78 270 L100 272 Q104 230 104 196Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
-<!-- Quad separation -->
-<path d="M87 197 Q85 232 83 264" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M93 195 Q93 232 91 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M99 195 Q101 232 101 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<!-- Vastus medialis teardrop -->
-<path d="M93 252 Q89 262 87 270 Q93 268 99 264 Q99 256 95 252Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<!-- L Kneecap -->
-<ellipse cx="90" cy="276" rx="11" ry="9" fill="#c8b090" stroke="#7a5230" stroke-width="1.2"/>
-<!-- L Calf -->
-<path d="M78 282 Q74 304 74 334 L106 336 L104 282Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
-<!-- Gastrocnemius 2 heads -->
-<path d="M80 286 Q76 302 76 320 Q82 314 84 300 L84 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M86 286 Q89 302 90 318 Q96 312 96 298 L92 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<!-- Tibialis anterior -->
-<path d="M98 283 Q100 303 100 328" fill="none" stroke="#a0714a" stroke-width="0.8"/>
-<!-- L Foot -->
-<ellipse cx="89" cy="341" rx="15" ry="8" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<!-- RIGHT LEG: Thigh -->
-<path d="M156 193 Q160 228 162 270 L140 272 Q136 230 136 196Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
-<path d="M153 197 Q155 232 157 264" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M147 195 Q147 232 149 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M141 195 Q139 232 139 266" fill="none" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M147 252 Q151 262 153 270 Q147 268 141 264 Q141 256 145 252Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<!-- R Kneecap -->
-<ellipse cx="150" cy="276" rx="11" ry="9" fill="#c8b090" stroke="#7a5230" stroke-width="1.2"/>
-<!-- R Calf -->
-<path d="M162 282 Q166 304 166 334 L134 336 L136 282Z" fill="#e8c9a8" stroke="#7a5230" stroke-width="1.2"/>
-<path d="M160 286 Q164 302 164 320 Q158 314 156 300 L156 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M154 286 Q151 302 150 318 Q144 312 144 298 L148 286Z" fill="#d4a882" stroke="#a0714a" stroke-width="0.7"/>
-<path d="M142 283 Q140 303 140 328" fill="none" stroke="#a0714a" stroke-width="0.8"/>
-<!-- R Foot -->
-<ellipse cx="151" cy="341" rx="15" ry="8" fill="#e8c9a8" stroke="#7a5230" stroke-width="1"/>
-<!-- Labels -->
-<text x="120" y="357" text-anchor="middle" fill="#2c7a5c" font-size="10" font-weight="bold" font-family="sans-serif">— 正 面 —</text>
-<text x="48" y="76" text-anchor="middle" fill="#999" font-size="8" font-family="sans-serif">R</text>
-<text x="192" y="76" text-anchor="middle" fill="#999" font-size="8" font-family="sans-serif">L</text>
-</svg>`;
 
 async function initCanvas() {
   const canvas = document.getElementById('bodyCanvas');
@@ -1356,18 +1531,20 @@ async function initCanvas() {
   await new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      Q.baseImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+      try { Q.baseImageData = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch { Q.baseImageData = null; }
       resolve();
     };
     img.onerror = () => {
-      // フォールバック: 単色背景のみ
-      ctx.fillStyle = '#f5f8f6';
+      canvas.width = 560; canvas.height = 360;
+      ctx.fillStyle = '#f8faf9';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      Q.baseImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      try { Q.baseImageData = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch { Q.baseImageData = null; }
       resolve();
     };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(BODY_SVG);
+    img.src = './body-diagram.png';
   });
 
   canvas.addEventListener('mousedown',  e => startDraw(e, canvas));
@@ -1386,19 +1563,17 @@ function canvasPos(e, canvas) {
     y: (e.clientY - r.top)  * (canvas.height / r.height),
   };
 }
-
 function startDraw(e, canvas) {
   _drawing = true;
   const p = canvasPos(e, canvas);
   _lx = p.x; _ly = p.y;
 }
-
 function draw(e, canvas) {
   if (!_drawing) return;
   const p = canvasPos(e, canvas);
   const ctx = canvas.getContext('2d');
   ctx.strokeStyle = '#e53935';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = Math.max(3, canvas.width / 150);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
@@ -1408,13 +1583,60 @@ function draw(e, canvas) {
   _lx = p.x; _ly = p.y;
   Q.canvasDrawn = true;
 }
-
 function clearCanvas() {
   const canvas = document.getElementById('bodyCanvas');
   if (Q.baseImageData) canvas.getContext('2d').putImageData(Q.baseImageData, 0, 0);
   Q.canvasDrawn = false;
 }
 
+/* ============================================================
+   SIGNATURE CANVAS
+   ============================================================ */
+let _sigDrawing = false, _slx = 0, _sly = 0;
+
+function initSigCanvas() {
+  const canvas = document.getElementById('sigCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  canvas.addEventListener('mousedown',  e => startSig(e, canvas));
+  canvas.addEventListener('mousemove',  e => drawSig(e, canvas));
+  canvas.addEventListener('mouseup',    () => (_sigDrawing = false));
+  canvas.addEventListener('mouseleave', () => (_sigDrawing = false));
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); startSig(e.touches[0], canvas); }, { passive: false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); drawSig(e.touches[0], canvas); }, { passive: false });
+  canvas.addEventListener('touchend',   () => (_sigDrawing = false));
+}
+function startSig(e, canvas) {
+  _sigDrawing = true;
+  const p = canvasPos(e, canvas);
+  _slx = p.x; _sly = p.y;
+  Q.sigDrawn = true;
+  clearErr('e_signature');
+  document.getElementById('sigWrap').classList.remove('is-error');
+}
+function drawSig(e, canvas) {
+  if (!_sigDrawing) return;
+  const p = canvasPos(e, canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(_slx, _sly);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  _slx = p.x; _sly = p.y;
+}
+function clearSig() {
+  const canvas = document.getElementById('sigCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  Q.sigDrawn = false;
+}
 
 /* ============================================================
    VALIDATION
@@ -1423,24 +1645,66 @@ function validate() {
   if (!Q.visitType) return false;
   let ok = true;
 
+  const showQ = Q.visitType === 'first' || document.querySelector('input[name="changes"]:checked')?.value === 'yes';
+
   if (Q.visitType === 'return') {
-    const course = document.querySelector('input[name="course"]:checked');
-    if (!course) { showErr('e_course', L('e_course')); ok = false; } else clearErr('e_course');
+    if (!document.querySelector('input[name="course"]:checked')) {
+      showErr('e_course', L('e_course')); ok = false;
+    } else clearErr('e_course');
+    if (!document.querySelector('input[name="changes"]:checked')) {
+      showErr('e_changes', L('e_changes')); ok = false;
+    } else clearErr('e_changes');
+  }
 
-    const changes = document.querySelector('input[name="changes"]:checked');
-    if (!changes) { showErr('e_changes', L('e_changes')); ok = false; } else clearErr('e_changes');
-
-  } else {
-    const y = document.getElementById('dob_y').value;
-    const m = document.getElementById('dob_m').value;
-    const d = document.getElementById('dob_d').value;
-    if (!y || !m || !d) { showErr('e_dob', L('e_dob')); ok = false; } else clearErr('e_dob');
-
-    if (!document.querySelectorAll('input[name="howFound"]:checked').length) {
+  if (Q.visitType === 'first') {
+    const y = parseInt(document.getElementById('dob_y').value);
+    const m = parseInt(document.getElementById('dob_m').value);
+    const d = parseInt(document.getElementById('dob_d').value);
+    const thisYear = new Date().getFullYear();
+    const dobOk = y >= 1900 && y <= thisYear && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+    if (!dobOk) { showErr('e_dob', L('e_dob')); ok = false; } else clearErr('e_dob');
+    if (!document.querySelector('input[name="howFound"]:checked')) {
       showErr('e_howFound', L('e_howFound')); ok = false;
-    } else {
-      clearErr('e_howFound');
-    }
+    } else clearErr('e_howFound');
+  }
+
+  if (showQ) {
+    if (!document.querySelector('input[name="mainSymptom"]:checked')) {
+      showErr('e_mainSymptom', L('e_mainSymptom')); ok = false;
+    } else clearErr('e_mainSymptom');
+
+    if (!document.querySelector('input[name="symptomDuration"]:checked')) {
+      showErr('e_symptomDuration', L('e_symptomDuration')); ok = false;
+    } else clearErr('e_symptomDuration');
+
+    if (!document.querySelectorAll('input[name="safety"]:checked').length) {
+      showErr('e_safety', L('e_safety')); ok = false;
+    } else clearErr('e_safety');
+
+    if (!document.querySelector('input[name="treatmentGoal"]:checked')) {
+      showErr('e_treatmentGoal', L('e_treatmentGoal')); ok = false;
+    } else clearErr('e_treatmentGoal');
+
+    if (!document.querySelector('input[name="treatmentStrength"]:checked')) {
+      showErr('e_treatmentStrength', L('e_treatmentStrength')); ok = false;
+    } else clearErr('e_treatmentStrength');
+
+    if (!document.querySelectorAll('input[name="disliked"]:checked').length) {
+      showErr('e_disliked', L('e_disliked')); ok = false;
+    } else clearErr('e_disliked');
+  }
+
+  if (!document.getElementById('consentCheck').checked) {
+    showErr('e_consent', L('e_consent')); ok = false;
+  } else clearErr('e_consent');
+
+  if (!Q.sigDrawn) {
+    showErr('e_signature', L('e_signature'));
+    document.getElementById('sigWrap').classList.add('is-error');
+    ok = false;
+  } else {
+    clearErr('e_signature');
+    document.getElementById('sigWrap').classList.remove('is-error');
   }
 
   return ok;
@@ -1474,8 +1738,8 @@ async function submitQuestionnaire() {
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('loadingRow').style.display = 'block';
 
+  const showQ = Q.visitType === 'first' || document.querySelector('input[name="changes"]:checked')?.value === 'yes';
   const hasChanges = document.querySelector('input[name="changes"]:checked')?.value || '';
-  const showQ = Q.visitType === 'first' || hasChanges === 'yes';
 
   const dob_y = document.getElementById('dob_y').value;
   const dob_m = document.getElementById('dob_m').value;
@@ -1485,7 +1749,6 @@ async function submitQuestionnaire() {
     : '';
 
   const today = new Date().toISOString().split('T')[0];
-
   const _sei     = normName(document.getElementById('sei').value);
   const _mei     = normName(document.getElementById('mei').value);
   const _seiKana = toKatakana(normName(document.getElementById('seiKana').value));
@@ -1504,21 +1767,23 @@ async function submitQuestionnaire() {
     courseId:   document.querySelector('input[name="course"]:checked')?.value || '',
     hasChanges,
     dob,
-    addressPref: document.getElementById('address_pref').value.trim(),
-    addressCity: document.getElementById('address_city').value.trim(),
-    howFound:   [...document.querySelectorAll('input[name="howFound"]:checked')].map(c => c.value),
-    q1:     showQ ? [...document.querySelectorAll('input[name="q1"]:checked')].map(c => c.value) : [],
-    q1Other: showQ ? document.getElementById('q1_other_text').value.trim() : '',
-    q2:     showQ ? [...document.querySelectorAll('input[name="q2"]:checked')].map(c => c.value) : [],
-    q2Other: showQ ? document.getElementById('q2_other_text').value.trim() : '',
-    q3:     showQ ? (document.querySelector('input[name="q3"]:checked')?.value || 'none') : 'none',
-    q3Where: showQ ? document.getElementById('q3_where').value.trim() : '',
-    q4:     showQ ? [...document.querySelectorAll('input[name="q4"]:checked')].map(c => c.value) : [],
-    q4Other: showQ ? document.getElementById('q4_other_text').value.trim() : '',
-    q5NoPain: showQ ? document.getElementById('q5_no_pain').checked : true,
-    q5:      showQ ? Q.painLevel : null,
-    q6:     showQ ? [...document.querySelectorAll('input[name="q6"]:checked')].map(c => c.value) : [],
-    bodyImage: (showQ && Q.canvasDrawn) ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : '',
+    email:      document.getElementById('email').value.trim(),
+    howFound:   document.querySelector('input[name="howFound"]:checked')?.value || '',
+    referrerName:    document.getElementById('referrerName').value.trim(),
+    howFoundOther:   document.getElementById('howFoundOther').value.trim(),
+    bodyImage: (() => { try { return (showQ && Q.canvasDrawn) ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { return ''; } })(),
+    mainSymptom:      showQ ? (document.querySelector('input[name="mainSymptom"]:checked')?.value || '') : '',
+    mainSymptomOther: showQ ? document.getElementById('mainSymptom_other_text').value.trim() : '',
+    symptomDuration:  showQ ? (document.querySelector('input[name="symptomDuration"]:checked')?.value || '') : '',
+    painLevel:        showQ ? parseInt(document.getElementById('painRange').value) : null,
+    safetyCheck:      showQ ? [...document.querySelectorAll('input[name="safety"]:checked')].map(c => c.value) : [],
+    safetyNote:       showQ ? document.getElementById('safetyNote').value.trim() : '',
+    treatmentGoal:    showQ ? (document.querySelector('input[name="treatmentGoal"]:checked')?.value || '') : '',
+    treatmentStrength: showQ ? (document.querySelector('input[name="treatmentStrength"]:checked')?.value || '') : '',
+    dislikedTreatment: showQ ? [...document.querySelectorAll('input[name="disliked"]:checked')].map(c => c.value) : [],
+    consentAgreed:  document.getElementById('consentCheck').checked,
+    signatureImage: Q.sigDrawn ? document.getElementById('sigCanvas').toDataURL('image/png') : '',
+    consentDate:    today,
   };
 
   if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
@@ -1529,12 +1794,16 @@ async function submitQuestionnaire() {
     return;
   }
 
+  const submitCtrl = new AbortController();
+  const submitTid = setTimeout(() => submitCtrl.abort(), 60000);
   try {
     const res  = await fetch(CONFIG.GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
+      signal: submitCtrl.signal,
     });
+    clearTimeout(submitTid);
     const data = await res.json();
     if (data.success) {
       showSuccess();
@@ -1543,6 +1812,7 @@ async function submitQuestionnaire() {
       document.getElementById('submitBtn').disabled = false;
     }
   } catch {
+    clearTimeout(submitTid);
     toast(L('err_net'), 'error');
     document.getElementById('submitBtn').disabled = false;
   } finally {
@@ -1567,10 +1837,6 @@ function toast(msg, type = '') {
   el.classList.add('show');
   clearTimeout(Q.toastTm);
   Q.toastTm = setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 </body>

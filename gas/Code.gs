@@ -151,10 +151,10 @@ function handleSubmitAll(data) {
       var upd = {};
       if (data.dob) upd['生年月日'] = { date: { start: data.dob } };
       if (data.furigana) upd['フリガナ'] = richText(data.furigana);
-      var addr = [data.addressPref, data.addressCity].filter(Boolean).join(' ');
-      if (addr) upd['住所'] = richText(addr);
-      if (data.howFound && data.howFound.length)
-        upd['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: VALUE_LABEL[v] || v }; }) };
+      if (data.howFound) {
+        var hfLabel = VALUE_LABEL[data.howFound] || data.howFound;
+        upd['来院のきっかけ'] = { multi_select: [{ name: hfLabel }] };
+      }
       if (data.lang) upd['言語'] = { select: { name: data.lang } };
       if (Object.keys(upd).length) updateCustomerProp(cfg, customerId, upd);
     } else {
@@ -180,8 +180,14 @@ function handleSubmitAll(data) {
     bodyImageUrl = saveBodyImage(cfg, data.bodyImage, patientNum);
   }
 
+  // 署名画像保存
+  var signatureUrl = '';
+  if (hasQ && data.signatureImage && data.signatureImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
+    signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + patientNum);
+  }
+
   // 問診票ブロック追記
-  if (hasQ) appendQuestionnaireBlocks(cfg, karte.id, data, bodyImageUrl);
+  if (hasQ) appendQuestionnaireBlocks(cfg, karte.id, data, bodyImageUrl, signatureUrl);
 
   return { success: true, patientNum: patientNum };
 }
@@ -216,9 +222,15 @@ function handleSubmitQuestionnaire(data) {
     bodyImageUrl = saveBodyImage(cfg, data.bodyImage, data.booking || 'q');
   }
 
+  // 署名画像を Drive に保存
+  let signatureUrl = '';
+  if (data.signatureImage && data.signatureImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
+    signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + (data.booking || 'q'));
+  }
+
   // カルテページに問診票内容を追記
   if (karteId) {
-    appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl);
+    appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUrl);
   }
 
   return { success: true };
@@ -257,10 +269,9 @@ function createCustomer(cfg, data, patientNum) {
     '言語':        { select: langMap[data.lang] ? { name: langMap[data.lang] } : null },
   };
   if (data.dob) props['生年月日'] = { date: { start: data.dob } };
-  const addr = [data.addressPref, data.addressCity].filter(Boolean).join(' ');
-  if (addr) props['住所'] = richText(addr);
-  if (data.howFound && data.howFound.length) {
-    props['来院のきっかけ'] = { multi_select: data.howFound.map(function(v) { return { name: VALUE_LABEL[v] || v }; }) };
+  if (data.howFound) {
+    var hfLabel = VALUE_LABEL[data.howFound] || data.howFound;
+    props['来院のきっかけ'] = { multi_select: [{ name: hfLabel }] };
   }
   return notionPost(cfg, '/pages', { parent: { database_id: cfg.CUSTOMER_DB_ID }, properties: props });
 }
@@ -347,20 +358,25 @@ function findMostRecentKarte(cfg, customerId) {
 
 // フォームの内部値 → 日本語表示名
 var VALUE_LABEL = {
-  // Q1 症状
-  fever: '発熱', pain: '激しい痛み', swelling: '炎症・腫れ', pregnant: '妊娠中',
-  // Q2 病歴
-  hernia: '椎間板ヘルニア', stenosis: '脊柱管狭窄症', shoulder: '五十肩',
-  sciatica: '坐骨神経痛', fracture: '骨折・脱臼',
-  // Q4 目標（painRelief は Q1 の pain と衝突しないよう別キー）
-  painRelief: '痛みを解消したい', relax: 'リラックス', posture: '姿勢改善',
-  // Q6 部位
-  neck: '首', rShoulder: '右肩', lShoulder: '左肩', back: '背中',
-  waist: '腰', elbow: '肘', wrist: '手首', hip: '股関節',
-  knee: '膝', ankle: '足首',
   // 来院のきっかけ
-  kuchikomi: '口コミ', instagram: 'Instagram', shokai: '紹介',
-  kanban: '看板', other: 'その他',
+  instagram: 'Instagram', google: 'Google', google_maps: 'Google Maps',
+  referral: '紹介', other: 'その他',
+  // 主症状（HTML value と完全一致）
+  shoulder_stiff: '肩こり', lower_back: '腰痛', neck_stiff: '首こり', headache: '頭痛',
+  posture: '姿勢', fatigue: '疲労', swelling: 'むくみ',
+  // 症状の期間（HTML value と完全一致）
+  within_week: '1週間以内', within_month: '1ヶ月以内', over_month: '1ヶ月以上', over_half_year: '半年以上',
+  // 安全確認（HTML value と完全一致）
+  pregnant: '妊娠中／妊娠の可能性', hospital: '通院中', osteoporosis: '骨粗しょう症',
+  blood_thinner: '血液をサラサラにする薬', numbness: '強いしびれ', recent_injury: '最近の怪我・手術',
+  none: '特になし',
+  // 施術目的（HTML value と完全一致）
+  relax: 'リラックスしたい', pain_relief: '痛みを改善したい',
+  posture_goal: '姿勢を整えたい', root_cause: '根本改善を目指したい', maintenance: '身体のメンテナンス',
+  // 施術強さ
+  light: '弱め', normal: '普通', strong: '強め',
+  // 苦手な施術
+  strong_pressure: '強い圧', joint_adjustment: '関節調整（ボキボキ）',
 };
 
 function toJa(arr) {
@@ -368,89 +384,79 @@ function toJa(arr) {
   return arr.map(function(v) { return VALUE_LABEL[v] || v; });
 }
 
-function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
-  // Notion は社内管理用のため常に日本語で記録する
-  const labelMap = {
-    ja: {
-      title: '問診票',
-      howFound: '来院のきっかけ',
-      visitType: '来院歴',
-      q1: 'Q1 症状', q2: 'Q2 病歴・過去の怪我', q3: 'Q3 現在の痛み',
-      q4: 'Q4 施術の目標', q5: 'Q5 痛みの強度', q6: 'Q6 痛み部位',
-      bodyDiagram: '人体図', address: '住所',
-      first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
-    },
-    es: {
-      title: '問診票',
-      howFound: '来院のきっかけ',
-      visitType: '来院歴',
-      q1: 'Q1 症状', q2: 'Q2 病歴・過去の怪我', q3: 'Q3 現在の痛み',
-      q4: 'Q4 施術の目標', q5: 'Q5 痛みの強度', q6: 'Q6 痛み部位',
-      bodyDiagram: '人体図', address: '住所',
-      first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
-    },
-    pt: {
-      title: '問診票', howFound: '来院のきっかけ', visitType: '来院歴',
-      q1: 'Q1 症状', q2: 'Q2 病歴・過去の怪我', q3: 'Q3 現在の痛み',
-      q4: 'Q4 施術の目標', q5: 'Q5 痛みの強度', q6: 'Q6 痛み部位',
-      bodyDiagram: '人体図', address: '住所',
-      first: '初回', return: '再診', none: 'なし', yes: 'あり', noPain: '痛みなし',
-    },
-  };
-  const lbl = labelMap[data.lang] || labelMap.ja;
-
-  const sep = '、';
-  function fmt(arr, other, noneVal) {
-    if (!arr || arr.length === 0) return lbl.none;
-    if (arr.includes('none') || arr[0] === noneVal) return lbl.none;
-    const parts = arr.filter(function(v) { return v !== 'none'; })
-                     .map(function(v) { return VALUE_LABEL[v] || v; });
-    if (other) parts.push('（' + other + '）');
-    return parts.join(sep);
-  }
-
-  const q3val = data.q3 === 'yes'
-    ? lbl.yes + (data.q3Where ? ' — ' + data.q3Where : '')
-    : lbl.none;
-
-  const q5val = data.q5NoPain ? lbl.noPain
-    : data.q5 ? data.q5 + ' / 5'
-    : '—';
+function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUrl) {
+  var sep = '、';
 
   // DOBから年齢を計算
-  let ageStr = '';
+  var ageStr = '';
   if (data.dob) {
-    var parts = data.dob.split('-');
-    if (parts.length === 3) {
+    var dobParts = data.dob.split('-');
+    if (dobParts.length === 3) {
       var today = new Date();
-      var age = today.getFullYear() - parseInt(parts[0]);
-      var bMonth = parseInt(parts[1]), bDay = parseInt(parts[2]);
+      var age = today.getFullYear() - parseInt(dobParts[0]);
+      var bMonth = parseInt(dobParts[1]), bDay = parseInt(dobParts[2]);
       if (today.getMonth() + 1 < bMonth || (today.getMonth() + 1 === bMonth && today.getDate() < bDay)) age--;
       if (age >= 0 && age <= 130) ageStr = '（' + age + '歳）';
     }
   }
 
-  const lines = [
-    '━━━ ' + lbl.title + ' (' + new Date().toLocaleString('ja-JP') + ') ━━━',
+  // 来院のきっかけ（初回のみ）
+  var howFoundLabel = '—';
+  if (data.howFound) {
+    howFoundLabel = VALUE_LABEL[data.howFound] || data.howFound;
+    if (data.howFound === 'referral' && data.referrerName) howFoundLabel += ' (' + data.referrerName + ')';
+    if (data.howFound === 'other' && data.howFoundOther) howFoundLabel += ' (' + data.howFoundOther + ')';
+  }
+
+  // 安全確認
+  var safetyLabel = '—';
+  if (data.safetyCheck && data.safetyCheck.length) {
+    var safetyParts = data.safetyCheck.map(function(v) { return VALUE_LABEL[v] || v; });
+    safetyLabel = safetyParts.join(sep);
+    if (data.safetyNote) safetyLabel += ' / メモ: ' + data.safetyNote;
+  } else if (data.safetyNote) {
+    safetyLabel = data.safetyNote;
+  }
+
+  // 苦手な施術
+  var dislikedLabel = '—';
+  if (data.dislikedTreatment && data.dislikedTreatment.length) {
+    dislikedLabel = data.dislikedTreatment.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep);
+  }
+
+  // 主症状
+  var mainSymLabel = '—';
+  if (data.mainSymptom) {
+    mainSymLabel = VALUE_LABEL[data.mainSymptom] || data.mainSymptom;
+    if (data.mainSymptom === 'other' && data.mainSymptomOther) mainSymLabel = data.mainSymptomOther;
+  }
+
+  var lines = [
+    '━━━ 問診票 (' + new Date().toLocaleString('ja-JP') + ') ━━━',
     '',
-    '【' + lbl.visitType + '】 ' + (data.visitType === 'first' ? lbl.first : lbl.return),
-    '【' + lbl.howFound + '】 ' + (data.howFound && data.howFound.length
-      ? data.howFound.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep)
-      : '—'),
+    '【来院歴】 ' + (data.visitType === 'first' ? '初回' : '再診'),
+    data.visitType === 'first' ? '【来院のきっかけ】 ' + howFoundLabel : null,
     data.dob ? '【生年月日】 ' + data.dob + ageStr : null,
-    (data.addressPref || data.addressCity) ? '【' + lbl.address + '】 ' + [data.addressPref, data.addressCity].filter(Boolean).join(' ') : null,
     '',
-    '【' + lbl.q1 + '】 ' + fmt(data.q1, data.q1Other, 'none'),
-    '【' + lbl.q2 + '】 ' + fmt(data.q2, data.q2Other, 'none'),
-    '【' + lbl.q3 + '】 ' + q3val,
-    '【' + lbl.q4 + '】 ' + fmt(data.q4, data.q4Other),
-    '【' + lbl.q5 + '】 ' + q5val,
-    '【' + lbl.q6 + '】 ' + (data.q6 && data.q6.length
-      ? data.q6.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep)
-      : '—'),
+    '--- セクション2: 本日のお悩み ---',
+    '【主症状】 ' + mainSymLabel,
+    '【症状の期間】 ' + (data.symptomDuration ? (VALUE_LABEL[data.symptomDuration] || data.symptomDuration) : '—'),
+    '【痛みレベル】 ' + (data.painLevel !== null && data.painLevel !== undefined ? String(data.painLevel) + ' / 10' : '—'),
+    '',
+    '--- セクション3: 安全確認 ---',
+    '【安全確認】 ' + safetyLabel,
+    '',
+    '--- セクション4: 本日のご希望 ---',
+    '【施術目的】 ' + (data.treatmentGoal ? (VALUE_LABEL[data.treatmentGoal] || data.treatmentGoal) : '—'),
+    '【強さ希望】 ' + (data.treatmentStrength ? (VALUE_LABEL[data.treatmentStrength] || data.treatmentStrength) : '—'),
+    '【苦手な施術】 ' + dislikedLabel,
+    '',
+    '--- セクション5: 同意事項 ---',
+    '【同意】 ' + (data.consentAgreed ? '同意済み' : '未同意'),
+    data.consentDate ? '【同意日】 ' + data.consentDate : null,
   ].filter(function(l) { return l !== null; });
 
-  const blocks = lines.map(function(line) {
+  var blocks = lines.map(function(line) {
     return line === ''
       ? { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }
       : { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } };
@@ -464,6 +470,18 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl) {
       : bodyImageUrl;
     blocks.push({ object: 'block', type: 'image',
       image: { type: 'external', external: { url: embedUrl } } });
+  }
+
+  // 署名：同意署名画像をNotionに追記
+  if (signatureUrl) {
+    var sigMatch = signatureUrl.match(/\/d\/([^\/\?]+)/);
+    var sigEmbed = sigMatch
+      ? 'https://drive.google.com/uc?export=view&id=' + sigMatch[1]
+      : signatureUrl;
+    blocks.push({ object: 'block', type: 'paragraph',
+      paragraph: { rich_text: [{ type: 'text', text: { content: '【署名】' } }] } });
+    blocks.push({ object: 'block', type: 'image',
+      image: { type: 'external', external: { url: sigEmbed } } });
   }
 
   notionPatch(cfg, '/blocks/' + karteId + '/children', { children: blocks });

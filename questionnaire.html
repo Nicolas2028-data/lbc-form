@@ -236,9 +236,10 @@
 
     /* ── DOB row ── */
     .dob-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .dob-row input[type="number"] { width: auto; padding: 11px 8px; text-align: center; }
-    .dob-y { min-width: 80px; }
-    .dob-m, .dob-d { min-width: 56px; }
+    .dob-row select { padding: 11px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-size: 1rem; color: var(--text); cursor: pointer; }
+    .dob-row select:focus { outline: none; border-color: var(--border-focus); }
+    .dob-y { min-width: 90px; }
+    .dob-m, .dob-d { min-width: 66px; }
     .dob-sep { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
     .age-badge {
       background: var(--primary-light);
@@ -670,11 +671,11 @@
       <div class="form-group">
         <div class="field-label"><span id="lbl_dob">生年月日</span><span class="badge-req">必須</span></div>
         <div class="dob-row">
-          <input type="number" class="dob-y" id="dob_y" placeholder="1990" min="1900" inputmode="numeric" oninput="calcAge()">
+          <select class="dob-y" id="dob_y" onchange="calcAge()"><option value="">----</option></select>
           <span class="dob-sep" id="sep_y">年</span>
-          <input type="number" class="dob-m" id="dob_m" placeholder="1" min="1" max="12" inputmode="numeric" oninput="calcAge()">
+          <select class="dob-m" id="dob_m" onchange="calcAge()"><option value="">--</option></select>
           <span class="dob-sep" id="sep_m">月</span>
-          <input type="number" class="dob-d" id="dob_d" placeholder="1" min="1" max="31" inputmode="numeric" oninput="calcAge()">
+          <select class="dob-d" id="dob_d" onchange="calcAge()"><option value="">--</option></select>
           <span class="dob-sep" id="sep_d">日</span>
           <span id="ageBadge" class="age-badge" style="display:none"></span>
         </div>
@@ -757,6 +758,10 @@
             <label class="radio-item"><input type="radio" name="symptomDuration" value="within_month"><span id="dur_month">1ヶ月以内</span></label>
             <label class="radio-item"><input type="radio" name="symptomDuration" value="over_month"><span id="dur_over_month">1ヶ月以上</span></label>
             <label class="radio-item"><input type="radio" name="symptomDuration" value="over_half_year"><span id="dur_half_year">半年以上</span></label>
+            <label class="radio-item"><input type="radio" name="symptomDuration" value="other" onchange="toggleDurOther()"><span id="dur_other">その他</span></label>
+          </div>
+          <div class="other-text" id="dur_other_wrap" style="display:none;margin-top:6px">
+            <input type="text" id="dur_other_text" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;background:var(--bg)" placeholder="例: 数年前から">
           </div>
           <div class="field-error" id="e_symptomDuration"></div>
         </div>
@@ -985,7 +990,8 @@ const I18N = {
     ph_mainSymptom_other: '具体的にご記入ください',
     e_mainSymptom: '症状を選択してください',
     lbl_symptomDuration: '③ 症状はいつ頃からですか？',
-    dur_week: '1週間以内', dur_month: '1ヶ月以内', dur_over_month: '1ヶ月以上', dur_half_year: '半年以上',
+    dur_week: '1週間以内', dur_month: '1ヶ月以内', dur_over_month: '1ヶ月以上', dur_half_year: '半年以上', dur_other: 'その他',
+    ph_dur_other: '例: 数年前から',
     e_symptomDuration: '期間を選択してください',
     lbl_painLevel: '④ 痛み・つらさレベル（0〜10）',
     pain_min_label: '0 = 気にならない', pain_max_label: '10 = かなりつらい',
@@ -1078,7 +1084,8 @@ const I18N = {
     e_mainSymptom: 'Seleccione un síntoma',
     lbl_symptomDuration: '③ ¿Desde cuándo tiene el síntoma?',
     dur_week: 'Menos de 1 semana', dur_month: 'Menos de 1 mes',
-    dur_over_month: 'Más de 1 mes', dur_half_year: 'Más de 6 meses',
+    dur_over_month: 'Más de 1 mes', dur_half_year: 'Más de 6 meses', dur_other: 'Otro',
+    ph_dur_other: 'Ej: desde hace varios años',
     e_symptomDuration: 'Seleccione la duración',
     lbl_painLevel: '④ Nivel de dolor/malestar (0-10)',
     pain_min_label: '0 = Sin molestia', pain_max_label: '10 = Muy intenso',
@@ -1173,7 +1180,8 @@ const I18N = {
     e_mainSymptom: 'Selecione um sintoma',
     lbl_symptomDuration: '③ Há quanto tempo tem o sintoma?',
     dur_week: 'Menos de 1 semana', dur_month: 'Menos de 1 mês',
-    dur_over_month: 'Mais de 1 mês', dur_half_year: 'Mais de 6 meses',
+    dur_over_month: 'Mais de 1 mês', dur_half_year: 'Mais de 6 meses', dur_other: 'Outro',
+    ph_dur_other: 'Ex: há vários anos',
     e_symptomDuration: 'Selecione a duração',
     lbl_painLevel: '④ Nível de dor/desconforto (0-10)',
     pain_min_label: '0 = Sem desconforto', pain_max_label: '10 = Muito intenso',
@@ -1304,7 +1312,8 @@ function applyTexts() {
   const _mso = document.getElementById('mainSymptom_other_text'); if (_mso) _mso.placeholder = l.ph_mainSymptom_other || '';
   set('lbl_symptomDuration', l.lbl_symptomDuration);
   set('dur_week', l.dur_week); set('dur_month', l.dur_month);
-  set('dur_over_month', l.dur_over_month); set('dur_half_year', l.dur_half_year);
+  set('dur_over_month', l.dur_over_month); set('dur_half_year', l.dur_half_year); set('dur_other', l.dur_other);
+  const _duro = document.getElementById('dur_other_text'); if (_duro) _duro.placeholder = l.ph_dur_other || '';
   set('lbl_painLevel', l.lbl_painLevel);
   set('pain_min_label', l.pain_min_label); set('pain_max_label', l.pain_max_label);
   set('t_s3', l.t_s3); set('s3_hint', l.s3_hint);
@@ -1338,12 +1347,41 @@ function applyTexts() {
    INIT
    ============================================================ */
 window.addEventListener('DOMContentLoaded', async () => {
+  buildDobSelects();
   const lang = new URLSearchParams(window.location.search).get('lang') || 'ja';
   setLang(lang);
   await initCanvas();
   initSigCanvas();
   setupFuriganaAutoFill();
 });
+
+function buildDobSelects() {
+  const thisYear = new Date().getFullYear();
+  const yEl = document.getElementById('dob_y');
+  for (let y = thisYear; y >= 1930; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    yEl.appendChild(o);
+  }
+  const mEl = document.getElementById('dob_m');
+  for (let m = 1; m <= 12; m++) {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m;
+    mEl.appendChild(o);
+  }
+  const dEl = document.getElementById('dob_d');
+  for (let d = 1; d <= 31; d++) {
+    const o = document.createElement('option');
+    o.value = d; o.textContent = d;
+    dEl.appendChild(o);
+  }
+}
+
+function toggleDurOther() {
+  const wrap = document.getElementById('dur_other_wrap');
+  const checked = document.querySelector('input[name="symptomDuration"]:checked')?.value;
+  if (wrap) wrap.style.display = checked === 'other' ? 'block' : 'none';
+}
 
 function setupFuriganaAutoFill() {
   [['sei','seiKana'],['mei','meiKana']].forEach(([nameId, kanaId]) => {
@@ -1579,7 +1617,7 @@ function calcAge() {
   const m = parseInt(document.getElementById('dob_m').value);
   const d = parseInt(document.getElementById('dob_d').value);
   const badge = document.getElementById('ageBadge');
-  if (!y || !m || !d || y < 1900 || y > new Date().getFullYear()) { badge.style.display = 'none'; return; }
+  if (!y || !m || !d || y < 1930 || y > new Date().getFullYear()) { badge.style.display = 'none'; return; }
   const today = new Date();
   let age = today.getFullYear() - y;
   if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
@@ -1803,7 +1841,7 @@ function validate() {
     const m = parseInt(document.getElementById('dob_m').value);
     const d = parseInt(document.getElementById('dob_d').value);
     const thisYear = new Date().getFullYear();
-    const dobOk = y >= 1900 && y <= thisYear && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+    const dobOk = y >= 1930 && y <= thisYear && m >= 1 && m <= 12 && d >= 1 && d <= 31;
     if (!dobOk) { showErr('e_dob', L('e_dob')); ok = false; } else clearErr('e_dob');
     if (!document.querySelector('input[name="howFound"]:checked')) {
       showErr('e_howFound', L('e_howFound')); ok = false;
@@ -1920,7 +1958,7 @@ async function submitQuestionnaire() {
     bodyImage: (() => { try { return (showQ && Q.canvasDrawn) ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { return ''; } })(),
     mainSymptom:      showQ ? (document.querySelector('input[name="mainSymptom"]:checked')?.value || '') : '',
     mainSymptomOther: showQ ? document.getElementById('mainSymptom_other_text').value.trim() : '',
-    symptomDuration:  showQ ? (document.querySelector('input[name="symptomDuration"]:checked')?.value || '') : '',
+    symptomDuration:  showQ ? (() => { const v = document.querySelector('input[name="symptomDuration"]:checked')?.value || ''; return v === 'other' ? 'other: ' + (document.getElementById('dur_other_text').value.trim() || 'その他') : v; })() : '',
     painLevel:        showQ ? parseInt(document.getElementById('painRange').value) : null,
     safetyCheck:      showQ ? [...document.querySelectorAll('input[name="safety"]:checked')].map(c => c.value) : [],
     safetyNote:       showQ ? document.getElementById('safetyNote').value.trim() : '',

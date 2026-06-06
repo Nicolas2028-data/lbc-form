@@ -1350,13 +1350,24 @@ function setupFuriganaAutoFill() {
     const nameEl = document.getElementById(nameId);
     const kanaEl = document.getElementById(kanaId);
     let kana = '';
+    // Japanese IME: capture kana during composition
     nameEl.addEventListener('compositionupdate', e => {
       if (/^[ぁ-ゖァ-ヾ]+$/.test(e.data)) kana = toKatakana(e.data);
     });
     nameEl.addEventListener('compositionend', () => {
-      if (kana && Q.lang === 'ja') { kanaEl.value = kana; }
+      if (kana && Q.lang === 'ja') kanaEl.value = kana;
       kana = '';
     });
+    // Latin input (es/pt): transliterate on every keystroke
+    nameEl.addEventListener('input', () => {
+      if (Q.lang !== 'ja') {
+        const converted = latinToKatakana(nameEl.value, Q.lang);
+        if (converted) kanaEl.value = converted;
+      }
+    });
+    // Clear auto-fill lock when user manually edits kana field
+    kanaEl.addEventListener('input', () => { kanaEl.dataset.manual = '1'; });
+    nameEl.addEventListener('input', () => { kanaEl.dataset.manual = ''; }, true);
   });
 }
 
@@ -1365,6 +1376,62 @@ function setupFuriganaAutoFill() {
    ============================================================ */
 function toKatakana(str) {
   return str.replace(/[ぁ-ゖ]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x60));
+}
+
+function latinToKatakana(str, lang) {
+  str = str.toLowerCase()
+    .replace(/[áàâã]/g, 'a').replace(/[éèê]/g, 'e')
+    .replace(/[íìî]/g, 'i').replace(/[óòôõ]/g, 'o')
+    .replace(/[úùû]/g, 'u').replace(/ñ/g, 'ni').replace(/ç/g, 's');
+  // Spanish 'j' is pronounced like 'h' (Jose→ホセ, Juan→フアン)
+  if (lang === 'es') str = str.replace(/j/g, 'h');
+
+  const map = [
+    ['tsu','ツ'],['chi','チ'],['tch','ッチ'],
+    ['sha','シャ'],['shi','シ'],['shu','シュ'],['sho','ショ'],
+    ['que','ケ'],['qui','キ'],
+    ['ca','カ'],['ci','シ'],['ce','セ'],['co','コ'],['cu','ク'],
+    ['ka','カ'],['ki','キ'],['ku','ク'],['ke','ケ'],['ko','コ'],
+    ['sa','サ'],['si','シ'],['su','ス'],['se','セ'],['so','ソ'],
+    ['ta','タ'],['ti','チ'],['tu','ツ'],['te','テ'],['to','ト'],
+    ['na','ナ'],['ni','ニ'],['nu','ヌ'],['ne','ネ'],['no','ノ'],
+    ['ha','ハ'],['hi','ヒ'],['fu','フ'],['hu','フ'],['he','ヘ'],['ho','ホ'],
+    ['ma','マ'],['mi','ミ'],['mu','ム'],['me','メ'],['mo','モ'],
+    ['ya','ヤ'],['yu','ユ'],['yo','ヨ'],
+    ['ra','ラ'],['ri','リ'],['ru','ル'],['re','レ'],['ro','ロ'],
+    ['la','ラ'],['li','リ'],['lu','ル'],['le','レ'],['lo','ロ'],
+    ['ll','リャ'],
+    ['wa','ワ'],['wi','ウィ'],['we','ウェ'],['wo','ウォ'],
+    ['ga','ガ'],['gi','ギ'],['gu','グ'],['ge','ゲ'],['go','ゴ'],
+    ['za','ザ'],['zi','ジ'],['zu','ズ'],['ze','ゼ'],['zo','ゾ'],
+    ['ja','ジャ'],['ji','ジ'],['ju','ジュ'],['jo','ジョ'],
+    ['da','ダ'],['di','ディ'],['du','ドゥ'],['de','デ'],['do','ド'],
+    ['ba','バ'],['bi','ビ'],['bu','ブ'],['be','ベ'],['bo','ボ'],
+    ['pa','パ'],['pi','ピ'],['pu','プ'],['pe','ペ'],['po','ポ'],
+    ['fa','ファ'],['fi','フィ'],['fe','フェ'],['fo','フォ'],
+    ['va','ヴァ'],['vi','ヴィ'],['ve','ヴェ'],['vo','ヴォ'],
+    ['ch','チ'],['sh','シ'],
+    ['a','ア'],['i','イ'],['u','ウ'],['e','エ'],['o','オ'],
+    ['n','ン'],['m','ン'],['s','ス'],['r','ル'],['l','ル'],
+    ['k','ク'],['t','ト'],['p','プ'],['b','ブ'],['d','ド'],
+    ['f','フ'],['g','グ'],['v','ブ'],['z','ズ'],['h','フ'],['c','ク'],
+  ];
+
+  let result = '', i = 0;
+  while (i < str.length) {
+    const c = str[i];
+    if (c === ' ' || c === '-' || c === "'") { i++; continue; }
+    // Double consonant (not 'n') → ッ
+    if (c !== 'n' && i + 1 < str.length && c === str[i + 1] && !'aeiou'.includes(c)) {
+      result += 'ッ'; i++; continue;
+    }
+    let matched = false;
+    for (const [rom, kat] of map) {
+      if (str.startsWith(rom, i)) { result += kat; i += rom.length; matched = true; break; }
+    }
+    if (!matched) i++;
+  }
+  return result;
 }
 function normName(str) {
   return str.replace(/[\s　]+/g, '');

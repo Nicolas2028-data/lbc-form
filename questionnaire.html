@@ -599,7 +599,7 @@
       <div class="form-group" style="margin-bottom:0">
         <div class="field-label"><span id="lbl_phone">電話番号</span><span class="badge-req">必須</span></div>
         <input type="tel" id="phone" autocomplete="tel" inputmode="numeric" oninput="formatPhone(this)">
-        <div class="hint" id="phone_hint">ハイフン不要（例: 09012345678）</div>
+        <div class="hint" id="phone_hint">数字のみ入力（ハイフン自動入力）</div>
         <div class="field-error" id="e_phone"></div>
       </div>
     </div>
@@ -944,7 +944,7 @@ const I18N = {
     lbl_nameGroup: 'お名前', lbl_sei: '姓', lbl_mei: '名',
     lbl_furiganaGroup: 'フリガナ', lbl_seiKana: '姓', lbl_meiKana: '名', lbl_phone: '電話番号',
     ph_sei: '田中', ph_mei: '太郎', ph_seiKana: 'タナカ', ph_meiKana: 'タロウ', ph_phone: '例: 09012345678',
-    furigana_hint: '', phone_hint: 'ハイフン不要（例: 09012345678）',
+    furigana_hint: '', phone_hint: '数字のみ入力（ハイフン自動入力）',
     consent_disclaimer: '本同意書は、初回ご署名をもって今後の施術にも適用されます。内容変更時は再度ご案内いたします。',
     ph_detail_pregnant: '妊娠何ヶ月ですか？',
     ph_detail_hospital: 'どこへの通院ですか？（例: 整形外科、内科など）',
@@ -1035,7 +1035,7 @@ const I18N = {
     lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Apellido', lbl_meiKana: 'Nombre', lbl_phone: 'Teléfono',
     ph_sei: 'Apellido', ph_mei: 'Nombre', ph_seiKana: 'ゴメス', ph_meiKana: 'ホセ', ph_phone: 'Ej: 09012345678',
     furigana_hint: 'Escriba su nombre en katakana (Ej: ゴメス / ホセ)',
-    phone_hint: 'Sin guiones (Ej: 09012345678)',
+    phone_hint: 'Solo números (guiones automáticos)',
     consent_disclaimer: 'Este consentimiento aplica a todas las sesiones futuras firmadas en la primera visita. Se notificará ante cualquier cambio.',
     ph_detail_pregnant: '¿Cuántos meses de embarazo?',
     ph_detail_hospital: '¿A dónde va al médico? (Ej: ortopedia, clínica interna)',
@@ -1130,7 +1130,7 @@ const I18N = {
     lbl_furiganaGroup: 'Furigana', lbl_seiKana: 'Sobrenome', lbl_meiKana: 'Nome', lbl_phone: 'Telefone',
     ph_sei: 'Sobrenome', ph_mei: 'Nome', ph_seiKana: 'シルバ', ph_meiKana: 'ルーカス', ph_phone: 'Ex: 09012345678',
     furigana_hint: 'Escreva seu nome em katakana (Ex: シルバ / ルーカス)',
-    phone_hint: 'Sem hifens (Ex: 09012345678)',
+    phone_hint: 'Somente números (hífens automáticos)',
     consent_disclaimer: 'Este consentimento se aplica a todas as sessões futuras assinadas na primeira visita. Você será notificado sobre qualquer alteração.',
     ph_detail_pregnant: 'Quantos meses de gravidez?',
     ph_detail_hospital: 'Qual é o local/clínica de tratamento? (Ex: ortopedia, clínica geral)',
@@ -1444,7 +1444,6 @@ function normPhone(str) {
 }
 
 function formatPhone(input) {
-  if (Q.lang !== 'ja') return;
   const raw = input.value
     .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
     .replace(/[^0-9]/g, '');

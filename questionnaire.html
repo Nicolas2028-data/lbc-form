@@ -789,10 +789,13 @@
           </div>
           <label class="check-item"><input type="checkbox" name="safety" value="hospital" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('hospital')"><span id="safety_hospital">通院中</span></label>
           <div class="safety-detail" id="detail_hospital" style="display:none">
-            <input type="text" id="detail_hospital_text" placeholder="何の通院ですか？（例: 整形外科、内科など）">
+            <input type="text" id="detail_hospital_text" placeholder="どこへの通院ですか？（例: 整形外科、内科など）">
           </div>
           <label class="check-item"><input type="checkbox" name="safety" value="osteoporosis" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_osteoporosis">骨粗しょう症</span></label>
-          <label class="check-item"><input type="checkbox" name="safety" value="blood_thinner" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_blood_thinner">血液をサラサラにする薬を服用</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="blood_thinner" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('blood_thinner')"><span id="safety_blood_thinner">血液をサラサラにする薬を服用</span></label>
+          <div class="safety-detail" id="detail_blood_thinner" style="display:none">
+            <input type="text" id="detail_blood_thinner_text" placeholder="薬名を入力ください">
+          </div>
           <label class="check-item"><input type="checkbox" name="safety" value="numbness" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('numbness')"><span id="safety_numbness">強いしびれ</span></label>
           <div class="safety-detail" id="detail_numbness" style="display:none">
             <input type="text" id="detail_numbness_text" placeholder="いつから、どの部位にしびれがありますか？">
@@ -944,7 +947,8 @@ const I18N = {
     furigana_hint: '', phone_hint: 'ハイフン不要（例: 09012345678）',
     consent_disclaimer: '本同意書は、初回ご署名をもって今後の施術にも適用されます。内容変更時は再度ご案内いたします。',
     ph_detail_pregnant: '妊娠何ヶ月ですか？',
-    ph_detail_hospital: '何の通院ですか？（例: 整形外科、内科など）',
+    ph_detail_hospital: 'どこへの通院ですか？（例: 整形外科、内科など）',
+    ph_detail_blood_thinner: '薬名を入力ください',
     ph_detail_numbness: 'いつから、どの部位にしびれがありますか？',
     ph_detail_injury: 'いつ、どの部位、何の手術/怪我ですか？',
     e_sei: '姓を入力してください', e_mei: '名を入力してください',
@@ -1034,7 +1038,8 @@ const I18N = {
     phone_hint: 'Sin guiones (Ej: 09012345678)',
     consent_disclaimer: 'Este consentimiento aplica a todas las sesiones futuras firmadas en la primera visita. Se notificará ante cualquier cambio.',
     ph_detail_pregnant: '¿Cuántos meses de embarazo?',
-    ph_detail_hospital: '¿Qué tratamiento médico recibe? (Ej: ortopedia, clínica interna)',
+    ph_detail_hospital: '¿A dónde va al médico? (Ej: ortopedia, clínica interna)',
+    ph_detail_blood_thinner: 'Ingrese el nombre del medicamento',
     ph_detail_numbness: '¿Desde cuándo y en qué parte del cuerpo?',
     ph_detail_injury: '¿Cuándo, en qué parte del cuerpo y qué lesión/cirugía?',
     e_sei: 'Ingrese su apellido', e_mei: 'Ingrese su nombre',
@@ -1128,7 +1133,8 @@ const I18N = {
     phone_hint: 'Sem hifens (Ex: 09012345678)',
     consent_disclaimer: 'Este consentimento se aplica a todas as sessões futuras assinadas na primeira visita. Você será notificado sobre qualquer alteração.',
     ph_detail_pregnant: 'Quantos meses de gravidez?',
-    ph_detail_hospital: 'Qual tratamento médico? (Ex: ortopedia, clínica geral)',
+    ph_detail_hospital: 'Qual é o local/clínica de tratamento? (Ex: ortopedia, clínica geral)',
+    ph_detail_blood_thinner: 'Digite o nome do medicamento',
     ph_detail_numbness: 'Desde quando e em qual parte do corpo?',
     ph_detail_injury: 'Quando, em qual parte do corpo e qual lesão/cirurgia?',
     e_sei: 'Digite seu sobrenome', e_mei: 'Digite seu nome',
@@ -1255,9 +1261,10 @@ function applyTexts() {
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
   document.getElementById('detail_pregnant_text').placeholder  = l.ph_detail_pregnant  || '';
-  document.getElementById('detail_hospital_text').placeholder  = l.ph_detail_hospital  || '';
-  document.getElementById('detail_numbness_text').placeholder  = l.ph_detail_numbness  || '';
-  document.getElementById('detail_recent_injury_text').placeholder = l.ph_detail_injury || '';
+  document.getElementById('detail_hospital_text').placeholder      = l.ph_detail_hospital      || '';
+  document.getElementById('detail_blood_thinner_text').placeholder = l.ph_detail_blood_thinner || '';
+  document.getElementById('detail_numbness_text').placeholder      = l.ph_detail_numbness      || '';
+  document.getElementById('detail_recent_injury_text').placeholder = l.ph_detail_injury        || '';
   const _fb = document.getElementById('furiganaBadge');
   if (_fb) { _fb.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb.textContent = Q.lang === 'ja' ? l.req : l.opt; }
   set('lbl_phone', l.lbl_phone);
@@ -1563,7 +1570,7 @@ function handleSafetyOther() {
 function handleSafetyNone() {
   if (document.getElementById('safety_none_chk').checked) {
     document.querySelectorAll('.safety_other_cb').forEach(cb => { cb.checked = false; });
-    ['pregnant','hospital','numbness','recent_injury'].forEach(v => {
+    ['pregnant','hospital','blood_thinner','numbness','recent_injury'].forEach(v => {
       const d = document.getElementById('detail_' + v);
       if (d) d.style.display = 'none';
     });
@@ -1854,6 +1861,7 @@ async function submitQuestionnaire() {
     safetyDetail: showQ ? {
       pregnant:      document.getElementById('detail_pregnant_text').value.trim(),
       hospital:      document.getElementById('detail_hospital_text').value.trim(),
+      blood_thinner: document.getElementById('detail_blood_thinner_text').value.trim(),
       numbness:      document.getElementById('detail_numbness_text').value.trim(),
       recent_injury: document.getElementById('detail_recent_injury_text').value.trim(),
     } : {},

@@ -395,6 +395,8 @@
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
     }
+    .consent-expand-body p { margin: 0 0 6px 1em; text-indent: -1em; }
+    .consent-expand-body p:last-child { margin-bottom: 0; }
     .consent-agree-row { margin-bottom: 16px; }
     .consent-agree-check {
       border-color: var(--primary-mid) !important;
@@ -860,7 +862,7 @@
             <span id="consent_1">当店の施術は医療行為ではありません。</span>
             <details class="consent-details">
               <summary id="consent_1_expand">「医療行為とは」を確認する</summary>
-              <div class="consent-expand-body" id="consent_1_body">侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。</div>
+              <div class="consent-expand-body" id="consent_1_body"><p>侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。</p><p>医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。</p></div>
             </details>
           </div>
           <div class="consent-item"><span id="consent_2">身体状態により施術内容を変更または中止する場合があります。</span></div>
@@ -1005,7 +1007,7 @@ const I18N = {
     t_s5: '5. 同意事項',
     consent_1: '当店の施術は医療行為ではありません。',
     consent_1_expand: '「医療行為とは」を確認する',
-    consent_1_body: '侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。',
+    consent_1_body: '<p>侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。</p><p>医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。</p>',
     consent_2: '身体状態により施術内容を変更または中止する場合があります。',
     consent_3: '吸い玉（カッピング）は1〜2週間跡が残る場合があります。',
     consent_4: '施術後にだるさや筋肉痛のような反応（好転反応）が出る場合があります。',
@@ -1099,7 +1101,7 @@ const I18N = {
     t_s5: '5. Consentimiento',
     consent_1: 'Los tratamientos de nuestra clínica no son actos médicos.',
     consent_1_expand: 'Ver "¿Qué es un acto médico?"',
-    consent_1_body: 'Los actos médicos implican intervención física con riesgo de daño. Lo que no es acto médico: cuidados cotidianos sin riesgo que no requieren criterio médico.',
+    consent_1_body: '<p>Actos médicos: intervención física con riesgo de daño para la salud que requiere criterio médico.</p><p>No acto médico: cuidados cotidianos sin riesgo que no requieren juicio ni técnica médica.</p>',
     consent_2: 'El contenido del tratamiento puede modificarse o suspenderse según el estado del cuerpo.',
     consent_3: 'Las ventosas (cupping) pueden dejar marcas por 1 a 2 semanas.',
     consent_4: 'Después del tratamiento pueden aparecer reacciones como cansancio o dolor muscular (reacción de curación).',
@@ -1193,7 +1195,7 @@ const I18N = {
     t_s5: '5. Consentimento',
     consent_1: 'Os tratamentos da nossa clínica não são atos médicos.',
     consent_1_expand: 'Ver "O que é um ato médico?"',
-    consent_1_body: 'Atos médicos envolvem intervenção física com risco de dano. O que não é ato médico: cuidados cotidianos sem risco que não requerem julgamento médico.',
+    consent_1_body: '<p>Atos médicos: intervenção física com risco de dano à saúde que requer julgamento médico.</p><p>Não ato médico: cuidados cotidianos sem risco que não requerem julgamento nem técnica médica.</p>',
     consent_2: 'O conteúdo do tratamento pode ser alterado ou interrompido conforme o estado corporal.',
     consent_3: 'As ventosas (cupping) podem deixar marcas por 1 a 2 semanas.',
     consent_4: 'Após o tratamento podem aparecer reações como cansaço ou dor muscular (reação de cura).',
@@ -1313,7 +1315,7 @@ function applyTexts() {
   set('dis_pressure', l.dis_pressure); set('dis_joint', l.dis_joint); set('dis_none', l.dis_none);
   set('t_s5', l.t_s5);
   set('consent_1', l.consent_1); set('consent_1_expand', l.consent_1_expand);
-  set('consent_1_body', l.consent_1_body);
+  const cb1 = document.getElementById('consent_1_body'); if (cb1) cb1.innerHTML = l.consent_1_body;
   set('consent_2', l.consent_2); set('consent_3', l.consent_3);
   set('consent_4', l.consent_4); set('consent_5', l.consent_5);
   set('lbl_consentAgree', l.lbl_consentAgree);

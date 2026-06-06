@@ -542,7 +542,7 @@
 <body>
 
 <header>
-  <div class="logo">LBC<span>Care</span><small>Lucas Body Care</small></div>
+  <div class="logo">LBC<span>整体院</span><small>Lucas Body Care</small></div>
   <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
     <option value="ja">日本語</option>
     <option value="es">Español</option>
@@ -1260,19 +1260,19 @@ function applyTexts() {
   set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_seiKana', l.lbl_seiKana); set('lbl_meiKana', l.lbl_meiKana);
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
-  document.getElementById('detail_pregnant_text').placeholder  = l.ph_detail_pregnant  || '';
-  document.getElementById('detail_hospital_text').placeholder      = l.ph_detail_hospital      || '';
-  document.getElementById('detail_blood_thinner_text').placeholder = l.ph_detail_blood_thinner || '';
-  document.getElementById('detail_numbness_text').placeholder      = l.ph_detail_numbness      || '';
-  document.getElementById('detail_recent_injury_text').placeholder = l.ph_detail_injury        || '';
+  const _dp = document.getElementById('detail_pregnant_text');     if (_dp)  _dp.placeholder  = l.ph_detail_pregnant  || '';
+  const _dh = document.getElementById('detail_hospital_text');      if (_dh)  _dh.placeholder  = l.ph_detail_hospital  || '';
+  const _db = document.getElementById('detail_blood_thinner_text'); if (_db)  _db.placeholder  = l.ph_detail_blood_thinner || '';
+  const _dn = document.getElementById('detail_numbness_text');      if (_dn)  _dn.placeholder  = l.ph_detail_numbness  || '';
+  const _di = document.getElementById('detail_recent_injury_text'); if (_di)  _di.placeholder  = l.ph_detail_injury     || '';
   const _fb = document.getElementById('furiganaBadge');
   if (_fb) { _fb.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb.textContent = Q.lang === 'ja' ? l.req : l.opt; }
   set('lbl_phone', l.lbl_phone);
-  document.getElementById('sei').placeholder     = l.ph_sei     || '';
-  document.getElementById('mei').placeholder     = l.ph_mei     || '';
-  document.getElementById('seiKana').placeholder = l.ph_seiKana || '';
-  document.getElementById('meiKana').placeholder = l.ph_meiKana || '';
-  document.getElementById('phone').placeholder   = l.ph_phone   || '';
+  const _sei = document.getElementById('sei'); if (_sei) _sei.placeholder = l.ph_sei || '';
+  const _mei = document.getElementById('mei'); if (_mei) _mei.placeholder = l.ph_mei || '';
+  const _seiK = document.getElementById('seiKana'); if (_seiK) _seiK.placeholder = l.ph_seiKana || '';
+  const _meiK = document.getElementById('meiKana'); if (_meiK) _meiK.placeholder = l.ph_meiKana || '';
+  const _ph = document.getElementById('phone'); if (_ph) _ph.placeholder = l.ph_phone || '';
   set('l_lookup', l.l_lookup); set('t_lookingUp', l.t_lookingUp);
   set('t_firstBanner', l.t_firstBanner);
   set('t_welcomeBack', l.t_welcomeBack); set('t_welcomeSub', l.t_welcomeSub);
@@ -1287,13 +1287,13 @@ function applyTexts() {
   document.querySelectorAll('.badge-opt').forEach(el => el.textContent = l.opt);
   set('sep_y', l.sep_y); set('sep_m', l.sep_m); set('sep_d', l.sep_d);
   set('lbl_email', l.lbl_email);
-  document.getElementById('email').placeholder = l.ph_email || '';
+  const _em = document.getElementById('email'); if (_em) _em.placeholder = l.ph_email || '';
   set('lbl_howFound', l.lbl_howFound);
   set('how_instagram', l.how_instagram); set('how_google', l.how_google);
   set('how_google_maps', l.how_google_maps); set('how_referral', l.how_referral);
   set('how_other_found', l.how_other_found);
-  document.getElementById('referrerName').placeholder = l.ph_referrer || '';
-  document.getElementById('howFoundOther').placeholder = l.ph_howFound_other || '';
+  const _rn = document.getElementById('referrerName'); if (_rn) _rn.placeholder = l.ph_referrer || '';
+  const _hfo = document.getElementById('howFoundOther'); if (_hfo) _hfo.placeholder = l.ph_howFound_other || '';
   set('t_s2', l.t_s2);
   set('lbl_bodyMap', l.lbl_bodyMap); set('q_drawHint', l.q_drawHint); set('q_clear', l.q_clear);
   set('lbl_mainSymptom', l.lbl_mainSymptom);
@@ -1301,7 +1301,7 @@ function applyTexts() {
   set('sym_neck', l.sym_neck); set('sym_headache', l.sym_headache);
   set('sym_posture', l.sym_posture); set('sym_fatigue', l.sym_fatigue);
   set('sym_swelling', l.sym_swelling); set('sym_other', l.sym_other);
-  document.getElementById('mainSymptom_other_text').placeholder = l.ph_mainSymptom_other || '';
+  const _mso = document.getElementById('mainSymptom_other_text'); if (_mso) _mso.placeholder = l.ph_mainSymptom_other || '';
   set('lbl_symptomDuration', l.lbl_symptomDuration);
   set('dur_week', l.dur_week); set('dur_month', l.dur_month);
   set('dur_over_month', l.dur_over_month); set('dur_half_year', l.dur_half_year);

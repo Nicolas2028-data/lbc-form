@@ -188,6 +188,9 @@
     .field-error.visible { display: flex; align-items: center; gap: 4px; }
     .field-error::before { content: '!'; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; background:var(--danger); color:var(--white); border-radius:50%; font-size:0.65rem; font-weight:700; flex-shrink:0; }
     .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .safety-detail { margin: 6px 0 4px 28px; }
+    .safety-detail input { width: 100%; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 0.88rem; background: var(--bg); }
+    .safety-detail input:focus { outline: none; border-color: var(--border-focus); }
     textarea { resize: vertical; min-height: 72px; }
 
     /* ── Radio ── */
@@ -778,12 +781,24 @@
         <div class="card-title"><span class="icon">🔒</span><span id="t_s3">3. 安全確認</span></div>
         <p class="section-hint" id="s3_hint">当てはまるものをすべて選択してください</p>
         <div class="check-group">
-          <label class="check-item"><input type="checkbox" name="safety" value="pregnant" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_pregnant">妊娠中／妊娠の可能性</span></label>
-          <label class="check-item"><input type="checkbox" name="safety" value="hospital" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_hospital">通院中</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="pregnant" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('pregnant')"><span id="safety_pregnant">妊娠中／妊娠の可能性</span></label>
+          <div class="safety-detail" id="detail_pregnant" style="display:none">
+            <input type="text" id="detail_pregnant_text" placeholder="妊娠何ヶ月ですか？">
+          </div>
+          <label class="check-item"><input type="checkbox" name="safety" value="hospital" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('hospital')"><span id="safety_hospital">通院中</span></label>
+          <div class="safety-detail" id="detail_hospital" style="display:none">
+            <input type="text" id="detail_hospital_text" placeholder="何の通院ですか？（例: 整形外科、内科など）">
+          </div>
           <label class="check-item"><input type="checkbox" name="safety" value="osteoporosis" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_osteoporosis">骨粗しょう症</span></label>
           <label class="check-item"><input type="checkbox" name="safety" value="blood_thinner" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_blood_thinner">血液をサラサラにする薬を服用</span></label>
-          <label class="check-item"><input type="checkbox" name="safety" value="numbness" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_numbness">強いしびれ</span></label>
-          <label class="check-item"><input type="checkbox" name="safety" value="recent_injury" class="safety_other_cb" onchange="handleSafetyOther()"><span id="safety_injury">最近の怪我・手術</span></label>
+          <label class="check-item"><input type="checkbox" name="safety" value="numbness" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('numbness')"><span id="safety_numbness">強いしびれ</span></label>
+          <div class="safety-detail" id="detail_numbness" style="display:none">
+            <input type="text" id="detail_numbness_text" placeholder="いつから、どの部位にしびれがありますか？">
+          </div>
+          <label class="check-item"><input type="checkbox" name="safety" value="recent_injury" class="safety_other_cb" onchange="handleSafetyOther();toggleSafetyDetail('recent_injury')"><span id="safety_injury">最近の怪我・手術</span></label>
+          <div class="safety-detail" id="detail_recent_injury" style="display:none">
+            <input type="text" id="detail_recent_injury_text" placeholder="いつ、どの部位、何の手術/怪我ですか？">
+          </div>
           <label class="check-item"><input type="checkbox" name="safety" value="none" id="safety_none_chk" onchange="handleSafetyNone()"><span id="safety_none">特になし</span></label>
         </div>
         <div class="field-error" id="e_safety"></div>
@@ -839,6 +854,8 @@
     <div id="consentSection" style="display:none">
       <div class="card">
         <div class="card-title"><span class="icon">📜</span><span id="t_s5">5. 同意事項</span></div>
+
+        <p class="section-hint" id="consent_disclaimer" style="margin-bottom:12px"></p>
 
         <div class="consent-list">
           <div class="consent-item">
@@ -924,6 +941,11 @@ const I18N = {
     lbl_furiganaGroup: 'フリガナ', lbl_seiKana: '姓', lbl_meiKana: '名', lbl_phone: '電話番号',
     ph_sei: '田中', ph_mei: '太郎', ph_seiKana: 'タナカ', ph_meiKana: 'タロウ', ph_phone: '例: 09012345678',
     furigana_hint: '', phone_hint: 'ハイフン不要（例: 09012345678）',
+    consent_disclaimer: '本同意書は、初回ご署名をもって今後の施術にも適用されます。内容変更時は再度ご案内いたします。',
+    ph_detail_pregnant: '妊娠何ヶ月ですか？',
+    ph_detail_hospital: '何の通院ですか？（例: 整形外科、内科など）',
+    ph_detail_numbness: 'いつから、どの部位にしびれがありますか？',
+    ph_detail_injury: 'いつ、どの部位、何の手術/怪我ですか？',
     e_sei: '姓を入力してください', e_mei: '名を入力してください',
     e_seiKana: '姓フリガナを入力してください', e_meiKana: '名フリガナを入力してください',
     e_phone: '電話番号を入力してください',
@@ -1009,6 +1031,11 @@ const I18N = {
     ph_sei: 'Apellido', ph_mei: 'Nombre', ph_seiKana: 'ゴメス', ph_meiKana: 'ホセ', ph_phone: 'Ej: 09012345678',
     furigana_hint: 'Escriba su nombre en katakana (Ej: ゴメス / ホセ)',
     phone_hint: 'Sin guiones (Ej: 09012345678)',
+    consent_disclaimer: 'Este consentimiento aplica a todas las sesiones futuras firmadas en la primera visita. Se notificará ante cualquier cambio.',
+    ph_detail_pregnant: '¿Cuántos meses de embarazo?',
+    ph_detail_hospital: '¿Qué tratamiento médico recibe? (Ej: ortopedia, clínica interna)',
+    ph_detail_numbness: '¿Desde cuándo y en qué parte del cuerpo?',
+    ph_detail_injury: '¿Cuándo, en qué parte del cuerpo y qué lesión/cirugía?',
     e_sei: 'Ingrese su apellido', e_mei: 'Ingrese su nombre',
     e_seiKana: 'Furigana del apellido', e_meiKana: 'Furigana del nombre',
     e_phone: 'Ingrese su teléfono',
@@ -1098,6 +1125,11 @@ const I18N = {
     ph_sei: 'Sobrenome', ph_mei: 'Nome', ph_seiKana: 'シルバ', ph_meiKana: 'ルーカス', ph_phone: 'Ex: 09012345678',
     furigana_hint: 'Escreva seu nome em katakana (Ex: シルバ / ルーカス)',
     phone_hint: 'Sem hifens (Ex: 09012345678)',
+    consent_disclaimer: 'Este consentimento se aplica a todas as sessões futuras assinadas na primeira visita. Você será notificado sobre qualquer alteração.',
+    ph_detail_pregnant: 'Quantos meses de gravidez?',
+    ph_detail_hospital: 'Qual tratamento médico? (Ex: ortopedia, clínica geral)',
+    ph_detail_numbness: 'Desde quando e em qual parte do corpo?',
+    ph_detail_injury: 'Quando, em qual parte do corpo e qual lesão/cirurgia?',
     e_sei: 'Digite seu sobrenome', e_mei: 'Digite seu nome',
     e_seiKana: 'Furigana do sobrenome', e_meiKana: 'Furigana do nome',
     e_phone: 'Digite seu telefone',
@@ -1220,6 +1252,11 @@ function applyTexts() {
   set('lbl_nameGroup', l.lbl_nameGroup); set('lbl_sei', l.lbl_sei); set('lbl_mei', l.lbl_mei);
   set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_seiKana', l.lbl_seiKana); set('lbl_meiKana', l.lbl_meiKana);
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
+  set('consent_disclaimer', l.consent_disclaimer);
+  document.getElementById('detail_pregnant_text').placeholder  = l.ph_detail_pregnant  || '';
+  document.getElementById('detail_hospital_text').placeholder  = l.ph_detail_hospital  || '';
+  document.getElementById('detail_numbness_text').placeholder  = l.ph_detail_numbness  || '';
+  document.getElementById('detail_recent_injury_text').placeholder = l.ph_detail_injury || '';
   const _fb = document.getElementById('furiganaBadge');
   if (_fb) { _fb.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb.textContent = Q.lang === 'ja' ? l.req : l.opt; }
   set('lbl_phone', l.lbl_phone);
@@ -1297,7 +1334,23 @@ window.addEventListener('DOMContentLoaded', async () => {
   setLang(lang);
   await initCanvas();
   initSigCanvas();
+  setupFuriganaAutoFill();
 });
+
+function setupFuriganaAutoFill() {
+  [['sei','seiKana'],['mei','meiKana']].forEach(([nameId, kanaId]) => {
+    const nameEl = document.getElementById(nameId);
+    const kanaEl = document.getElementById(kanaId);
+    let kana = '';
+    nameEl.addEventListener('compositionupdate', e => {
+      if (/^[ぁ-ゖァ-ヾ]+$/.test(e.data)) kana = toKatakana(e.data);
+    });
+    nameEl.addEventListener('compositionend', () => {
+      if (kana && Q.lang === 'ja') { kanaEl.value = kana; }
+      kana = '';
+    });
+  });
+}
 
 /* ============================================================
    正規化ヘルパー
@@ -1413,18 +1466,18 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
   document.getElementById('phase2').style.display  = 'block';
 
   if (visitType === 'first') {
-    document.getElementById('firstBanner').style.display = 'flex';
-    document.getElementById('basicCard').style.display   = 'block';
-    document.getElementById('qSection').style.display    = 'block';
+    document.getElementById('firstBanner').style.display   = 'flex';
+    document.getElementById('basicCard').style.display     = 'block';
+    document.getElementById('qSection').style.display      = 'block';
+    document.getElementById('consentSection').style.display = 'block';
     if (patientName) document.getElementById('firstWelcomeName').textContent = patientName + ' 様';
   } else {
-    document.getElementById('returnBanner').style.display = 'flex';
-    document.getElementById('courseCard').style.display   = 'block';
-    document.getElementById('changesCard').style.display  = 'block';
+    document.getElementById('returnBanner').style.display  = 'flex';
+    document.getElementById('changesCard').style.display   = 'block';
+    // courseCard は施術記録シートで選択するため非表示
+    // consentSection は変化ありの場合のみ toggleChanges() で表示
     if (patientName) document.getElementById('welcomeName').textContent = patientName;
   }
-
-  document.getElementById('consentSection').style.display = 'block';
   document.getElementById('todayDate').textContent = formatDate(Q.lang);
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1440,7 +1493,8 @@ function formatDate(lang) {
 function toggleChanges() {
   const val = document.querySelector('input[name="changes"]:checked')?.value;
   clearErr('e_changes');
-  document.getElementById('qSection').style.display = val === 'yes' ? 'block' : 'none';
+  document.getElementById('qSection').style.display       = val === 'yes' ? 'block' : 'none';
+  document.getElementById('consentSection').style.display = val === 'yes' ? 'block' : 'none';
 }
 
 /* ============================================================
@@ -1508,8 +1562,17 @@ function handleSafetyOther() {
 function handleSafetyNone() {
   if (document.getElementById('safety_none_chk').checked) {
     document.querySelectorAll('.safety_other_cb').forEach(cb => { cb.checked = false; });
+    ['pregnant','hospital','numbness','recent_injury'].forEach(v => {
+      const d = document.getElementById('detail_' + v);
+      if (d) d.style.display = 'none';
+    });
   }
   clearErr('e_safety');
+}
+function toggleSafetyDetail(value) {
+  const cb = document.querySelector('input[name="safety"][value="' + value + '"]');
+  const detail = document.getElementById('detail_' + value);
+  if (detail) detail.style.display = (cb && cb.checked) ? 'block' : 'none';
 }
 
 /* ============================================================
@@ -1656,9 +1719,6 @@ function validate() {
   const showQ = Q.visitType === 'first' || document.querySelector('input[name="changes"]:checked')?.value === 'yes';
 
   if (Q.visitType === 'return') {
-    if (!document.querySelector('input[name="course"]:checked')) {
-      showErr('e_course', L('e_course')); ok = false;
-    } else clearErr('e_course');
     if (!document.querySelector('input[name="changes"]:checked')) {
       showErr('e_changes', L('e_changes')); ok = false;
     } else clearErr('e_changes');
@@ -1702,17 +1762,20 @@ function validate() {
     } else clearErr('e_disliked');
   }
 
-  if (!document.getElementById('consentCheck').checked) {
-    showErr('e_consent', L('e_consent')); ok = false;
-  } else clearErr('e_consent');
+  const consentVisible = document.getElementById('consentSection').style.display !== 'none';
+  if (consentVisible) {
+    if (!document.getElementById('consentCheck').checked) {
+      showErr('e_consent', L('e_consent')); ok = false;
+    } else clearErr('e_consent');
 
-  if (!Q.sigDrawn) {
-    showErr('e_signature', L('e_signature'));
-    document.getElementById('sigWrap').classList.add('is-error');
-    ok = false;
-  } else {
-    clearErr('e_signature');
-    document.getElementById('sigWrap').classList.remove('is-error');
+    if (!Q.sigDrawn) {
+      showErr('e_signature', L('e_signature'));
+      document.getElementById('sigWrap').classList.add('is-error');
+      ok = false;
+    } else {
+      clearErr('e_signature');
+      document.getElementById('sigWrap').classList.remove('is-error');
+    }
   }
 
   return ok;
@@ -1748,6 +1811,7 @@ async function submitQuestionnaire() {
 
   const showQ = Q.visitType === 'first' || document.querySelector('input[name="changes"]:checked')?.value === 'yes';
   const hasChanges = document.querySelector('input[name="changes"]:checked')?.value || '';
+  const consentVisible = document.getElementById('consentSection').style.display !== 'none';
 
   const dob_y = document.getElementById('dob_y').value;
   const dob_m = document.getElementById('dob_m').value;
@@ -1786,11 +1850,17 @@ async function submitQuestionnaire() {
     painLevel:        showQ ? parseInt(document.getElementById('painRange').value) : null,
     safetyCheck:      showQ ? [...document.querySelectorAll('input[name="safety"]:checked')].map(c => c.value) : [],
     safetyNote:       showQ ? document.getElementById('safetyNote').value.trim() : '',
+    safetyDetail: showQ ? {
+      pregnant:      document.getElementById('detail_pregnant_text').value.trim(),
+      hospital:      document.getElementById('detail_hospital_text').value.trim(),
+      numbness:      document.getElementById('detail_numbness_text').value.trim(),
+      recent_injury: document.getElementById('detail_recent_injury_text').value.trim(),
+    } : {},
     treatmentGoal:    showQ ? (document.querySelector('input[name="treatmentGoal"]:checked')?.value || '') : '',
     treatmentStrength: showQ ? (document.querySelector('input[name="treatmentStrength"]:checked')?.value || '') : '',
     dislikedTreatment: showQ ? [...document.querySelectorAll('input[name="disliked"]:checked')].map(c => c.value) : [],
-    consentAgreed:  document.getElementById('consentCheck').checked,
-    signatureImage: Q.sigDrawn ? document.getElementById('sigCanvas').toDataURL('image/png') : '',
+    consentAgreed:  consentVisible ? document.getElementById('consentCheck').checked : true,
+    signatureImage: (consentVisible && Q.sigDrawn) ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { return ''; } })() : '',
     consentDate:    today,
   };
 

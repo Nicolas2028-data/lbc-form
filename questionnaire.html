@@ -1246,6 +1246,17 @@ const Q = {
    LANGUAGE
    ============================================================ */
 function setLang(lang) {
+  const prevLang = Q.lang;
+  // ja = family-first (left=姓); es/pt = given-first (left=Nombre/Nome)
+  // Swap field values when crossing the ja ↔ foreign boundary
+  if ((prevLang === 'ja') !== (lang === 'ja')) {
+    ['sei','mei','seiKana','meiKana'].reduce((_, __, i, arr) => {
+      if (i % 2 === 0) {
+        const a = document.getElementById(arr[i]), b = document.getElementById(arr[i+1]);
+        if (a && b) { const t = a.value; a.value = b.value; b.value = t; }
+      }
+    }, null);
+  }
   Q.lang = lang;
   document.documentElement.lang = lang;
   document.getElementById('langSelect').value = lang;

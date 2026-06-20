@@ -21,7 +21,8 @@ function doPost(e) {
     if (data.action === 'lookupPatient')       return jsonRes(handleLookupPatient(data));
     if (data.action === 'submitBooking')       return jsonRes(handleSubmitBooking(data));
     if (data.action === 'submitAll')           return jsonRes(handleSubmitAll(data));
-    if (data.action === 'submitQuestionnaire') return jsonRes(handleSubmitQuestionnaire(data));
+    if (data.action === 'submitQuestionnaire')    return jsonRes(handleSubmitQuestionnaire(data));
+    if (data.action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data));
     return jsonRes({ success: false, error: 'Unknown action: ' + data.action });
   } catch (err) {
     Logger.log('doPost error: ' + err.message);
@@ -299,6 +300,9 @@ function generatePatientNumber(cfg) {
    Notion — カルテ操作
    ============================================================ */
 
+// Notion コース select の有効値（これ以外は送らない）
+var VALID_COURSES = ['カイロプラクティック', '筋膜リリース', '吸い玉・カッピング', 'トータルケア'];
+
 // コースID（フォームの value）→ Notion セレクト名
 var COURSE_ID_MAP = {
   'chiro':   'カイロプラクティック',
@@ -338,12 +342,14 @@ function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
     '日付':     { date: { start: todayStr() } },
     '予約日':   { date: { start: data.date || todayStr() } },
     '予約時間': richText(data.time || ''),
-    'コース':   { select: { name: courseName } },
     'ステータス': { status: { name: '未着手' } },
     '対応言語': { select: { name: langMap[data.lang] || '日本語' } },
     '顧客マスタ': { relation: [{ id: customerId }] },
     '問診票':   { checkbox: !!hasQuestionnaire },
   };
+  if (courseName && VALID_COURSES.indexOf(courseName) !== -1) {
+    props['コース'] = { select: { name: courseName } };
+  }
   return notionPost(cfg, '/pages', { parent: { database_id: cfg.KARTE_DB_ID }, properties: props });
 }
 
@@ -354,6 +360,52 @@ function findMostRecentKarte(cfg, customerId) {
     page_size: 1,
   });
   return res.results[0] || null;
+}
+
+function findTodayKarte(cfg, customerId) {
+  var res = notionQuery(cfg, cfg.KARTE_DB_ID, {
+    filter: {
+      and: [
+        { property: '顧客マスタ', relation: { contains: customerId } },
+        { property: '日付', date: { equals: todayStr() } },
+      ],
+    },
+    sorts: [{ property: '日付', direction: 'descending' }],
+    page_size: 1,
+  });
+  return res.results[0] || null;
+}
+
+/* ── 施術記録シート ── */
+
+function handleSubmitTreatmentRecord(data) {
+  var cfg = getConfig();
+
+  var karte = findTodayKarte(cfg, data.customerId);
+
+  if (!karte) {
+    // 問診票なしで直接来院したケース（カルテを新規作成）
+    data.resolvedCourseName = COURSE_ID_MAP[data.courseId] || '';
+    karte = createKarte(cfg, data, data.customerId, data.patientNum, false);
+  }
+
+  var courseLabel = COURSE_ID_MAP[data.courseId] || '';
+  var upd = {
+    'ステータス': { status: { name: '完了' } },
+  };
+  if (courseLabel) {
+    upd['コース'] = { select: { name: courseLabel } };
+  }
+  if (data.salesAmount !== undefined && data.salesAmount !== null && data.salesAmount !== '') {
+    upd['売上金額'] = { number: Number(data.salesAmount) };
+  }
+  if (data.treatmentMemo) {
+    upd['施術メモ'] = richText(data.treatmentMemo);
+  }
+
+  notionPatch(cfg, '/pages/' + karte.id, { properties: upd });
+
+  return { success: true, patientNum: data.patientNum };
 }
 
 // フォームの内部値 → 日本語表示名

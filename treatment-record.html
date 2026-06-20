@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LBC整体院 – 施術記録</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+  <style>
+    :root {
+      --primary: #2c7a5c;
+      --primary-dark: #1e5c42;
+      --primary-light: #e8f5ef;
+      --accent: #f0a500;
+      --danger: #e53935;
+      --danger-light: #fdecea;
+      --text: #1a1a1a;
+      --text-sub: #444;
+      --text-muted: #888;
+      --border: #e0e0e0;
+      --border-focus: #2c7a5c;
+      --bg: #f5f7f6;
+      --white: #fff;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: #051F20;
+      color: var(--white);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    }
+    .logo { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; }
+    .logo span { color: var(--accent); }
+    .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.75; display: block; letter-spacing: 0.5px; }
+
+    .hero {
+      background: linear-gradient(135deg, #0B2B26 0%, #163832 100%);
+      color: var(--white);
+      text-align: center;
+      padding: 24px 20px 20px;
+    }
+    .hero h1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; }
+    .hero p  { font-size: 0.82rem; opacity: 0.8; }
+
+    .container { max-width: 540px; margin: 0 auto; padding: 20px 14px 72px; }
+
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 20px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(0,0,0,0.04);
+      animation: fadeIn 0.22s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .name-row { display: flex; gap: 10px; }
+    .name-row > div { flex: 1; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+    .badge-req {
+      background: var(--danger);
+      color: var(--white);
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+    .badge-opt {
+      background: var(--border);
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    input[type="text"], input[type="tel"], input[type="number"], textarea {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--white);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input::placeholder, textarea::placeholder { color: #bbb; }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(44,122,92,0.1);
+    }
+    input.is-error { border-color: var(--danger); background: var(--danger-light); }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .amount-wrap { position: relative; }
+    .amount-prefix {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1rem;
+      color: var(--text-sub);
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .amount-wrap input { padding-left: 26px; }
+
+    .field-error {
+      display: none;
+      font-size: 0.78rem;
+      color: var(--danger);
+      margin-top: 5px;
+    }
+    .field-error.visible { display: flex; align-items: center; gap: 4px; }
+    .field-error::before { content: '!'; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; background:var(--danger); color:var(--white); border-radius:50%; font-size:0.65rem; font-weight:700; flex-shrink:0; }
+
+    .course-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .course-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      gap: 10px;
+    }
+    .course-item:has(input:checked) {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .course-item input[type="radio"] { accent-color: var(--primary); width: 18px; height: 18px; flex-shrink: 0; }
+    .course-item-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+    .course-item-price { font-size: 0.88rem; color: var(--text-muted); font-weight: 600; }
+
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      background: #e8f5ef;
+      border: 1.5px solid #a8d5be;
+      animation: fadeIn 0.22s ease;
+    }
+    .banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .banner-name { font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); }
+    .banner-num  { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 15px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      letter-spacing: 0.3px;
+    }
+    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .loading-row {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Success */
+    #successScreen {
+      display: none;
+      text-align: center;
+      padding: 60px 24px 40px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    #successScreen.visible { display: block; }
+    .success-anim {
+      width: 72px; height: 72px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; color: var(--white);
+      margin: 0 auto 20px;
+    }
+    .success-title { font-size: 1.3rem; font-weight: 800; color: var(--primary-dark); margin-bottom: 12px; }
+    .success-detail { font-size: 0.95rem; color: var(--text-sub); line-height: 1.8; margin-bottom: 28px; }
+    .success-detail strong { color: var(--text); }
+    .btn-back {
+      padding: 13px 32px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-back:hover { background: var(--primary-dark); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff;
+      padding: 11px 20px; border-radius: 24px;
+      font-size: 0.88rem; white-space: nowrap;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+    .toast.is-error { background: var(--danger); }
+    .toast.is-success { background: var(--primary); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LBC<span>整体院</span><small>施術記録シート</small></div>
+</header>
+
+<div class="hero">
+  <h1>施術記録</h1>
+  <p>施術後にご入力ください（スタッフ専用）</p>
+</div>
+
+<div id="mainForm">
+  <div class="container">
+
+    <!-- ══ PHASE 1: 患者検索 ══ -->
+    <div id="phase1">
+      <div class="card">
+        <div class="card-title"><span>🔍</span>患者を検索</div>
+
+        <div class="form-group">
+          <div class="field-label">氏名<span class="badge-req">必須</span></div>
+          <div class="name-row">
+            <div>
+              <input type="text" id="sei" placeholder="姓（例: 田中）" autocomplete="family-name">
+              <div class="field-error" id="e_sei"></div>
+            </div>
+            <div>
+              <input type="text" id="mei" placeholder="名（例: 太郎）" autocomplete="given-name">
+              <div class="field-error" id="e_mei"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <div class="field-label">電話番号<span class="badge-req">必須</span></div>
+          <input type="tel" id="phone" inputmode="numeric" placeholder="例: 090-1234-5678" oninput="formatPhone(this)">
+          <div class="field-error" id="e_phone"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="loading-row" id="lookupLoading" style="display:none">
+          <span class="spinner"></span><span>検索中...</span>
+        </div>
+        <button class="btn-submit" id="lookupBtn" onclick="lookupPatient()">検索する</button>
+      </div>
+    </div>
+
+    <!-- ══ PHASE 2: 施術記録 ══ -->
+    <div id="phase2" style="display:none">
+
+      <!-- 患者バナー -->
+      <div class="banner" id="patientBanner">
+        <div class="banner-icon">👤</div>
+        <div>
+          <div class="banner-name" id="bannerName"></div>
+          <div class="banner-num" id="bannerNum"></div>
+        </div>
+      </div>
+
+      <!-- コース選択 -->
+      <div class="card">
+        <div class="card-title"><span>💆</span>施術コース<span class="badge-req">必須</span></div>
+        <div class="course-list">
+          <label class="course-item">
+            <input type="radio" name="course" value="chiro" onchange="onCourseChange()">
+            <span class="course-item-name">カイロプラクティック</span>
+            <span class="course-item-price">¥4,000</span>
+          </label>
+          <label class="course-item">
+            <input type="radio" name="course" value="fascia" onchange="onCourseChange()">
+            <span class="course-item-name">筋膜リリース</span>
+            <span class="course-item-price">¥5,000</span>
+          </label>
+          <label class="course-item">
+            <input type="radio" name="course" value="cupping" onchange="onCourseChange()">
+            <span class="course-item-name">吸い玉（カッピング）</span>
+            <span class="course-item-price">¥4,000</span>
+          </label>
+          <label class="course-item">
+            <input type="radio" name="course" value="total" onchange="onCourseChange()">
+            <span class="course-item-name">トータルケア</span>
+            <span class="course-item-price">¥6,000</span>
+          </label>
+        </div>
+        <div class="field-error" id="e_course" style="margin-top:10px"></div>
+      </div>
+
+      <!-- 売上金額 -->
+      <div class="card">
+        <div class="card-title"><span>💴</span>売上金額<span class="badge-req">必須</span></div>
+        <div class="amount-wrap">
+          <span class="amount-prefix">¥</span>
+          <input type="number" id="salesAmount" inputmode="numeric" min="0" step="500" placeholder="0">
+        </div>
+        <div class="field-error" id="e_salesAmount" style="margin-top:8px"></div>
+      </div>
+
+      <!-- 施術メモ -->
+      <div class="card">
+        <div class="card-title"><span>📝</span>施術メモ<span class="badge-opt">任意</span></div>
+        <textarea id="memo" placeholder="気になった点、次回への申し送りなど"></textarea>
+      </div>
+
+      <!-- 送信 -->
+      <div class="card">
+        <div class="loading-row" id="loadingRow" style="display:none">
+          <span class="spinner"></span><span>記録中...</span>
+        </div>
+        <button class="btn-submit" id="submitBtn" onclick="submitRecord()">記録する</button>
+      </div>
+
+    </div><!-- /phase2 -->
+  </div>
+</div>
+
+<!-- 成功画面 -->
+<div id="successScreen">
+  <div class="success-anim">✓</div>
+  <div class="success-title">施術記録を保存しました</div>
+  <div class="success-detail" id="successDetail"></div>
+  <button class="btn-back" onclick="location.reload()">次の患者</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CONFIG = {
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbynQeweiBsLwf159y2SdHYbs2R7qa5rc-n-IkFTPZPg5js-wXvz7EJ-WD9oitmCW22f/exec',
+};
+
+const COURSE_PRICES = { chiro: 4000, fascia: 5000, cupping: 4000, total: 6000 };
+const COURSE_NAMES  = { chiro: 'カイロプラクティック', fascia: '筋膜リリース', cupping: '吸い玉・カッピング', total: 'トータルケア' };
+
+const S = { submitting: false, customerId: null, patientNum: null, patientName: null, toastTm: null };
+
+/* ── フォーマット ── */
+function formatPhone(input) {
+  const raw = input.value
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[^0-9]/g, '');
+  if (raw.length <= 3)      input.value = raw;
+  else if (raw.length <= 7) input.value = raw.slice(0,3) + '-' + raw.slice(3);
+  else                       input.value = raw.slice(0,3) + '-' + raw.slice(3,7) + '-' + raw.slice(7,11);
+}
+function normPhone(val) {
+  return val
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[^0-9]/g, '');
+}
+
+/* ── 患者検索 ── */
+async function lookupPatient() {
+  const sei   = (document.getElementById('sei').value || '').replace(/[\s　]/g, '');
+  const mei   = (document.getElementById('mei').value || '').replace(/[\s　]/g, '');
+  const phone = normPhone(document.getElementById('phone').value);
+
+  let ok = true;
+  if (!sei) { showErr('e_sei', '姓を入力してください', 'sei'); ok = false; } else clearErr('e_sei', 'sei');
+  if (!mei) { showErr('e_mei', '名を入力してください', 'mei'); ok = false; } else clearErr('e_mei', 'mei');
+  if (!phone) { showErr('e_phone', '電話番号を入力してください', 'phone'); ok = false; } else clearErr('e_phone', 'phone');
+  if (!ok) return;
+
+  const btn = document.getElementById('lookupBtn');
+  btn.disabled = true;
+  document.getElementById('lookupLoading').style.display = 'flex';
+
+  try {
+    const res  = await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'lookupPatient', name: sei + ' ' + mei, phone }),
+    });
+    const data = await res.json();
+    document.getElementById('lookupLoading').style.display = 'none';
+
+    if (!data.success || !data.found) {
+      btn.disabled = false;
+      toast('患者が見つかりませんでした。名前・電話番号を確認してください。', 'error');
+      return;
+    }
+    showPhase2(data.customerId, data.patientNum, data.name || (sei + ' ' + mei));
+  } catch {
+    document.getElementById('lookupLoading').style.display = 'none';
+    btn.disabled = false;
+    toast('通信エラーが発生しました。再度お試しください。', 'error');
+  }
+}
+
+function showPhase2(customerId, patientNum, patientName) {
+  S.customerId  = customerId;
+  S.patientNum  = patientNum;
+  S.patientName = patientName;
+
+  document.getElementById('bannerName').textContent = patientName + ' 様';
+  document.getElementById('bannerNum').textContent  = '診察番号: ' + patientNum;
+
+  document.getElementById('phase1').style.display = 'none';
+  document.getElementById('phase2').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── コース選択 → 金額自動入力 ── */
+function onCourseChange() {
+  const courseId = document.querySelector('input[name="course"]:checked')?.value;
+  if (courseId && COURSE_PRICES[courseId] !== undefined) {
+    document.getElementById('salesAmount').value = COURSE_PRICES[courseId];
+  }
+  clearErr('e_course');
+}
+
+/* ── 送信 ── */
+async function submitRecord() {
+  if (S.submitting) return;
+
+  const courseId    = document.querySelector('input[name="course"]:checked')?.value;
+  const salesAmount = document.getElementById('salesAmount').value;
+  const memo        = document.getElementById('memo').value.trim();
+
+  let ok = true;
+  if (!courseId) { showErr('e_course', 'コースを選択してください'); ok = false; } else clearErr('e_course');
+  if (!salesAmount || Number(salesAmount) < 0) { showErr('e_salesAmount', '売上金額を入力してください', 'salesAmount'); ok = false; } else clearErr('e_salesAmount', 'salesAmount');
+  if (!ok) return;
+
+  S.submitting = true;
+  document.getElementById('submitBtn').disabled   = true;
+  document.getElementById('loadingRow').style.display = 'flex';
+
+  try {
+    const res  = await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action:         'submitTreatmentRecord',
+        customerId:     S.customerId,
+        patientNum:     S.patientNum,
+        courseId,
+        salesAmount:    Number(salesAmount),
+        treatmentMemo:  memo,
+      }),
+    });
+    const data = await res.json();
+    document.getElementById('loadingRow').style.display = 'none';
+
+    if (data.success) {
+      showSuccess(courseId, Number(salesAmount));
+    } else {
+      toast(data.error || 'エラーが発生しました。', 'error');
+      document.getElementById('submitBtn').disabled = false;
+    }
+  } catch {
+    document.getElementById('loadingRow').style.display = 'none';
+    toast('通信エラーが発生しました。再度お試しください。', 'error');
+    document.getElementById('submitBtn').disabled = false;
+  } finally {
+    S.submitting = false;
+  }
+}
+
+function showSuccess(courseId, amount) {
+  document.getElementById('mainForm').style.display = 'none';
+  document.getElementById('successDetail').innerHTML =
+    '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）<br>' +
+    COURSE_NAMES[courseId] + '　¥' + amount.toLocaleString();
+  document.getElementById('successScreen').classList.add('visible');
+  window.scrollTo({ top: 0 });
+}
+
+/* ── UI ヘルパー ── */
+function showErr(id, msg, inputId) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
+  if (inputId) document.getElementById(inputId)?.classList.add('is-error');
+}
+function clearErr(id, inputId) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('visible');
+  if (inputId) document.getElementById(inputId)?.classList.remove('is-error');
+}
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type === 'error' ? ' is-error' : type === 'success' ? ' is-success' : '');
+  el.classList.add('show');
+  clearTimeout(S.toastTm);
+  S.toastTm = setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>

@@ -443,6 +443,9 @@ function handleSubmitTreatmentRecord(data) {
   if (data.salesAmount !== undefined && data.salesAmount !== null && data.salesAmount !== '') {
     upd['売上金額'] = { number: Number(data.salesAmount) };
   }
+  if (data.paymentMethod) {
+    upd['支払い方法'] = { select: { name: data.paymentMethod } };
+  }
   if (data.treatmentMemo) {
     upd['施術メモ'] = richText(data.treatmentMemo);
   }

@@ -481,7 +481,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   }
 
   // 来院のきっかけ（初回のみ）
-  var howFoundLabel = '—';
+  var howFoundLabel = '';
   if (data.howFound) {
     howFoundLabel = VALUE_LABEL[data.howFound] || data.howFound;
     if (data.howFound === 'referral' && data.referrerName) howFoundLabel += ' (' + data.referrerName + ')';
@@ -489,17 +489,16 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   }
 
   // 安全確認
-  var safetyLabel = '—';
+  var safetyLabel = '';
   if (data.safetyCheck && data.safetyCheck.length) {
-    var safetyParts = data.safetyCheck.map(function(v) { return VALUE_LABEL[v] || v; });
-    safetyLabel = safetyParts.join(sep);
-    if (data.safetyNote) safetyLabel += ' / メモ: ' + data.safetyNote;
+    safetyLabel = data.safetyCheck.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep);
+    if (data.safetyNote) safetyLabel += '　' + data.safetyNote;
   } else if (data.safetyNote) {
     safetyLabel = data.safetyNote;
   }
 
   // 苦手な施術
-  var dislikedLabel = '—';
+  var dislikedLabel = '';
   if (data.dislikedTreatment && data.dislikedTreatment.length) {
     dislikedLabel = data.dislikedTreatment.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep);
   }
@@ -511,62 +510,124 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     if (data.mainSymptom === 'other' && data.mainSymptomOther) mainSymLabel = data.mainSymptomOther;
   }
 
-  var lines = [
-    '━━━ 問診票 (' + new Date().toLocaleString('ja-JP') + ') ━━━',
-    '',
-    '【来院歴】 ' + (data.visitType === 'first' ? '初回' : '再診'),
-    data.visitType === 'first' ? '【来院のきっかけ】 ' + howFoundLabel : null,
-    data.dob ? '【生年月日】 ' + data.dob + ageStr : null,
-    '',
-    '--- セクション2: 本日のお悩み ---',
-    '【主症状】 ' + mainSymLabel,
-    '【症状の期間】 ' + (data.symptomDuration ? (VALUE_LABEL[data.symptomDuration] || data.symptomDuration) : '—'),
-    '【痛みレベル】 ' + (data.painLevel !== null && data.painLevel !== undefined ? String(data.painLevel) + ' / 10' : '—'),
-    '',
-    '--- セクション3: 安全確認 ---',
-    '【安全確認】 ' + safetyLabel,
-    (data.safetyDetail && data.safetyCheck && data.safetyCheck.includes('pregnant') && data.safetyDetail.pregnant) ? '　↳ 妊娠: ' + data.safetyDetail.pregnant : null,
-    (data.safetyDetail && data.safetyCheck && data.safetyCheck.includes('hospital') && data.safetyDetail.hospital) ? '　↳ 通院先: ' + data.safetyDetail.hospital : null,
-    (data.safetyDetail && data.safetyCheck && data.safetyCheck.includes('blood_thinner') && data.safetyDetail.blood_thinner) ? '　↳ 薬名: ' + data.safetyDetail.blood_thinner : null,
-    (data.safetyDetail && data.safetyCheck && data.safetyCheck.includes('numbness') && data.safetyDetail.numbness) ? '　↳ しびれ詳細: ' + data.safetyDetail.numbness : null,
-    (data.safetyDetail && data.safetyCheck && data.safetyCheck.includes('recent_injury') && data.safetyDetail.recent_injury) ? '　↳ 怪我/手術: ' + data.safetyDetail.recent_injury : null,
-    '',
-    '--- セクション4: 本日のご希望 ---',
-    '【施術目的】 ' + (data.treatmentGoal ? (VALUE_LABEL[data.treatmentGoal] || data.treatmentGoal) : '—'),
-    '【強さ希望】 ' + (data.treatmentStrength ? (VALUE_LABEL[data.treatmentStrength] || data.treatmentStrength) : '—'),
-    '【苦手な施術】 ' + dislikedLabel,
-    '',
-    '--- セクション5: 同意事項 ---',
-    '【同意】 ' + (data.consentAgreed ? '同意済み' : '未同意'),
-    data.consentDate ? '【同意日】 ' + data.consentDate : null,
-  ].filter(function(l) { return l !== null; });
-
-  var blocks = lines.map(function(line) {
-    return line === ''
-      ? { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }
-      : { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } };
-  });
-
-  // 人体図：Driveの直リンクでNotionに画像ブロックとして埋め込む
-  if (bodyImageUrl) {
-    var fileIdMatch = bodyImageUrl.match(/\/d\/([^\/\?]+)/);
-    var embedUrl = fileIdMatch
-      ? 'https://lh3.googleusercontent.com/d/' + fileIdMatch[1]
-      : bodyImageUrl;
-    blocks.push({ object: 'block', type: 'image',
-      image: { type: 'external', external: { url: embedUrl } } });
+  // 痛みレベルのバー表示
+  var painStr = '—';
+  if (data.painLevel !== null && data.painLevel !== undefined) {
+    var lvl = parseInt(data.painLevel);
+    var bar = (lvl >= 1 && lvl <= 10) ? '■'.repeat(lvl) + '□'.repeat(10 - lvl) : '';
+    painStr = lvl + ' / 10  ' + bar;
   }
 
-  // 署名：同意署名画像をNotionに追記
+  // ── ブロックヘルパー ──
+  function rt(text, bold, color) {
+    var obj = { type: 'text', text: { content: text } };
+    var ann = {};
+    if (bold)  ann.bold  = true;
+    if (color) ann.color = color;
+    if (Object.keys(ann).length) obj.annotations = ann;
+    return obj;
+  }
+  function h2(emoji, title) {
+    return { object: 'block', type: 'heading_2', heading_2: {
+      rich_text: [rt(emoji + '  ' + title)]
+    }};
+  }
+  function div() { return { object: 'block', type: 'divider', divider: {} }; }
+  function bul(label, value) {
+    return { object: 'block', type: 'bulleted_list_item', bulleted_list_item: {
+      rich_text: [rt(label + ': ', true), rt(value)]
+    }};
+  }
+  function co(text, icon, color) {
+    return { object: 'block', type: 'callout', callout: {
+      rich_text: [rt(text)],
+      icon: { type: 'emoji', emoji: icon },
+      color: color
+    }};
+  }
+  function imgBlock(url) {
+    return { object: 'block', type: 'image', image: { type: 'external', external: { url: url } } };
+  }
+
+  var blocks = [];
+  var dateStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  var visitLabel = data.visitType === 'first' ? '初回来院' : '再診';
+
+  // ── ヘッダー
+  blocks.push(co('問診票　' + dateStr + '　' + visitLabel, '📋', 'blue_background'));
+
+  // ── 1. 基本情報
+  blocks.push(h2('👤', '基本情報'));
+  blocks.push(bul('来院歴', data.visitType === 'first' ? '初回' : '再診'));
+  if (data.visitType !== 'first' && data.hasChanges) {
+    blocks.push(bul('症状の変化', data.hasChanges === 'yes' ? 'あり（新しい問診あり）' : 'なし'));
+  }
+  if (data.visitType === 'first' && howFoundLabel) blocks.push(bul('来院のきっかけ', howFoundLabel));
+  if (data.dob) blocks.push(bul('生年月日', data.dob + ageStr));
+  if (data.phone) blocks.push(bul('電話番号', data.phone));
+  if (data.email) blocks.push(bul('メールアドレス', data.email));
+  blocks.push(div());
+
+  // ── 2. 本日のお悩み
+  blocks.push(h2('🤕', '本日のお悩み'));
+  blocks.push(bul('主症状', mainSymLabel));
+  if (data.symptomDuration) blocks.push(bul('症状の期間', VALUE_LABEL[data.symptomDuration] || data.symptomDuration));
+  blocks.push(bul('痛みレベル', painStr));
+  blocks.push(div());
+
+  // ── 3. 安全確認
+  blocks.push(h2('⚠️', '安全確認'));
+  if (safetyLabel) {
+    blocks.push(co(safetyLabel, '⚠️', 'red_background'));
+    if (data.safetyDetail) {
+      var sd = data.safetyDetail;
+      if (sd.pregnant)      blocks.push(bul('　↳ 妊娠詳細', sd.pregnant));
+      if (sd.hospital)      blocks.push(bul('　↳ 通院先', sd.hospital));
+      if (sd.blood_thinner) blocks.push(bul('　↳ 薬名', sd.blood_thinner));
+      if (sd.numbness)      blocks.push(bul('　↳ しびれ詳細', sd.numbness));
+      if (sd.recent_injury) blocks.push(bul('　↳ 怪我・手術', sd.recent_injury));
+    }
+  } else {
+    blocks.push(bul('確認事項', '特になし'));
+  }
+  blocks.push(div());
+
+  // ── 4. 本日のご希望
+  blocks.push(h2('💆', '本日のご希望'));
+  if (data.treatmentGoal)     blocks.push(bul('施術目的', VALUE_LABEL[data.treatmentGoal] || data.treatmentGoal));
+  if (data.treatmentStrength) blocks.push(bul('強さ希望', VALUE_LABEL[data.treatmentStrength] || data.treatmentStrength));
+  if (dislikedLabel)          blocks.push(bul('苦手な施術', dislikedLabel));
+  blocks.push(div());
+
+  // ── 5. 同意
+  blocks.push(h2('✅', '同意'));
+  var consentText = data.consentAgreed ? '✓  同意済み' : '✗  未同意';
+  if (data.consentDate) consentText += '（' + data.consentDate + '）';
+  blocks.push({ object: 'block', type: 'paragraph', paragraph: {
+    rich_text: [rt(consentText, false, data.consentAgreed ? 'green' : 'red')]
+  }});
+
+  // ── 人体図・署名（常に表示）
+  blocks.push(div());
+  blocks.push(h2('🖼', '人体図・署名'));
+  if (bodyImageUrl) {
+    var fid = bodyImageUrl.match(/\/d\/([^\/\?]+)/);
+    blocks.push(imgBlock(fid ? 'https://lh3.googleusercontent.com/d/' + fid[1] : bodyImageUrl));
+  } else {
+    blocks.push({ object: 'block', type: 'paragraph', paragraph: {
+      rich_text: [rt('人体図: （記入なし）', false, 'gray')]
+    }});
+  }
+  blocks.push({ object: 'block', type: 'paragraph', paragraph: {
+    rich_text: [rt('署名', true)]
+  }});
   if (signatureUrl) {
-    var sigMatch = signatureUrl.match(/\/d\/([^\/\?]+)/);
-    var sigEmbed = sigMatch
-      ? 'https://lh3.googleusercontent.com/d/' + sigMatch[1]
-      : signatureUrl;
-    blocks.push({ object: 'block', type: 'paragraph',
-      paragraph: { rich_text: [{ type: 'text', text: { content: '【署名】' } }] } });
-    blocks.push({ object: 'block', type: 'image',
-      image: { type: 'external', external: { url: sigEmbed } } });
+    var sid = signatureUrl.match(/\/d\/([^\/\?]+)/);
+    blocks.push(imgBlock(sid ? 'https://lh3.googleusercontent.com/d/' + sid[1] : signatureUrl));
+  } else {
+    blocks.push({ object: 'block', type: 'paragraph', paragraph: {
+      rich_text: [rt('（未署名）', false, 'gray')]
+    }});
   }
 
   notionPatch(cfg, '/blocks/' + karteId + '/children', { children: blocks });

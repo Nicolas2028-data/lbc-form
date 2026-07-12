@@ -336,7 +336,7 @@
             <div class="field-label">氏名<span class="badge-req">必須</span></div>
             <div class="autocomplete-wrap">
               <input type="text" id="nameSearch"
-                placeholder="名前を入力（例: 田中、Silva）"
+                placeholder="名前・フリガナ・診察番号で検索"
                 autocomplete="off"
                 oninput="onNameInput(this.value)"
                 onfocus="onNameInput(this.value)">
@@ -473,9 +473,10 @@ function onNameInput(query) {
   if (!q) { dd.classList.remove('open'); dd.innerHTML = ''; _acMatches = []; return; }
 
   _acMatches = allPatients.filter(p => {
-    const name = (p.name     || '').toLowerCase().replace(/[\s　]/g, '');
-    const furi = (p.furigana || '').toLowerCase().replace(/[\s　]/g, '');
-    return name.includes(q) || furi.includes(q);
+    const name = (p.name       || '').toLowerCase().replace(/[\s　]/g, '');
+    const furi = (p.furigana   || '').toLowerCase().replace(/[\s　]/g, '');
+    const num  = (p.patientNum || '').toLowerCase();
+    return name.includes(q) || furi.includes(q) || num.includes(q);
   }).slice(0, 8);
 
   if (!_acMatches.length) {

@@ -592,6 +592,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   } else {
     blocks.push(bul('確認事項', '特になし'));
   }
+  if (data.safetyNote) blocks.push(bul('持病・気になること', data.safetyNote));
   blocks.push(div());
 
   // ── 4. 本日のご希望

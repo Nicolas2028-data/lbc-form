@@ -204,20 +204,36 @@ function handleSubmitAll(data) {
 
   // 人体図保存
   var bodyImageUrl = '';
-  if (hasQ && data.bodyImage && data.bodyImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
-    bodyImageUrl = saveBodyImage(cfg, data.bodyImage, patientNum);
+  var bodyDebug = 'skipped';
+  if (hasQ) {
+    if (!data.bodyImage || data.bodyImage.length <= 100) {
+      bodyDebug = 'no_data(len=' + (data.bodyImage ? data.bodyImage.length : 0) + ')';
+    } else if (!cfg.DRIVE_FOLDER_ID) {
+      bodyDebug = 'no_folder_id';
+    } else {
+      bodyImageUrl = saveBodyImage(cfg, data.bodyImage, patientNum);
+      bodyDebug = bodyImageUrl ? 'saved:' + bodyImageUrl : 'save_failed';
+    }
   }
 
   // 署名画像保存
   var signatureUrl = '';
-  if (hasQ && data.signatureImage && data.signatureImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
-    signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + patientNum);
+  var sigDebug = 'skipped';
+  if (hasQ) {
+    if (!data.signatureImage || data.signatureImage.length <= 100) {
+      sigDebug = 'no_data(len=' + (data.signatureImage ? data.signatureImage.length : 0) + ')';
+    } else if (!cfg.DRIVE_FOLDER_ID) {
+      sigDebug = 'no_folder_id';
+    } else {
+      signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + patientNum);
+      sigDebug = signatureUrl ? 'saved:' + signatureUrl : 'save_failed';
+    }
   }
 
   // 問診票ブロック追記
   if (hasQ) appendQuestionnaireBlocks(cfg, karte.id, data, bodyImageUrl, signatureUrl);
 
-  return { success: true, patientNum: patientNum };
+  return { success: true, patientNum: patientNum, _bodyDebug: bodyDebug, _sigDebug: sigDebug };
 }
 
 /* ── 問診票送信 ── */

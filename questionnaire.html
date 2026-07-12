@@ -1966,7 +1966,7 @@ async function submitQuestionnaire() {
     howFound:   document.querySelector('input[name="howFound"]:checked')?.value || '',
     referrerName:    document.getElementById('referrerName').value.trim(),
     howFoundOther:   document.getElementById('howFoundOther').value.trim(),
-    bodyImage: (() => { try { return (showQ && Q.canvasDrawn) ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { return ''; } })(),
+    bodyImage: (() => { try { return showQ ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { return ''; } })(),
     mainSymptom:      showQ ? (document.querySelector('input[name="mainSymptom"]:checked')?.value || '') : '',
     mainSymptomOther: showQ ? document.getElementById('mainSymptom_other_text').value.trim() : '',
     symptomDuration:  showQ ? (() => { const v = document.querySelector('input[name="symptomDuration"]:checked')?.value || ''; return v === 'other' ? 'other: ' + (document.getElementById('dur_other_text').value.trim() || 'その他') : v; })() : '',
@@ -1984,7 +1984,7 @@ async function submitQuestionnaire() {
     treatmentStrength: showQ ? (document.querySelector('input[name="treatmentStrength"]:checked')?.value || '') : '',
     dislikedTreatment: showQ ? [...document.querySelectorAll('input[name="disliked"]:checked')].map(c => c.value) : [],
     consentAgreed:  consentVisible ? document.getElementById('consentCheck').checked : true,
-    signatureImage: (consentVisible && Q.sigDrawn) ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { return ''; } })() : '',
+    signatureImage: consentVisible ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { return ''; } })() : '',
     consentDate:    today,
   };
 
@@ -2007,6 +2007,7 @@ async function submitQuestionnaire() {
     });
     clearTimeout(submitTid);
     const data = await res.json();
+    console.log('[LBC] GAS response:', JSON.stringify(data));
     if (data.success) {
       showSuccess();
     } else {

@@ -84,9 +84,6 @@
       gap: 8px;
     }
 
-    .name-row { display: flex; gap: 10px; }
-    .name-row > div { flex: 1; }
-
     .form-group { margin-bottom: 16px; }
     .form-group:last-child { margin-bottom: 0; }
     .field-label {
@@ -275,6 +272,38 @@
     .toast.show { opacity: 1; }
     .toast.is-error { background: var(--danger); }
     .toast.is-success { background: var(--primary); }
+
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--white);
+      border: 1.5px solid var(--border-focus);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      z-index: 50;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .autocomplete-dropdown.open { display: block; }
+    .autocomplete-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+      transition: background 0.1s;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: var(--primary-light); }
+    .autocomplete-item-main { flex: 1; min-width: 0; }
+    .autocomplete-item-name { font-weight: 600; font-size: 0.95rem; }
+    .autocomplete-item-furi { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+    .autocomplete-item-num  { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
+    .no-results { padding: 14px; font-size: 0.88rem; color: var(--text-muted); text-align: center; }
   </style>
 </head>
 <body>
@@ -296,32 +325,32 @@
       <div class="card">
         <div class="card-title"><span>🔍</span>患者を検索</div>
 
-        <div class="form-group">
-          <div class="field-label">氏名<span class="badge-req">必須</span></div>
-          <div class="name-row">
-            <div>
-              <input type="text" id="sei" placeholder="姓（例: 田中）" autocomplete="family-name">
-              <div class="field-error" id="e_sei"></div>
+        <!-- 読み込み中 -->
+        <div id="loadingPatients" class="loading-row" style="display:flex">
+          <span class="spinner"></span><span>患者データを読み込み中...</span>
+        </div>
+
+        <!-- 検索エリア -->
+        <div id="searchArea" style="display:none">
+          <div class="form-group" style="margin-bottom:0">
+            <div class="field-label">氏名<span class="badge-req">必須</span></div>
+            <div class="autocomplete-wrap">
+              <input type="text" id="nameSearch"
+                placeholder="名前を入力（例: 田中、Silva）"
+                autocomplete="off"
+                oninput="onNameInput(this.value)"
+                onfocus="onNameInput(this.value)">
+              <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
             </div>
-            <div>
-              <input type="text" id="mei" placeholder="名（例: 太郎）" autocomplete="given-name">
-              <div class="field-error" id="e_mei"></div>
-            </div>
+            <div class="field-error" id="e_name"></div>
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:0">
-          <div class="field-label">電話番号<span class="badge-req">必須</span></div>
-          <input type="tel" id="phone" inputmode="numeric" placeholder="例: 090-1234-5678" oninput="formatPhone(this)">
-          <div class="field-error" id="e_phone"></div>
+        <!-- 読み込みエラー -->
+        <div id="loadError" style="display:none">
+          <p style="color:var(--danger);font-size:0.88rem;margin-bottom:12px">患者データの読み込みに失敗しました。</p>
+          <button class="btn-submit" onclick="loadPatients()">再読み込み</button>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="loading-row" id="lookupLoading" style="display:none">
-          <span class="spinner"></span><span>検索中...</span>
-        </div>
-        <button class="btn-submit" id="lookupBtn" onclick="lookupPatient()">検索する</button>
       </div>
     </div>
 
@@ -340,28 +369,7 @@
       <!-- コース選択 -->
       <div class="card">
         <div class="card-title"><span>💆</span>施術コース<span class="badge-req">必須</span></div>
-        <div class="course-list">
-          <label class="course-item">
-            <input type="radio" name="course" value="chiro" onchange="onCourseChange()">
-            <span class="course-item-name">カイロプラクティック</span>
-            <span class="course-item-price">¥4,000</span>
-          </label>
-          <label class="course-item">
-            <input type="radio" name="course" value="fascia" onchange="onCourseChange()">
-            <span class="course-item-name">筋膜リリース</span>
-            <span class="course-item-price">¥5,000</span>
-          </label>
-          <label class="course-item">
-            <input type="radio" name="course" value="cupping" onchange="onCourseChange()">
-            <span class="course-item-name">吸い玉（カッピング）</span>
-            <span class="course-item-price">¥4,000</span>
-          </label>
-          <label class="course-item">
-            <input type="radio" name="course" value="total" onchange="onCourseChange()">
-            <span class="course-item-name">トータルケア</span>
-            <span class="course-item-price">¥6,000</span>
-          </label>
-        </div>
+        <div class="course-list" id="courseList"></div>
         <div class="field-error" id="e_course" style="margin-top:10px"></div>
       </div>
 
@@ -405,67 +413,109 @@
 
 <script>
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbynQeweiBsLwf159y2SdHYbs2R7qa5rc-n-IkFTPZPg5js-wXvz7EJ-WD9oitmCW22f/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
 };
 
-const COURSE_PRICES = { chiro: 4000, fascia: 5000, cupping: 4000, total: 6000 };
-const COURSE_NAMES  = { chiro: 'カイロプラクティック', fascia: '筋膜リリース', cupping: '吸い玉・カッピング', total: 'トータルケア' };
+// ── コース設定 ─────────────────────────────────────────────
+// ここを編集するだけでコース一覧・金額が変わります
+const COURSES = [
+  { id: 'chiro',    name: 'カイロプラクティック', price: 4000  },
+  { id: 'fascia',   name: '筋膜リリース',         price: 5000  },
+  { id: 'cupping',  name: '吸い玉（カッピング）',  price: 4000  },
+  { id: 'total',    name: 'トータルケア',          price: 6000  },
+  { id: 'monthly2', name: '月2回コース',           price: 10000 },
+];
+const COURSE_MAP = COURSES.reduce((m, c) => { m[c.id] = c; return m; }, {});
 
 const S = { submitting: false, customerId: null, patientNum: null, patientName: null, toastTm: null };
+let allPatients = [];
+let _acMatches  = [];
 
-/* ── フォーマット ── */
-function formatPhone(input) {
-  const raw = input.value
-    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
-    .replace(/[^0-9]/g, '');
-  if (raw.length <= 3)      input.value = raw;
-  else if (raw.length <= 7) input.value = raw.slice(0,3) + '-' + raw.slice(3);
-  else                       input.value = raw.slice(0,3) + '-' + raw.slice(3,7) + '-' + raw.slice(7,11);
+/* ── 初期化 ── */
+window.addEventListener('DOMContentLoaded', function() {
+  renderCourses();
+  loadPatients();
+});
+
+function renderCourses() {
+  document.getElementById('courseList').innerHTML = COURSES.map(c =>
+    `<label class="course-item">
+      <input type="radio" name="course" value="${c.id}" onchange="onCourseChange()">
+      <span class="course-item-name">${c.name}</span>
+      <span class="course-item-price">¥${c.price.toLocaleString()}</span>
+    </label>`
+  ).join('');
 }
-function normPhone(val) {
-  return val
-    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
-    .replace(/[^0-9]/g, '');
-}
 
-/* ── 患者検索 ── */
-async function lookupPatient() {
-  const sei   = (document.getElementById('sei').value || '').replace(/[\s　]/g, '');
-  const mei   = (document.getElementById('mei').value || '').replace(/[\s　]/g, '');
-  const phone = normPhone(document.getElementById('phone').value);
-
-  let ok = true;
-  if (!sei) { showErr('e_sei', '姓を入力してください', 'sei'); ok = false; } else clearErr('e_sei', 'sei');
-  if (!mei) { showErr('e_mei', '名を入力してください', 'mei'); ok = false; } else clearErr('e_mei', 'mei');
-  if (!phone) { showErr('e_phone', '電話番号を入力してください', 'phone'); ok = false; } else clearErr('e_phone', 'phone');
-  if (!ok) return;
-
-  const btn = document.getElementById('lookupBtn');
-  btn.disabled = true;
-  document.getElementById('lookupLoading').style.display = 'flex';
-
+/* ── 患者リスト読み込み ── */
+async function loadPatients() {
+  document.getElementById('loadingPatients').style.display = 'flex';
+  document.getElementById('searchArea').style.display      = 'none';
+  document.getElementById('loadError').style.display       = 'none';
   try {
-    const res  = await fetch(CONFIG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'lookupPatient', name: sei + ' ' + mei, phone }),
-    });
+    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientList');
     const data = await res.json();
-    document.getElementById('lookupLoading').style.display = 'none';
-
-    if (!data.success || !data.found) {
-      btn.disabled = false;
-      toast('患者が見つかりませんでした。名前・電話番号を確認してください。', 'error');
-      return;
-    }
-    showPhase2(data.customerId, data.patientNum, data.name || (sei + ' ' + mei));
-  } catch {
-    document.getElementById('lookupLoading').style.display = 'none';
-    btn.disabled = false;
-    toast('通信エラーが発生しました。再度お試しください。', 'error');
+    if (!data.success) throw new Error(data.error || 'load failed');
+    allPatients = data.patients || [];
+    document.getElementById('loadingPatients').style.display = 'none';
+    document.getElementById('searchArea').style.display      = 'block';
+  } catch (err) {
+    console.error('[loadPatients]', err);
+    document.getElementById('loadingPatients').style.display = 'none';
+    document.getElementById('loadError').style.display       = 'block';
   }
 }
 
+/* ── 患者オートコンプリート ── */
+function onNameInput(query) {
+  const q  = (query || '').trim().toLowerCase().replace(/[\s　]/g, '');
+  const dd = document.getElementById('autocompleteDropdown');
+  if (!q) { dd.classList.remove('open'); dd.innerHTML = ''; _acMatches = []; return; }
+
+  _acMatches = allPatients.filter(p => {
+    const name = (p.name     || '').toLowerCase().replace(/[\s　]/g, '');
+    const furi = (p.furigana || '').toLowerCase().replace(/[\s　]/g, '');
+    return name.includes(q) || furi.includes(q);
+  }).slice(0, 8);
+
+  if (!_acMatches.length) {
+    dd.innerHTML = '<div class="no-results">該当する患者が見つかりません</div>';
+    dd.classList.add('open');
+    return;
+  }
+
+  dd.innerHTML = _acMatches.map((p, i) =>
+    `<div class="autocomplete-item" onmousedown="event.preventDefault()" onclick="selectPatient(${i})">
+      <div class="autocomplete-item-main">
+        <div class="autocomplete-item-name">${escHtml(p.name)}</div>
+        ${p.furigana ? `<div class="autocomplete-item-furi">${escHtml(p.furigana)}</div>` : ''}
+      </div>
+      <div class="autocomplete-item-num">${escHtml(p.patientNum)}</div>
+    </div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+function selectPatient(idx) {
+  const p = _acMatches[idx];
+  if (!p) return;
+  document.getElementById('autocompleteDropdown').classList.remove('open');
+  document.getElementById('nameSearch').value = p.name;
+  showPhase2(p.customerId, p.patientNum, p.name);
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.autocomplete-wrap')) {
+    const dd = document.getElementById('autocompleteDropdown');
+    if (dd) dd.classList.remove('open');
+  }
+});
+
+function escHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ── Phase 2 表示 ── */
 function showPhase2(customerId, patientNum, patientName) {
   S.customerId  = customerId;
   S.patientNum  = patientNum;
@@ -482,8 +532,8 @@ function showPhase2(customerId, patientNum, patientName) {
 /* ── コース選択 → 金額自動入力 ── */
 function onCourseChange() {
   const courseId = document.querySelector('input[name="course"]:checked')?.value;
-  if (courseId && COURSE_PRICES[courseId] !== undefined) {
-    document.getElementById('salesAmount').value = COURSE_PRICES[courseId];
+  if (courseId && COURSE_MAP[courseId]) {
+    document.getElementById('salesAmount').value = COURSE_MAP[courseId].price;
   }
   clearErr('e_course');
 }
@@ -502,20 +552,20 @@ async function submitRecord() {
   if (!ok) return;
 
   S.submitting = true;
-  document.getElementById('submitBtn').disabled   = true;
-  document.getElementById('loadingRow').style.display = 'flex';
+  document.getElementById('submitBtn').disabled        = true;
+  document.getElementById('loadingRow').style.display  = 'flex';
 
   try {
     const res  = await fetch(CONFIG.GAS_URL, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        action:         'submitTreatmentRecord',
-        customerId:     S.customerId,
-        patientNum:     S.patientNum,
+      body:    JSON.stringify({
+        action:        'submitTreatmentRecord',
+        customerId:    S.customerId,
+        patientNum:    S.patientNum,
         courseId,
-        salesAmount:    Number(salesAmount),
-        treatmentMemo:  memo,
+        salesAmount:   Number(salesAmount),
+        treatmentMemo: memo,
       }),
     });
     const data = await res.json();
@@ -537,10 +587,11 @@ async function submitRecord() {
 }
 
 function showSuccess(courseId, amount) {
+  const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : courseId;
   document.getElementById('mainForm').style.display = 'none';
   document.getElementById('successDetail').innerHTML =
     '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）<br>' +
-    COURSE_NAMES[courseId] + '　¥' + amount.toLocaleString();
+    courseName + '　¥' + amount.toLocaleString();
   document.getElementById('successScreen').classList.add('visible');
   window.scrollTo({ top: 0 });
 }

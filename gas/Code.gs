@@ -44,6 +44,9 @@ function doGet(e) {
     if (p.action === 'validateToken') {
       return jsonRes({ valid: false }); // 再予約トークン機能は将来実装
     }
+    if (p.action === 'getPatientList') {
+      return jsonRes(handleGetPatientList(cfg));
+    }
 
     // レガシー JSONP（カレンダーのグレーアウト用）
     if (p.date && p.callback) {
@@ -93,6 +96,30 @@ function findCustomerByNamePhone(cfg, normName, normPhone) {
     if (storedName === normName && storedPhone === normPhone) return page;
   }
   return null;
+}
+
+function handleGetPatientList(cfg) {
+  var res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, {
+    sorts: [{ property: '名前', direction: 'ascending' }],
+    page_size: 100,
+  });
+  if (!res.results) {
+    Logger.log('getPatientList error: ' + JSON.stringify(res));
+    return { success: false, error: res.message || JSON.stringify(res) };
+  }
+  var patients = [];
+  for (var i = 0; i < res.results.length; i++) {
+    var page = res.results[i];
+    var name = getTextProp(page.properties, '名前');
+    if (!name) continue;
+    patients.push({
+      customerId: page.id,
+      patientNum: getTextProp(page.properties, '診察番号'),
+      name:       name,
+      furigana:   getTextProp(page.properties, 'フリガナ'),
+    });
+  }
+  return { success: true, patients: patients };
 }
 
 /* ── 予約送信 ── */
@@ -301,14 +328,15 @@ function generatePatientNumber(cfg) {
    ============================================================ */
 
 // Notion コース select の有効値（これ以外は送らない）
-var VALID_COURSES = ['カイロプラクティック', '筋膜リリース', '吸い玉・カッピング', 'トータルケア'];
+var VALID_COURSES = ['カイロプラクティック', '筋膜リリース', '吸い玉・カッピング', 'トータルケア', '月2回コース'];
 
 // コースID（フォームの value）→ Notion セレクト名
 var COURSE_ID_MAP = {
   'chiro':   'カイロプラクティック',
   'fascia':  '筋膜リリース',
   'cupping': '吸い玉・カッピング',
-  'total':   'トータルケア',
+  'total':    'トータルケア',
+  'monthly2': '月2回コース',
 };
 
 // コース表示名 → Notion セレクト名（後方互換）
@@ -335,10 +363,10 @@ function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
     || COURSE_NAME_MAP[data.courseName]
     || data.courseName
     || '未定';
-  var dateCode = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd');
-  var karteCode = 'LBC-' + dateCode + '-' + patientNum;
+  var dateLabel = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+  var karteTitle = (data.name || patientNum) + ' (' + dateLabel + ')';
   const props = {
-    '名前':     { title: [{ text: { content: karteCode } }] },
+    '名前':     { title: [{ text: { content: karteTitle } }] },
     '日付':     { date: { start: todayStr() } },
     '予約日':   { date: { start: data.date || todayStr() } },
     '予約時間': richText(data.time || ''),
@@ -523,7 +551,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   if (bodyImageUrl) {
     var fileIdMatch = bodyImageUrl.match(/\/d\/([^\/\?]+)/);
     var embedUrl = fileIdMatch
-      ? 'https://drive.google.com/uc?export=view&id=' + fileIdMatch[1]
+      ? 'https://lh3.googleusercontent.com/d/' + fileIdMatch[1]
       : bodyImageUrl;
     blocks.push({ object: 'block', type: 'image',
       image: { type: 'external', external: { url: embedUrl } } });
@@ -533,7 +561,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   if (signatureUrl) {
     var sigMatch = signatureUrl.match(/\/d\/([^\/\?]+)/);
     var sigEmbed = sigMatch
-      ? 'https://drive.google.com/uc?export=view&id=' + sigMatch[1]
+      ? 'https://lh3.googleusercontent.com/d/' + sigMatch[1]
       : signatureUrl;
     blocks.push({ object: 'block', type: 'paragraph',
       paragraph: { rich_text: [{ type: 'text', text: { content: '【署名】' } }] } });

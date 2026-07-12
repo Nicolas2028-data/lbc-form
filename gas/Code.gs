@@ -558,6 +558,8 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
 
   // ── 1. 基本情報
   blocks.push(h2('👤', '基本情報'));
+  if (data.name)     blocks.push(bul('氏名', data.name));
+  if (data.furigana) blocks.push(bul('フリガナ', data.furigana));
   blocks.push(bul('来院歴', data.visitType === 'first' ? '初回' : '再診'));
   if (data.visitType !== 'first' && data.hasChanges) {
     blocks.push(bul('症状の変化', data.hasChanges === 'yes' ? 'あり（新しい問診あり）' : 'なし'));

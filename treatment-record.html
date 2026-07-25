@@ -239,6 +239,15 @@
       padding: 3px 9px; border-radius: 20px;
       margin-top: 6px;
     }
+    .btn-change-patient {
+      margin-left: auto; flex-shrink: 0;
+      background: none; border: 1.5px solid var(--primary-mid);
+      color: var(--primary-dark); border-radius: 8px;
+      font-size: 0.75rem; font-weight: 700;
+      padding: 6px 10px; cursor: pointer;
+      line-height: 1.3; text-align: center;
+    }
+    .btn-change-patient:hover { background: var(--primary-light); }
 
     /* ─── クレジット表示 ─── */
     .credit-section {
@@ -540,6 +549,7 @@
           <div class="banner-num"  id="bannerNum"></div>
           <div class="banner-visit" id="bannerVisit" style="display:none"></div>
         </div>
+        <button class="btn-change-patient" onclick="changePatient()">別の<br>患者</button>
       </div>
 
       <!-- クレジット表示 -->
@@ -825,6 +835,23 @@ document.addEventListener('click', function(e) {
   }
 });
 
+/* ── 患者選び直し ───────────────────────────────── */
+function changePatient() {
+  document.getElementById('phase2').style.display = 'none';
+  document.getElementById('phase1').style.display = 'block';
+  document.getElementById('nameSearch').value = '';
+  document.getElementById('autocompleteDropdown').classList.remove('open');
+  // コース・支払いをリセット
+  document.querySelectorAll('input[name="course"]').forEach(r => r.checked = false);
+  document.querySelectorAll('input[name="payment"]').forEach(r => r.checked = false);
+  document.getElementById('monthlyAddonCheck').checked = false;
+  document.getElementById('monthlyAddon').classList.remove('visible');
+  document.getElementById('memo').value = '';
+  document.getElementById('amountSummary').classList.remove('visible');
+  document.getElementById('salesAmount').value = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 /* ── Phase 2 表示 ──────────────────────────────── */
 function showPhase2(customerId, patientNum, patientName, details) {
   S.customerId   = customerId;
@@ -843,10 +870,10 @@ function showPhase2(customerId, patientNum, patientName, details) {
   document.getElementById('bannerNum').textContent  = '診察番号: ' + patientNum;
 
   const visitEl = document.getElementById('bannerVisit');
-  if (details && details.visitCount !== undefined) {
-    const nth = details.visitCount + 1;
-    const last = details.lastVisitDate ? '前回 ' + details.lastVisitDate : '初回来院';
-    visitEl.textContent = nth + '回目  —  ' + last;
+  if (details && details.visitNum !== undefined) {
+    const nth  = details.visitNum;
+    const last = S.isFirstVisit ? '初回来院' : (details.prevVisitDate ? '前回 ' + details.prevVisitDate : '');
+    visitEl.textContent = nth + '回目' + (last ? '  —  ' + last : '');
     visitEl.style.display = 'inline-flex';
   } else {
     visitEl.style.display = 'none';

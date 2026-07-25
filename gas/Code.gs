@@ -168,12 +168,28 @@ function handleGetPatientDetails(customerId, cfg) {
   // 初回判定: カルテが0件、または1件で且つそれが今日のもの（問診票送信で当日作成されたケース）
   var isFirstVisit = visitCount === 0 || (visitCount === 1 && lastVisitDate === todayStr());
 
+  // 今日のカルテが件数に含まれているか
+  var todayIncluded = visitCount > 0 && lastVisitDate === todayStr();
+  // 今日が何回目か（今日のカルテが含まれていればそのまま、なければ+1）
+  var visitNum = isFirstVisit ? 1 : (todayIncluded ? visitCount : visitCount + 1);
+
+  // 前回来院日（今日のカルテを除いた直近）
+  var prevVisitDate = '';
+  if (!isFirstVisit && karteRes.results) {
+    for (var i = 0; i < karteRes.results.length; i++) {
+      var dp2 = karteRes.results[i].properties['日付'];
+      var d2  = dp2 && dp2.date ? dp2.date.start : '';
+      if (d2 && d2 !== todayStr()) { prevVisitDate = d2; break; }
+    }
+  }
+
   return {
     success:         true,
     creditBalance:   creditBalance,
     expiringCredits: expiringCredits,
     visitCount:      visitCount,
-    lastVisitDate:   lastVisitDate,
+    visitNum:        visitNum,
+    prevVisitDate:   prevVisitDate,
     isFirstVisit:    isFirstVisit,
   };
 }

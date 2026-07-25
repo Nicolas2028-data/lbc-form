@@ -165,13 +165,16 @@ function handleGetPatientDetails(customerId, cfg) {
     if (dp && dp.date) lastVisitDate = dp.date.start;
   }
 
+  // 初回判定: カルテが0件、または1件で且つそれが今日のもの（問診票送信で当日作成されたケース）
+  var isFirstVisit = visitCount === 0 || (visitCount === 1 && lastVisitDate === todayStr());
+
   return {
     success:         true,
     creditBalance:   creditBalance,
     expiringCredits: expiringCredits,
     visitCount:      visitCount,
     lastVisitDate:   lastVisitDate,
-    isFirstVisit:    visitCount === 0,
+    isFirstVisit:    isFirstVisit,
   };
 }
 

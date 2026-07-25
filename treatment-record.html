@@ -835,6 +835,8 @@ function showPhase2(customerId, patientNum, patientName, details) {
   S.referrerName = null;
   S.referralApplied = false;
   S.isFirstVisit = !!(details && details.isFirstVisit);
+  // 詳細レスポンスのクレジット残高で上書き（リスト取得より新しい値）
+  if (details && details.creditBalance !== undefined) S.creditBalance = details.creditBalance;
 
   // バナー
   document.getElementById('bannerName').textContent = patientName + ' 様';
@@ -960,11 +962,15 @@ function onCourseChange() {
   const courseId = document.querySelector('input[name="course"]:checked')?.value;
   const isMonthly = MONTHLY_IDS.has(courseId);
 
-  // 月2回コース系は「月2回プラン同時申込」チェックを非表示
+  // 月2回コース系は「月2回プラン同時申込」チェックを非表示・クレジット使用をリセット
   const addon = document.getElementById('monthlyAddon');
   if (isMonthly) {
     addon.classList.remove('visible');
     document.getElementById('monthlyAddonCheck').checked = false;
+    S.creditUsed = 0;
+    document.getElementById('creditUsedDisplay').textContent = '¥0';
+    document.getElementById('creditMinus').disabled = true;
+    document.getElementById('creditPlus').disabled  = S.creditBalance <= 0;
   } else {
     addon.classList.add('visible');
   }

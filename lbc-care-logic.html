@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LBC Care — システムロジック仕様書</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1c2430; --muted:#5b6674;
+    --line:#e2e6ec; --accent:#1f6feb; --accent-soft:#e8f0fe;
+    --green:#0f7b4f; --green-soft:#e6f6ee;
+    --orange:#b4520a; --orange-soft:#fff3e6;
+    --purple:#6e40c9; --purple-soft:#f0ebff;
+    --red:#b91c1c; --red-soft:#fef2f2;
+    --code-bg:#0f172a; --code-ink:#e2e8f0;
+    --warn:#b4520a; --warn-soft:#fff3e6;
+    --ok:#0f7b4f; --ok-soft:#e6f6ee;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --panel:#161b22; --ink:#e6edf3; --muted:#9aa7b4;
+      --line:#2a323d; --accent:#4c9aff; --accent-soft:#12233d;
+      --green:#4cc38a; --green-soft:#10241a;
+      --orange:#e8933f; --orange-soft:#2c1e10;
+      --purple:#a78bfa; --purple-soft:#1e1533;
+      --red:#f87171; --red-soft:#2c1010;
+      --code-bg:#0b0f16; --code-ink:#d6dee8;
+      --warn:#e8933f; --warn-soft:#2c1e10;
+      --ok:#4cc38a; --ok-soft:#10241a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+    line-height:1.75;font-size:15px;}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px;}
+  header.title{border-left:5px solid var(--accent);padding:6px 0 6px 18px;margin-bottom:8px;}
+  header.title h1{margin:0;font-size:26px;letter-spacing:.01em;}
+  header.title .sub{color:var(--muted);font-size:13.5px;margin-top:4px;}
+  .meta-bar{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 28px;}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:20px;
+    padding:4px 13px;font-size:12.5px;color:var(--muted);}
+  .chip b{color:var(--ink);font-weight:600;}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:22px 24px;margin-bottom:20px;}
+  h2{font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+  h2 .num{display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:7px;background:var(--accent-soft);
+    color:var(--accent);font-size:14px;font-weight:700;flex:none;}
+  h3{font-size:15.5px;margin:22px 0 8px;color:var(--ink);}
+  h4{font-size:14px;margin:14px 0 6px;font-weight:600;}
+  p{margin:8px 0;}
+  .lead{color:var(--muted);margin:2px 0 14px;font-size:14px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;}
+  th{background:var(--accent-soft);color:var(--ink);font-weight:600;white-space:nowrap;}
+  td code,.mono{font-family:"Cascadia Code","Consolas",monospace;font-size:12.5px;}
+  .tbl-scroll{overflow-x:auto;}
+  code.inl{background:var(--accent-soft);color:var(--accent);padding:1px 6px;
+    border-radius:5px;font-family:"Cascadia Code","Consolas",monospace;font-size:12.5px;}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:14px 16px;border-radius:9px;
+    overflow-x:auto;font-family:"Cascadia Code","Consolas",monospace;font-size:12px;line-height:1.6;}
+  pre .cm{color:#7f9bb3;}
+  pre .kw{color:#7dd3fc;}
+  pre .str{color:#86efac;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  @media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr;}}
+  .card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .card.blue{border-top:3px solid var(--accent);}
+  .card.green{border-top:3px solid var(--green);}
+  .card.orange{border-top:3px solid var(--orange);}
+  .card.purple{border-top:3px solid var(--purple);}
+  .card h4{margin:0 0 6px;font-size:15px;}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;white-space:nowrap;}
+  .badge.blue{background:var(--accent-soft);color:var(--accent);}
+  .badge.green{background:var(--green-soft);color:var(--green);}
+  .badge.orange{background:var(--orange-soft);color:var(--orange);}
+  .badge.purple{background:var(--purple-soft);color:var(--purple);}
+  .badge.red{background:var(--red-soft);color:var(--red);}
+  .note{background:var(--warn-soft);border-left:4px solid var(--warn);border-radius:6px;
+    padding:10px 14px;margin:14px 0;font-size:13.5px;}
+  .note b{color:var(--warn);}
+  .ok{background:var(--ok-soft);border-left:4px solid var(--ok);border-radius:6px;
+    padding:10px 14px;margin:14px 0;font-size:13.5px;}
+  .ok b{color:var(--ok);}
+  .info{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:6px;
+    padding:10px 14px;margin:14px 0;font-size:13.5px;}
+  ol.steps{counter-reset:s;list-style:none;padding-left:0;margin:10px 0;}
+  ol.steps li{counter-increment:s;position:relative;padding:6px 0 6px 40px;border-bottom:1px dashed var(--line);}
+  ol.steps li:last-child{border-bottom:none;}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:6px;
+    width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;}
+  .flow{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .flow-row{display:flex;align-items:center;gap:10px;}
+  .flow-box{border:1.5px solid var(--line);border-radius:8px;padding:8px 14px;
+    background:var(--panel);font-size:13px;font-weight:600;white-space:nowrap;}
+  .flow-box.blue{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+  .flow-box.green{border-color:var(--green);background:var(--green-soft);color:var(--green);}
+  .flow-box.orange{border-color:var(--orange);background:var(--orange-soft);color:var(--orange);}
+  .flow-box.purple{border-color:var(--purple);background:var(--purple-soft);color:var(--purple);}
+  .flow-arrow{color:var(--muted);font-size:18px;flex:none;}
+  .flow-label{font-size:12px;color:var(--muted);margin-left:4px;}
+  .flow-col{display:flex;flex-direction:column;align-items:center;gap:0;}
+  .flow-col .flow-box{width:100%;}
+  .arrow-v{display:flex;flex-direction:column;align-items:center;color:var(--muted);font-size:14px;padding:2px 0;}
+  .fifo-bar{display:flex;gap:2px;margin:12px 0;}
+  .fifo-cell{flex:1;border:1.5px solid var(--line);border-radius:6px;padding:8px 6px;
+    text-align:center;font-size:12px;}
+  .fifo-cell.used{background:var(--ok-soft);border-color:var(--green);color:var(--green);}
+  .fifo-cell.old{background:var(--warn-soft);border-color:var(--orange);color:var(--orange);}
+  .fifo-cell.new{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+  .toc{columns:2;column-gap:26px;font-size:13.5px;}
+  @media(max-width:600px){.toc{columns:1;}}
+  .toc a{color:var(--accent);text-decoration:none;}
+  .toc a:hover{text-decoration:underline;}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px;}
+  .part-divider{border-left:5px solid var(--purple);padding:6px 0 6px 18px;margin:34px 0 20px;}
+  .part-divider .part-label{font-size:12px;color:var(--muted);letter-spacing:.08em;}
+  .part-divider .part-title{font-size:20px;font-weight:700;}
+  .part-divider .part-sub{color:var(--muted);font-size:13.5px;margin-top:2px;}
+  .rule-box{border:1.5px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;font-size:13.5px;}
+  .rule-box .rule-title{font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  ul.check{list-style:none;padding-left:0;margin:6px 0;}
+  ul.check li{padding:3px 0 3px 22px;position:relative;font-size:13.5px;}
+  ul.check li::before{content:"✓";position:absolute;left:0;color:var(--green);font-weight:700;}
+  ul.cross{list-style:none;padding-left:0;margin:6px 0;}
+  ul.cross li{padding:3px 0 3px 22px;position:relative;font-size:13.5px;}
+  ul.cross li::before{content:"✗";position:absolute;left:0;color:var(--red);font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="title">
+  <h1>LBC Care — システムロジック仕様書</h1>
+  <div class="sub">予約フォーム（index.html）・問診票（questionnaire.html）・施術記録（treatment-record.html）+ GAS + Notion の全ロジック解説</div>
+</header>
+
+<div class="meta-bar">
+  <span class="chip">院名 <b>LBC整体院（Lucas Body Care）</b></span>
+  <span class="chip">所在地 <b>三重県四日市市</b></span>
+  <span class="chip">バックエンド <b>Google Apps Script（GAS）</b></span>
+  <span class="chip">データベース <b>Notion API</b></span>
+  <span class="chip">ホスティング <b>GitHub Pages</b></span>
+  <span class="chip">作成日 <b>2026-07-25</b></span>
+</div>
+
+<!-- TOC -->
+<section>
+  <h2><span class="num">0</span>目次</h2>
+  <div class="toc">
+    <b style="color:var(--muted);font-size:12px;">■ PART 1：システム全体</b><br>
+    <a href="#overview">1. システム概要とデータフロー</a><br>
+    <a href="#notion-db">2. Notionデータベース構造</a><br>
+    <a href="#gas-endpoints">3. GASエンドポイント一覧</a><br>
+    <b style="color:var(--muted);font-size:12px;">■ PART 2：各HTMLの役割</b><br>
+    <a href="#questionnaire">4. 問診票（questionnaire.html）</a><br>
+    <a href="#treatment">5. 施術記録（treatment-record.html）</a><br>
+    <b style="color:var(--muted);font-size:12px;">■ PART 3：ビジネスロジック</b><br>
+    <a href="#courses">6. コース一覧と料金</a><br>
+    <a href="#monthly">7. 月2回プランロジック</a><br>
+    <a href="#referral">8. 紹介割引ロジック</a><br>
+    <a href="#credit">9. クレジットシステム</a><br>
+    <a href="#amount-calc">10. 売上金額の計算ロジック</a><br>
+    <a href="#checklist">11. 運用チェックリスト</a><br>
+  </div>
+</section>
+
+<!-- PART 1 -->
+<div class="part-divider">
+  <div class="part-label">PART 1</div>
+  <div class="part-title">システム全体</div>
+  <div class="part-sub">全体のデータフローとNotion DB構造</div>
+</div>
+
+<section id="overview">
+  <h2><span class="num">1</span>システム概要とデータフロー</h2>
+  <p class="lead">3つのHTMLページ（予約・問診票・施術記録）がGAS（Googleスプレッドシート連携なし・Notionに直接書込み）を経由し、2つのNotionデータベースへデータを蓄積します。</p>
+
+  <h3>1-1. 利用者と端末</h3>
+  <div class="grid3">
+    <div class="card blue">
+      <span class="badge blue">患者</span>
+      <h4>予約フォーム</h4>
+      <p style="font-size:13px;margin:6px 0 0;">スマートフォン・PC<br>多言語（ja / es / pt）<br>GitHub Pages で公開</p>
+    </div>
+    <div class="card green">
+      <span class="badge green">院内 iPad</span>
+      <h4>問診票</h4>
+      <p style="font-size:13px;margin:6px 0 0;">来院時にiPadで記入<br>スタンドアロン運用（URL直打ち）<br>署名・人体図付き</p>
+    </div>
+    <div class="card orange">
+      <span class="badge orange">ルカス専用</span>
+      <h4>施術記録</h4>
+      <p style="font-size:13px;margin:6px 0 0;">施術後にiPadで入力<br>日本語のみ<br>パスワード保護あり</p>
+    </div>
+  </div>
+
+  <h3>1-2. 全体データフロー</h3>
+  <pre><span class="cm">── PART 1: 患者→予約 ──────────────────────────────────────────</span>
+<span class="kw">患者</span> → index.html → GAS(doPost: createReservation) → <span class="str">カスタマーDB</span>（新規 or 既存更新）
+
+<span class="cm">── PART 2: 来院当日 ──────────────────────────────────────────</span>
+<span class="kw">患者</span> → questionnaire.html → GAS(doPost: submitQuestionnaire)
+         → <span class="str">カスタマーDB</span>（既存顧客照合 or 新規作成）
+         → <span class="str">カルテDB</span>（新規カルテ作成・コース未設定で登録）
+
+<span class="cm">── PART 3: 施術後 ─────────────────────────────────────────────</span>
+<span class="kw">ルカス</span> → treatment-record.html
+  PHASE 1: GAS(doGet: getPatientList) → 患者一覧取得
+  PHASE 1: 患者選択 → GAS(doGet: getPatientDetails) → 来院回数・クレジット残高取得
+  PHASE 2: コース・支払い・メモ・紹介・クレジット入力
+           → GAS(doPost: submitTreatmentRecord)
+           → <span class="str">カルテDB</span>（既存カルテを更新: コース・売上・紹介・クレジット）
+           → <span class="str">カスタマーDB</span>（紹介者クレジット付与 / 患者クレジット消費）</pre>
+
+  <h3>1-3. GASのデプロイURL</h3>
+  <p><code class="inl">https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec</code></p>
+  <div class="note"><b>注意：</b>GASを更新したら必ず「新バージョン」としてデプロイし直すこと。変更はデプロイ後にのみ反映されます。treatment-record.htmlの<code class="inl">GAS_URL</code>定数はデプロイURLと一致させること。</div>
+</section>
+
+<section id="notion-db">
+  <h2><span class="num">2</span>Notionデータベース構造</h2>
+  <p class="lead">2つのNotionデータベース（カスタマーDB・カルテDB）がシステムの中核。カルテDBはカスタマーDBへのリレーションを持ちます。</p>
+
+  <h3>2-1. カスタマーDB（顧客マスタ）</h3>
+  <p style="font-size:12.5px;color:var(--muted);">Notion DB ID: <code>bafca368-66c7-4bb7-8129-65c2e966cd51</code></p>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>フィールド名</th><th>型</th><th>内容・用途</th><th>設定元</th></tr>
+    <tr><td><code>氏名</code></td><td>title</td><td>患者フルネーム（日本語）</td><td>予約・問診票</td></tr>
+    <tr><td><code>フリガナ</code></td><td>rich_text</td><td>カタカナ読み</td><td>予約・問診票</td></tr>
+    <tr><td><code>電話番号</code></td><td>phone_number</td><td>連絡先</td><td>予約・問診票</td></tr>
+    <tr><td><code>メール</code></td><td>email</td><td>メールアドレス</td><td>予約</td></tr>
+    <tr><td><code>生年月日</code></td><td>date</td><td>YYYY-MM-DD</td><td>問診票</td></tr>
+    <tr><td><code>性別</code></td><td>select</td><td>男性 / 女性 / その他</td><td>問診票</td></tr>
+    <tr><td><code>言語</code></td><td>select</td><td>ja / es / pt</td><td>予約・問診票</td></tr>
+    <tr><td><code>患者番号</code></td><td>rich_text</td><td>P001, P002… 自動採番</td><td>GAS自動付与</td></tr>
+    <tr><td><code>クレジット残高</code></td><td>number（¥）</td><td>使用可能クレジット合計</td><td>GAS（addCredit/useCredit）</td></tr>
+    <tr><td><code>クレジット詳細</code></td><td>rich_text</td><td>JSON文字列で獲得履歴を記録（FIFO消費用）</td><td>GAS（addCredit/useCredit）</td></tr>
+  </table>
+  </div>
+  <div class="ok"><b>クレジット詳細のJSON形式：</b><code class="inl">[{"date":"2026-07-25","amount":1000},{"date":"2026-09-01","amount":1000}]</code><br>
+  日付は獲得日。古い順（昇順）で消費（FIFO）。残高は個別エントリの合計と一致させる。</div>
+
+  <h3>2-2. カルテDB（施術記録）</h3>
+  <p style="font-size:12.5px;color:var(--muted);">Notion DB ID: <code>1fe16e73-6413-44d5-ba61-a56cd235b7b5</code></p>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>フィールド名</th><th>型</th><th>内容・用途</th><th>設定タイミング</th></tr>
+    <tr><td><code>カルテ番号</code></td><td>title</td><td>K0001, K0002…（自動採番）</td><td>問診票送信時</td></tr>
+    <tr><td><code>顧客マスタ</code></td><td>relation</td><td>カスタマーDBへのリレーション</td><td>問診票送信時</td></tr>
+    <tr><td><code>日付</code></td><td>date</td><td>来院日（YYYY-MM-DD）</td><td>問診票送信時</td></tr>
+    <tr><td><code>ステータス</code></td><td>select</td><td>予約済 / 来院済 / 完了 / キャンセル</td><td>問診票→施術記録</td></tr>
+    <tr><td><code>コース</code></td><td>select</td><td>カイロプラクティック / 筋膜リリース / 吸い玉・カッピング / トータルケア / 月2回プラン</td><td>施術記録シート</td></tr>
+    <tr><td><code>売上金額</code></td><td>number（¥）</td><td>実際の受取金額（¥0含む）</td><td>施術記録シート</td></tr>
+    <tr><td><code>支払い方法</code></td><td>select</td><td>現金 / カード / 未払い</td><td>施術記録シート</td></tr>
+    <tr><td><code>施術メモ</code></td><td>rich_text</td><td>ルカスの施術メモ（自由記述）</td><td>施術記録シート</td></tr>
+    <tr><td><code>紹介者名</code></td><td>rich_text</td><td>紹介した患者の氏名</td><td>施術記録シート（初回のみ）</td></tr>
+    <tr><td><code>クレジット使用額</code></td><td>number（¥）</td><td>この施術で消費したクレジット額</td><td>施術記録シート</td></tr>
+    <tr><td><code>紹介割引適用</code></td><td>checkbox</td><td>紹介割引（¥1,000引き）を適用したか</td><td>施術記録シート（初回のみ）</td></tr>
+    <tr><td><code>サポートデータ</code></td><td>rich_text</td><td>問診票の身体状態・既往歴など（JSON）</td><td>問診票送信時</td></tr>
+    <tr><td><code>bodyDiagram</code></td><td>rich_text</td><td>人体図のGoogle Drive共有URL</td><td>問診票送信時</td></tr>
+    <tr><td><code>signature</code></td><td>rich_text</td><td>署名画像のGoogle Drive共有URL</td><td>問診票送信時</td></tr>
+  </table>
+  </div>
+  <div class="info">カルテは<b>問診票送信時に作成</b>される（コース・売上は空）。施術記録シートで選択・入力した内容で上書き更新される設計です。</div>
+</section>
+
+<section id="gas-endpoints">
+  <h2><span class="num">3</span>GASエンドポイント一覧</h2>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>メソッド</th><th>action パラメータ</th><th>主な用途</th><th>呼出元</th></tr>
+    <tr><td><span class="badge green">GET</span></td><td><code>getPatientList</code></td><td>全患者一覧（患者番号・氏名・クレジット残高）取得</td><td>施術記録 Phase 1</td></tr>
+    <tr><td><span class="badge green">GET</span></td><td><code>getPatientDetails</code></td><td>患者詳細（来院回数・最終来院日・クレジット・期限切れ警告）取得</td><td>施術記録 患者選択時</td></tr>
+    <tr><td><span class="badge green">GET</span></td><td><code>findTodayKarte</code></td><td>今日のカルテを顧客IDで検索</td><td>施術記録 Phase 2</td></tr>
+    <tr><td><span class="badge blue">POST</span></td><td><code>createReservation</code></td><td>予約作成（カスタマーDB登録）</td><td>予約フォーム</td></tr>
+    <tr><td><span class="badge blue">POST</span></td><td><code>submitQuestionnaire</code></td><td>問診票送信（カスタマーDB更新 + カルテDB新規作成）</td><td>問診票</td></tr>
+    <tr><td><span class="badge blue">POST</span></td><td><code>submitTreatmentRecord</code></td><td>施術記録確定（カルテDB更新・クレジット処理）</td><td>施術記録 Phase 2</td></tr>
+  </table>
+  </div>
+
+  <h3>3-1. getPatientDetails レスポンス</h3>
+  <pre>{
+  <span class="str">"success"</span>: <span class="kw">true</span>,
+  <span class="str">"creditBalance"</span>: 2000,          <span class="cm">// 使用可能残高（¥）</span>
+  <span class="str">"expiringCredits"</span>: [           <span class="cm">// 60日以内に期限切れになるクレジット</span>
+    { <span class="str">"amount"</span>: 1000, <span class="str">"daysLeft"</span>: 45, <span class="str">"expiryDate"</span>: <span class="str">"2026-09-08"</span> }
+  ],
+  <span class="str">"visitCount"</span>: 3,               <span class="cm">// 過去の来院回数（カルテDB件数）</span>
+  <span class="str">"lastVisitDate"</span>: <span class="str">"2026-06-15"</span>, <span class="cm">// 最終来院日</span>
+  <span class="str">"isFirstVisit"</span>: <span class="kw">false</span>          <span class="cm">// true = 今日が初来院（紹介割引対象）</span>
+}</pre>
+
+  <h3>3-2. submitTreatmentRecord 送信ペイロード</h3>
+  <pre>{
+  <span class="str">"action"</span>: <span class="str">"submitTreatmentRecord"</span>,
+  <span class="str">"customerId"</span>: <span class="str">"notion-page-id"</span>,  <span class="cm">// カスタマーDB の pageId</span>
+  <span class="str">"patientNum"</span>: <span class="str">"P001"</span>,
+  <span class="str">"courseId"</span>: <span class="str">"カイロプラクティック"</span>,  <span class="cm">// Notion select値（5択）</span>
+  <span class="str">"paymentMethod"</span>: <span class="str">"現金"</span>,          <span class="cm">// 現金 / カード / 未払い</span>
+  <span class="str">"salesAmount"</span>: 3000,           <span class="cm">// 最終受取金額（¥）</span>
+  <span class="str">"treatmentMemo"</span>: <span class="str">"腰部L4調整"</span>,
+  <span class="str">"referrerId"</span>: <span class="str">"notion-page-id"</span>,  <span class="cm">// 紹介者の customerId（初回のみ）</span>
+  <span class="str">"referrerName"</span>: <span class="str">"田中 花子"</span>,
+  <span class="str">"referralDiscount"</span>: <span class="kw">true</span>,      <span class="cm">// 紹介割引適用フラグ</span>
+  <span class="str">"creditUsed"</span>: 1000             <span class="cm">// 使用クレジット額（¥、0含む）</span>
+}</pre>
+</section>
+
+<!-- PART 2 -->
+<div class="part-divider">
+  <div class="part-label">PART 2</div>
+  <div class="part-title">各HTMLの役割と操作フロー</div>
+  <div class="part-sub">問診票・施術記録シートのUI/UXロジック</div>
+</div>
+
+<section id="questionnaire">
+  <h2><span class="num">4</span>問診票（questionnaire.html）</h2>
+  <p class="lead">来院時にiPadで記入。スタンドアロン運用（URLを直打ちして開く）。日本語・スペイン語・ポルトガル語対応。</p>
+
+  <h3>操作フロー</h3>
+  <ol class="steps">
+    <li>言語選択</li>
+    <li>基本情報入力（氏名・フリガナ・電話・生年月日・性別）</li>
+    <li>既往歴・アレルギー・主訴などの問診セクション</li>
+    <li>人体図（Canvas）で痛む箇所をタッチ/マウスで塗る</li>
+    <li>署名（Canvas）に手書きサイン</li>
+    <li>送信 → GAS <code class="inl">submitQuestionnaire</code></li>
+    <li>GASが人体図・署名をbase64 → Google Driveに保存 → 共有URLをカルテDBに記録</li>
+    <li>カルテDBに本日分のカルテを新規作成（コース・売上は空欄）</li>
+  </ol>
+  <div class="note"><b>注意：</b>コース選択は問診票に含まれません。施術記録シートで選択します。問診票送信時点のカルテはコース未設定の状態で作成されます。</div>
+</section>
+
+<section id="treatment">
+  <h2><span class="num">5</span>施術記録（treatment-record.html）</h2>
+  <p class="lead">ルカス専用・日本語のみ。施術後にiPadで記録。パスワード認証あり（GASスクリプトプロパティ <code class="inl">STAFF_PASSWORD</code>）。</p>
+
+  <h3>6-1. PHASE 1：患者検索</h3>
+  <ol class="steps">
+    <li>パスワード入力（正解でのみPhase 1に進む）</li>
+    <li><code class="inl">getPatientList</code> で全患者を取得しリスト表示</li>
+    <li>患者番号・氏名で絞り込み検索</li>
+    <li>患者を選択 → <code class="inl">getPatientDetails</code> で詳細取得</li>
+    <li>Phase 2 に遷移（患者バナーに来院回数・最終来院日を表示）</li>
+  </ol>
+
+  <h3>6-2. PHASE 2：施術入力</h3>
+  <ol class="steps">
+    <li>コース選択（6択）</li>
+    <li>支払い方法選択（現金 / カード / 未払い）</li>
+    <li>月2回プラン追加オプション（±¥10,000）</li>
+    <li>紹介者入力（初回来院の場合のみ表示）</li>
+    <li>クレジット使用設定（¥1,000単位のステッパー）</li>
+    <li>施術メモ入力</li>
+    <li>金額サマリ自動表示（ベース + 追加 − 紹介割引 − クレジット）</li>
+    <li>送信 → <code class="inl">submitTreatmentRecord</code></li>
+  </ol>
+
+  <h3>6-3. 初回来院フラグ（isFirstVisit）</h3>
+  <p><code class="inl">getPatientDetails</code> が返す <code class="inl">visitCount === 0</code> のとき <code class="inl">isFirstVisit = true</code>。</p>
+  <div class="grid2">
+    <div class="rule-box">
+      <div class="rule-title"><span class="badge green">初回来院（isFirstVisit = true）</span></div>
+      <ul class="check">
+        <li>紹介者入力セクションを表示</li>
+        <li>紹介割引（¥1,000引き）が適用可能</li>
+      </ul>
+      <ul class="cross">
+        <li>クレジット残高があっても使用不可（初回=クレジット未保有のため）</li>
+      </ul>
+    </div>
+    <div class="rule-box">
+      <div class="rule-title"><span class="badge blue">2回目以降（isFirstVisit = false）</span></div>
+      <ul class="check">
+        <li>クレジット使用可能（¥1,000単位で最大残高まで）</li>
+      </ul>
+      <ul class="cross">
+        <li>紹介割引は適用不可</li>
+        <li>紹介者入力セクションは非表示</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- PART 3 -->
+<div class="part-divider">
+  <div class="part-label">PART 3</div>
+  <div class="part-title">ビジネスロジック詳細</div>
+  <div class="part-sub">コース・月2回プラン・紹介割引・クレジットシステムの仕様</div>
+</div>
+
+<section id="courses">
+  <h2><span class="num">6</span>コース一覧と料金</h2>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>UI表示名</th><th>Notion送信値</th><th>基本料金</th><th>備考</th></tr>
+    <tr><td>カイロプラクティック</td><td><code>カイロプラクティック</code></td><td>¥4,000</td><td></td></tr>
+    <tr><td>筋膜リリース</td><td><code>筋膜リリース</code></td><td>¥5,000</td><td></td></tr>
+    <tr><td>吸い玉（カッピング）</td><td><code>吸い玉・カッピング</code></td><td>¥4,000</td><td></td></tr>
+    <tr><td>トータルケア</td><td><code>トータルケア</code></td><td>¥6,000</td><td></td></tr>
+    <tr><td>月2回プラン（今月2回カバー）</td><td><code>月2回プラン</code></td><td>¥10,000</td><td>月額一括払い・1回目</td></tr>
+    <tr><td>月2回プラン（2回目・前払済）</td><td><code>月2回プラン</code></td><td>¥0</td><td>Notion送信値は同じ「月2回プラン」</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Notionのコースselect有効値：</b>カイロプラクティック / 筋膜リリース / 吸い玉・カッピング / トータルケア / 月2回プラン — の5択のみ。それ以外の値を送信するとNotion APIエラーになります。</div>
+</section>
+
+<section id="monthly">
+  <h2><span class="num">7</span>月2回プランロジック</h2>
+  <p class="lead">月定額¥10,000で同月に2回施術できるプラン。トータルケアが主な対象（¥6,000×2=¥12,000の価値）。</p>
+
+  <h3>8-1. 2つのパターン</h3>
+  <div class="grid2">
+    <div class="card orange">
+      <span class="badge orange">パターン A</span>
+      <h4>月額を一括払いする</h4>
+      <p style="font-size:13px;margin:6px 0 0;">1回目にコース（¥4,000〜6,000）を選び、追加で月2回プラン（+¥10,000）チェックを入れる。<br>支払合計 = コース料金 + ¥10,000。<br>2回目は「月2回プラン（2回目・前払済）」= ¥0。</p>
+    </div>
+    <div class="card blue">
+      <span class="badge blue">パターン B</span>
+      <h4>月2回プランとして一括選択</h4>
+      <p style="font-size:13px;margin:6px 0 0;">「月2回プラン（今月2回カバー）」を直接選択。¥10,000を支払う。<br>2回目は「月2回プラン（2回目・前払済）」= ¥0。</p>
+    </div>
+  </div>
+
+  <h3>8-2. 施術記録の記録ルール</h3>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>回</th><th>UIでの選択</th><th>Notion courseId</th><th>売上金額</th></tr>
+    <tr><td>1回目（パターンA）</td><td>例：トータルケア + 月2回プラン追加</td><td><code>トータルケア</code></td><td>¥16,000（6,000+10,000）</td></tr>
+    <tr><td>1回目（パターンB）</td><td>月2回プラン（今月2回カバー）</td><td><code>月2回プラン</code></td><td>¥10,000</td></tr>
+    <tr><td>2回目（どちらも）</td><td>月2回プラン（2回目・前払済）</td><td><code>月2回プラン</code></td><td>¥0</td></tr>
+  </table>
+  </div>
+  <div class="ok"><b>2回目の扱い：</b>売上金額¥0・支払い方法「未払い」として記録。クレジット使用・紹介割引は2回目には適用不可（前払済のため割引する必要がない）。</div>
+
+  <h3>8-3. 月カウントの考え方</h3>
+  <p>月内の何回目かはNotionのカルテDBをカレンダービューで確認する（GASが自動集計はしない）。ルカスが目視で判断して「2回目・前払済」を選ぶ運用です。</p>
+</section>
+
+<section id="referral">
+  <h2><span class="num">8</span>紹介割引ロジック</h2>
+  <p class="lead">患者が友人・知人を紹介し、その紹介された人が初来院したとき、紹介した患者（紹介者）に¥1,000クレジットが付与されます。紹介された患者（被紹介者）には¥1,000引きの割引が適用されます。</p>
+
+  <h3>9-1. 適用条件</h3>
+  <div class="grid2">
+    <div class="rule-box">
+      <div class="rule-title">紹介者（クレジット付与される側）</div>
+      <ul class="check">
+        <li>既存患者であること</li>
+        <li>被紹介者が実際に初来院したこと</li>
+        <li>何人でも紹介可能（上限なし）</li>
+        <li>クレジット有効期限：獲得日から1年</li>
+      </ul>
+    </div>
+    <div class="rule-box">
+      <div class="rule-title">被紹介者（割引される側）</div>
+      <ul class="check">
+        <li>初回来院であること（isFirstVisit = true）</li>
+        <li>施術記録で紹介者を選択・入力</li>
+        <li>¥1,000引き（紹介割引）が適用される</li>
+      </ul>
+      <ul class="cross">
+        <li>同一患者への紹介割引は1回限り</li>
+        <li>クレジットとの同時使用不可</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>9-2. 施術記録での操作</h3>
+  <ol class="steps">
+    <li>患者が初回来院（isFirstVisit = true）のとき、Phase 2 に紹介者セクションが表示される</li>
+    <li>ルカスが紹介者名を検索（患者一覧から選択）</li>
+    <li>「紹介割引適用」がONになり、金額から¥1,000引き</li>
+    <li>送信後 GAS が：<br>
+      &nbsp;&nbsp;① カルテDBに <code class="inl">紹介者名</code>・<code class="inl">紹介割引適用=true</code> を記録<br>
+      &nbsp;&nbsp;② 紹介者の カスタマーDB に <code class="inl">addCredit(¥1,000)</code> を実行</li>
+  </ol>
+
+  <h3>9-3. GAS addCredit 処理</h3>
+  <pre><span class="cm">// addCredit(cfg, referrerId, 1000) の処理内容</span>
+<span class="kw">1.</span> 紹介者の Notion ページ取得（customerId = referrerId）
+<span class="kw">2.</span> クレジット詳細（JSON文字列）を取得・パース
+<span class="kw">3.</span> { <span class="str">"date"</span>: <span class="str">"今日の日付"</span>, <span class="str">"amount"</span>: 1000 } を配列に追記
+<span class="kw">4.</span> 配列全体の amount 合計 = 新しいクレジット残高
+<span class="kw">5.</span> Notion PATCH: クレジット残高（number）・クレジット詳細（rich_text）を更新</pre>
+</section>
+
+<section id="credit">
+  <h2><span class="num">9</span>クレジットシステム</h2>
+  <p class="lead">紹介によって貯まる院内クレジット。¥1,000単位で施術料金から差し引けます。有効期限は獲得日から1年。60日前に警告表示されます。</p>
+
+  <h3>10-1. クレジットのライフサイクル</h3>
+  <pre><span class="cm">獲得</span>: 紹介者が被紹介者の初来院時に +¥1,000 付与
+  ↓
+<span class="cm">保管</span>: カスタマーDB「クレジット詳細」に JSON で記録
+       [{"date":"2026-07-25","amount":1000}, ...]
+  ↓
+<span class="cm">警告</span>: 有効期限60日前 → 施術記録シートにオレンジ警告表示
+  ↓
+<span class="cm">消費</span>: 患者が施術時に使用（¥1,000単位・ステッパーで選択）
+       → FIFO（古い順）で消費
+  ↓
+<span class="cm">期限切れ</span>: 獲得日から1年経過 → Notionで手動削除（A案）</pre>
+
+  <h3>10-2. FIFO消費のイメージ</h3>
+  <p style="font-size:13.5px;">クレジット残高が¥3,000あり、¥2,000を使用する場合：</p>
+  <div class="fifo-bar">
+    <div class="fifo-cell used">2025-07-15<br>¥1,000<br><b>消費</b></div>
+    <div class="fifo-cell old">2025-09-01<br>¥1,000<br><b>消費</b></div>
+    <div class="fifo-cell new">2026-01-20<br>¥1,000<br><b>残留</b></div>
+  </div>
+  <p style="font-size:13px;color:var(--muted);">獲得日が古いものから順に消費。残留したクレジットのみ詳細JSONに残り、残高も更新されます。</p>
+
+  <h3>10-3. GAS useCredit 処理</h3>
+  <pre><span class="cm">// useCredit(cfg, customerId, 2000) の処理内容（¥2,000消費の例）</span>
+<span class="kw">1.</span> 患者の Notion ページ取得
+<span class="kw">2.</span> クレジット詳細 JSON をパース
+<span class="kw">3.</span> date 昇順にソート（古い順）
+<span class="kw">4.</span> 残り消費額 = 2000
+   Loop:
+     entry.amount <= 残り消費額 → entry を削除・残り消費額 -= entry.amount
+     entry.amount >  残り消費額 → entry.amount -= 残り消費額・break
+<span class="kw">5.</span> 新しい残高 = 残ったエントリの amount 合計
+<span class="kw">6.</span> Notion PATCH: クレジット残高・クレジット詳細を更新</pre>
+
+  <h3>10-4. 有効期限管理（手動・A案）</h3>
+  <p>期限切れクレジットの削除はルカスがNotionを直接編集して「クレジット詳細」JSONと「クレジット残高」を手動修正します。GASは自動削除しません。</p>
+  <div class="note"><b>60日警告の計算：</b>getPatientDetails が各クレジットエントリの獲得日+1年を計算し、今日から60日以内に期限切れになるものを <code class="inl">expiringCredits</code> として返します。施術記録シートがオレンジ警告ボックスを表示します。</div>
+
+  <h3>10-5. 適用制限</h3>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>シナリオ</th><th>クレジット使用</th><th>紹介割引</th></tr>
+    <tr><td>初回来院（紹介あり）</td><td><span class="badge red">不可</span></td><td><span class="badge green">適用可</span></td></tr>
+    <tr><td>初回来院（紹介なし）</td><td><span class="badge red">不可</span></td><td><span class="badge red">不可</span></td></tr>
+    <tr><td>2回目以降（クレジット残高あり）</td><td><span class="badge green">適用可</span></td><td><span class="badge red">不可</span></td></tr>
+    <tr><td>月2回プラン2回目（前払済）</td><td><span class="badge red">不可（¥0のため）</span></td><td><span class="badge red">不可</span></td></tr>
+    <tr><td>支払い方法：未払い</td><td><span class="badge red">不可（¥0のため）</span></td><td><span class="badge red">不可</span></td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="amount-calc">
+  <h2><span class="num">10</span>売上金額の計算ロジック（recalcAmount）</h2>
+  <p class="lead">施術記録シートの金額欄は選択・入力に連動してリアルタイム自動計算されます。</p>
+
+  <pre><span class="cm">// treatment-record.html recalcAmount() のロジック</span>
+
+basePrice   = 選択コースの定価（¥0〜¥10,000）
+addonPrice  = 月2回プラン追加チェック時 +¥10,000（それ以外 ¥0）
+
+<span class="cm">// 未払いまたは月2回プラン2回目は全額¥0</span>
+isUnpaid = courseId === <span class="str">'monthly2_2nd'</span> || paymentMethod === <span class="str">'未払い'</span>
+
+referralDiscount = referralApplied ? 1000 : 0
+
+<span class="cm">// 未払い or 紹介割引適用中はクレジット使用不可</span>
+creditDiscount = (isUnpaid || referralApplied) ? 0 : creditUsed
+
+<span class="cm">// 最終金額（負にはならない）</span>
+total = isUnpaid ? 0 : Math.max(0, basePrice + addonPrice - referralDiscount - creditDiscount)</pre>
+
+  <h3>計算例</h3>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>シナリオ</th><th>ベース</th><th>追加</th><th>紹介割引</th><th>クレジット</th><th>合計</th></tr>
+    <tr><td>カイロ・現金・初回・紹介あり</td><td>¥4,000</td><td>¥0</td><td>−¥1,000</td><td>¥0</td><td>¥3,000</td></tr>
+    <tr><td>トータルケア + 月2回追加</td><td>¥6,000</td><td>¥10,000</td><td>¥0</td><td>¥0</td><td>¥16,000</td></tr>
+    <tr><td>筋膜リリース・クレジット¥2,000使用</td><td>¥5,000</td><td>¥0</td><td>¥0</td><td>−¥2,000</td><td>¥3,000</td></tr>
+    <tr><td>月2回プラン2回目（前払済）</td><td>¥0</td><td>¥0</td><td>¥0</td><td>¥0</td><td>¥0</td></tr>
+    <tr><td>カイロ・未払い</td><td>¥4,000</td><td>¥0</td><td>¥0</td><td>¥0</td><td>¥0</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="checklist">
+  <h2><span class="num">11</span>運用チェックリスト</h2>
+
+  <h3>12-1. 初回セットアップ（一回のみ）</h3>
+  <ol class="steps">
+    <li>GASエディタで <code class="inl">addNotionFields()</code> を実行し、5つのNotionフィールドを追加する</li>
+    <li>GASを「新バージョン」としてデプロイする</li>
+    <li>treatment-record.html の <code class="inl">GAS_URL</code> 定数がデプロイURLと一致しているか確認する</li>
+    <li>GitHub Pages に push し、iPadで動作確認する</li>
+  </ol>
+
+  <h3>12-2. GAS更新時</h3>
+  <ol class="steps">
+    <li>Code.gs を編集・保存</li>
+    <li>デプロイ → デプロイを管理 → 鉛筆アイコン → <b>新バージョン</b> → デプロイ</li>
+    <li>URLが変わった場合は treatment-record.html の <code class="inl">GAS_URL</code> を更新して push</li>
+  </ol>
+
+  <h3>12-3. 月次運用（毎月）</h3>
+  <ol class="steps">
+    <li>月2回プランの1回目来院時：追加チェックまたは月2回プランコース選択</li>
+    <li>月2回プランの2回目来院時：「月2回プラン（2回目・前払済）」を選択（¥0記録）</li>
+    <li>期限切れクレジットがある患者：Notionのクレジット詳細・残高を手動更新</li>
+  </ol>
+
+  <h3>12-4. トラブルシューティング</h3>
+  <div class="tbl-scroll">
+  <table>
+    <tr><th>症状</th><th>原因</th><th>対処</th></tr>
+    <tr><td>患者一覧が空</td><td>GASのデプロイURLが古い</td><td>GAS再デプロイ → HTMLのGAS_URLを更新</td></tr>
+    <tr><td>コース送信エラー</td><td>Notionのコースselect値が不一致</td><td>有効値5択のみ確認（「月2回プラン」は有効）</td></tr>
+    <tr><td>クレジット残高が合わない</td><td>クレジット詳細JSONと残高が不一致</td><td>Notionで手動修正（詳細JSONのamount合計＝残高）</td></tr>
+    <tr><td>紹介割引が表示されない</td><td>isFirstVisit = false（既に来院歴あり）</td><td>カルテDBを確認。誤作成カルテを削除して再確認</td></tr>
+    <tr><td>Drive保存エラー（問診票）</td><td>DRIVE_FOLDER_ID が不正 or 権限なし</td><td>スクリプトプロパティとDriveフォルダの権限を確認</td></tr>
+  </table>
+  </div>
+</section>
+
+<footer>
+  LBC Care システムロジック仕様書 — 作成日 2026-07-25<br>
+  システム: Google Apps Script + Notion API + GitHub Pages<br>
+  院名: LBC整体院（Lucas Body Care）三重県四日市市
+</footer>
+
+</div>
+</body>
+</html>

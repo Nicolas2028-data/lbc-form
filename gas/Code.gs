@@ -110,6 +110,29 @@ function handleGetPatientList(cfg) {
     Logger.log('getPatientList error: ' + JSON.stringify(res));
     return { success: false, error: res.message || JSON.stringify(res) };
   }
+  // 今日のカルテを取得し、未記録（売上金額未入力）の患者IDを抽出
+  var pendingIds = {};
+  var todayKartes = notionQuery(cfg, cfg.KARTE_DB_ID, {
+    filter: { property: '日付', date: { equals: todayStr() } },
+    page_size: 100,
+  });
+  if (todayKartes.results) {
+    todayKartes.results.forEach(function(k) {
+      var rel = k.properties['顧客マスタ'] && k.properties['顧客マスタ'].relation;
+      if (!rel || !rel.length) return;
+      var cid = rel[0].id;
+      var hasSales = k.properties['売上金額'] &&
+                     k.properties['売上金額'].number !== null &&
+                     k.properties['売上金額'].number !== undefined;
+      // すでに recorded なら false を維持、まだなら true
+      if (!pendingIds.hasOwnProperty(cid)) {
+        pendingIds[cid] = !hasSales;
+      } else if (hasSales) {
+        pendingIds[cid] = false;
+      }
+    });
+  }
+
   var patients = [];
   for (var i = 0; i < res.results.length; i++) {
     var page = res.results[i];
@@ -117,11 +140,12 @@ function handleGetPatientList(cfg) {
     if (!name) continue;
     var creditBalance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
     patients.push({
-      customerId:    page.id,
-      patientNum:    getTextProp(page.properties, '診察番号'),
-      name:          name,
-      furigana:      getTextProp(page.properties, 'フリガナ'),
-      creditBalance: creditBalance,
+      customerId:      page.id,
+      patientNum:      getTextProp(page.properties, '診察番号'),
+      name:            name,
+      furigana:        getTextProp(page.properties, 'フリガナ'),
+      creditBalance:   creditBalance,
+      treatmentPending: pendingIds[page.id] || false,
     });
   }
   return { success: true, patients: patients };
@@ -752,7 +776,20 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   if (dislikedLabel)          blocks.push(bul('苦手な施術', dislikedLabel));
   blocks.push(div());
 
-  // ── 5. 同意
+  // ── 5. 撮影同意
+  if (data.photoConsent) {
+    blocks.push(div());
+    blocks.push(h2('📸', '撮影同意'));
+    var photoLabel = data.photoConsent === 'yes' ? 'はい（協力可）' : 'いいえ（辞退）';
+    blocks.push(bul('撮影協力', photoLabel));
+    if (data.photoConsent === 'yes' && data.facePreference) {
+      var faceLabel = data.facePreference === 'face_ok' ? '顔出しOK' : '顔は映さないでほしい';
+      blocks.push(bul('顔出し', faceLabel));
+    }
+    blocks.push(div());
+  }
+
+  // ── 6. 同意
   blocks.push(h2('✅', '同意'));
   var consentText = data.consentAgreed ? '✓  同意済み' : '✗  未同意';
   if (data.consentDate) consentText += '（' + data.consentDate + '）';

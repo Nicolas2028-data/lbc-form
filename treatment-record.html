@@ -204,9 +204,9 @@
     .monthly-addon-price { font-size: 0.88rem; font-weight: 700; color: var(--warning); }
 
     /* ─── 支払い方法 ─── */
-    .payment-list { display: flex; gap: 10px; margin-top: 4px; }
+    .payment-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
     .payment-item {
-      flex: 1;
+      flex: 1 1 calc(50% - 5px);
       display: flex; align-items: center; justify-content: center;
       gap: 6px;
       padding: 11px 8px;
@@ -436,6 +436,32 @@
     .toast.is-error   { background: var(--danger); }
     .toast.is-success { background: var(--primary); }
 
+    /* ─── 今日の未記録 ─── */
+    .pending-section { margin-bottom: 18px; }
+    .pending-label {
+      font-size: 0.8rem; font-weight: 700;
+      color: var(--warning); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .pending-list { display: flex; flex-direction: column; gap: 8px; }
+    .pending-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px;
+      border: 1.5px solid #ffb300;
+      border-radius: var(--radius-sm);
+      background: var(--warning-light);
+      cursor: pointer; gap: 10px;
+      transition: background 0.12s;
+    }
+    .pending-item:hover { background: #ffe082; }
+    .pending-item-name { font-weight: 700; font-size: 0.95rem; }
+    .pending-item-num  { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+    .badge-pending {
+      font-size: 0.65rem; font-weight: 700;
+      background: var(--warning); color: white;
+      padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+    }
+
     /* ─── オートコンプリート ─── */
     .autocomplete-wrap { position: relative; }
     .autocomplete-dropdown {
@@ -518,6 +544,11 @@
           <span class="spinner"></span><span>患者データを読み込み中...</span>
         </div>
         <div id="searchArea" style="display:none">
+          <!-- 今日の未記録患者 -->
+          <div class="pending-section" id="todayPendingSection" style="display:none">
+            <div class="pending-label">⚠️ 今日の未記録患者</div>
+            <div class="pending-list" id="pendingList"></div>
+          </div>
           <div class="form-group" style="margin-bottom:0">
             <div class="field-label">氏名<span class="badge-req">必須</span></div>
             <div class="autocomplete-wrap">
@@ -612,6 +643,9 @@
           </label>
           <label class="payment-item">
             <input type="radio" name="payment" value="カード" onchange="recalcAmount()"> 💳 カード
+          </label>
+          <label class="payment-item">
+            <input type="radio" name="payment" value="PayPay" onchange="recalcAmount()"> 📱 PayPay
           </label>
           <label class="payment-item">
             <input type="radio" name="payment" value="未払い" onchange="recalcAmount()"> ⏳ 未払い
@@ -769,10 +803,42 @@ async function loadPatients() {
     allPatients = data.patients || [];
     document.getElementById('loadingPatients').style.display = 'none';
     document.getElementById('searchArea').style.display      = 'block';
+    renderPendingPatients();
   } catch (err) {
     console.error('[loadPatients]', err);
     document.getElementById('loadingPatients').style.display = 'none';
     document.getElementById('loadError').style.display       = 'block';
+  }
+}
+
+/* ── 今日の未記録患者 ──────────────────────── */
+function renderPendingPatients() {
+  var pending = allPatients.filter(function(p) { return p.treatmentPending; });
+  var sec = document.getElementById('todayPendingSection');
+  var list = document.getElementById('pendingList');
+  if (!pending.length) { sec.style.display = 'none'; return; }
+  list.innerHTML = pending.map(function(p) {
+    var idx = allPatients.indexOf(p);
+    return '<div class="pending-item" onclick="selectPendingPatient(' + idx + ')">'
+      + '<div><div class="pending-item-name">' + escHtml(p.name) + ' 様</div>'
+      + '<div class="pending-item-num">' + escHtml(p.patientNum) + '</div></div>'
+      + '<span class="badge-pending">未記録</span>'
+      + '</div>';
+  }).join('');
+  sec.style.display = 'block';
+}
+
+async function selectPendingPatient(idx) {
+  var p = allPatients[idx];
+  if (!p) return;
+  document.getElementById('nameSearch').value = p.name;
+  S.creditBalance = p.creditBalance || 0;
+  try {
+    var res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId));
+    var data = await res.json();
+    showPhase2(p.customerId, p.patientNum, p.name, data.success ? data : {});
+  } catch {
+    showPhase2(p.customerId, p.patientNum, p.name, {});
   }
 }
 

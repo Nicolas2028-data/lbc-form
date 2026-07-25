@@ -860,7 +860,40 @@
 
     </div><!-- /qSection -->
 
-    <!-- ═══ 5. 同意事項（常に表示） ═══ -->
+    <!-- ═══ 5. 撮影同意（初回・変化ありのみ） ═══ -->
+    <div id="photoSection" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📸</span><span id="t_s_photo">SNS撮影同意</span></div>
+        <p class="section-hint" id="t_photo_q">SNS（Instagram等）の情報発信のため、施術風景の撮影にご協力いただけますか？</p>
+        <div class="form-group" style="margin-top:12px">
+          <div class="radio-list">
+            <label class="radio-item">
+              <input type="radio" name="photoConsent" value="yes" onchange="onPhotoConsentChange()">
+              <span id="lbl_photo_yes">はい（協力します）</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="photoConsent" value="no" onchange="onPhotoConsentChange()">
+              <span id="lbl_photo_no">いいえ（辞退します）</span>
+            </label>
+          </div>
+        </div>
+        <div id="facePreferenceSection" style="display:none; margin-top:12px">
+          <div class="field-label" style="margin-bottom:8px"><span id="lbl_face_q">顔出しについて</span></div>
+          <div class="radio-list">
+            <label class="radio-item">
+              <input type="radio" name="facePreference" value="face_ok">
+              <span id="lbl_face_ok">顔出しOK</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="facePreference" value="no_face">
+              <span id="lbl_face_no">顔は映さないでほしい</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 6. 同意事項（常に表示） ═══ -->
     <div id="consentSection" style="display:none">
       <div class="card">
         <div class="card-title"><span class="icon">📜</span><span id="t_s5">5. 同意事項</span></div>
@@ -1014,7 +1047,14 @@ const I18N = {
     lbl_disliked: '苦手な施術',
     dis_pressure: '強い圧', dis_joint: '関節調整（ボキボキ）', dis_none: '特になし',
     e_disliked: '選択してください（「特になし」を含む）',
-    t_s5: '5. 同意事項',
+    t_s_photo: '5. SNS撮影同意',
+    t_photo_q: 'SNS（Instagram等）の情報発信のため、施術風景の撮影にご協力いただけますか？',
+    lbl_photo_yes: 'はい（協力します）',
+    lbl_photo_no: 'いいえ（辞退します）',
+    lbl_face_q: '顔出しについて',
+    lbl_face_ok: '顔出しOK',
+    lbl_face_no: '顔は映さないでほしい',
+    t_s5: '6. 同意事項',
     consent_1: '当店の施術は医療行為ではありません。',
     consent_1_expand: '「医療行為とは」を確認する',
     consent_1_body: '<p>侵襲性（リスク）の有無：人体に物理的な介入を行い、傷害や副作用などの健康被害を与えるリスクがある行為が該当します。</p><p>医療行為ではないもの（非医行為）：医師の判断や技術がなくても、人体に危害を及ぼす恐れがない日常的な世話。</p>',
@@ -1110,7 +1150,14 @@ const I18N = {
     lbl_disliked: 'Técnicas que prefiere evitar',
     dis_pressure: 'Presión fuerte', dis_joint: 'Ajuste articular (sonido articular)', dis_none: 'Ninguno en particular',
     e_disliked: 'Seleccione al menos una opción',
-    t_s5: '5. Consentimiento',
+    t_s_photo: '5. Consentimiento de fotografía',
+    t_photo_q: '¿Puede participar en la fotografía de sesiones de tratamiento para redes sociales (Instagram, etc.)?',
+    lbl_photo_yes: 'Sí (de acuerdo)',
+    lbl_photo_no: 'No (prefiero no participar)',
+    lbl_face_q: 'Sobre mostrar el rostro',
+    lbl_face_ok: 'Cara visible OK',
+    lbl_face_no: 'Sin mostrar el rostro',
+    t_s5: '6. Consentimiento',
     consent_1: 'Los servicios de nuestra clínica no son tratamientos médicos',
     consent_1_expand: 'Ver "¿Qué es un tratamiento médico?"',
     consent_1_body: '<p>Tratamiento médico — Atención realizada por un profesional de la salud.</p><p>No es tratamiento médico — Servicio orientado al bienestar y relajación.</p>',
@@ -1206,7 +1253,14 @@ const I18N = {
     lbl_disliked: 'Técnicas que prefere evitar',
     dis_pressure: 'Pressão forte', dis_joint: 'Ajuste articular (estalo)', dis_none: 'Nenhuma em particular',
     e_disliked: 'Selecione ao menos uma opção',
-    t_s5: '5. Consentimento',
+    t_s_photo: '5. Consentimento de fotografía',
+    t_photo_q: 'Você pode participar na filmagem de sessões de tratamento para redes sociais (Instagram, etc.)?',
+    lbl_photo_yes: 'Sim (topo participar)',
+    lbl_photo_no: 'Não (prefiro não participar)',
+    lbl_face_q: 'Sobre mostrar o rosto',
+    lbl_face_ok: 'Rosto OK',
+    lbl_face_no: 'Sem mostrar o rosto',
+    t_s5: '6. Consentimento',
     consent_1: 'Os tratamentos da nossa clínica não são atos médicos.',
     consent_1_expand: 'Ver "O que é um ato médico?"',
     consent_1_body: '<p>Atos médicos: intervenção física com risco de dano à saúde que requer julgamento médico.</p><p>Não ato médico: cuidados cotidianos sem risco que não requerem julgamento nem técnica médica.</p>',
@@ -1340,6 +1394,13 @@ function applyTexts() {
   set('strength_light', l.strength_light); set('strength_normal', l.strength_normal); set('strength_strong', l.strength_strong);
   set('lbl_disliked', l.lbl_disliked);
   set('dis_pressure', l.dis_pressure); set('dis_joint', l.dis_joint); set('dis_none', l.dis_none);
+  set('t_s_photo', l.t_s_photo);
+  set('t_photo_q', l.t_photo_q);
+  set('lbl_photo_yes', l.lbl_photo_yes);
+  set('lbl_photo_no', l.lbl_photo_no);
+  set('lbl_face_q', l.lbl_face_q);
+  set('lbl_face_ok', l.lbl_face_ok);
+  set('lbl_face_no', l.lbl_face_no);
   set('t_s5', l.t_s5);
   set('consent_1', l.consent_1); set('consent_1_expand', l.consent_1_expand);
   const cb1 = document.getElementById('consent_1_body'); if (cb1) cb1.innerHTML = l.consent_1_body;
@@ -1592,6 +1653,7 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
     document.getElementById('firstBanner').style.display   = 'flex';
     document.getElementById('basicCard').style.display     = 'block';
     document.getElementById('qSection').style.display      = 'block';
+    document.getElementById('photoSection').style.display   = 'block';
     document.getElementById('consentSection').style.display = 'block';
     if (patientName) document.getElementById('firstWelcomeName').textContent = patientName + ' 様';
   } else {
@@ -1617,6 +1679,7 @@ function toggleChanges() {
   const val = document.querySelector('input[name="changes"]:checked')?.value;
   clearErr('e_changes');
   document.getElementById('qSection').style.display       = val === 'yes' ? 'block' : 'none';
+  document.getElementById('photoSection').style.display   = val === 'yes' ? 'block' : 'none';
   document.getElementById('consentSection').style.display = val === 'yes' ? 'block' : 'none';
 }
 
@@ -1824,6 +1887,11 @@ function drawSig(e, canvas) {
   ctx.stroke();
   _slx = p.x; _sly = p.y;
 }
+function onPhotoConsentChange() {
+  var val = document.querySelector('input[name="photoConsent"]:checked')?.value;
+  document.getElementById('facePreferenceSection').style.display = val === 'yes' ? 'block' : 'none';
+}
+
 function clearSig() {
   const canvas = document.getElementById('sigCanvas');
   const ctx = canvas.getContext('2d');
@@ -1986,6 +2054,8 @@ async function submitQuestionnaire() {
     consentAgreed:  consentVisible ? document.getElementById('consentCheck').checked : true,
     signatureImage: consentVisible ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { return ''; } })() : '',
     consentDate:    today,
+    photoConsent:   document.querySelector('input[name="photoConsent"]:checked')?.value || '',
+    facePreference: document.querySelector('input[name="facePreference"]:checked')?.value || '',
   };
 
   if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {

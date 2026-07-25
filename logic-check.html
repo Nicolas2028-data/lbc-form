@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LBC整体院 — ロジック確認シート</title>
+  <style>
+    :root {
+      --green: #2c7a5c;
+      --green-dark: #1e5c42;
+      --green-light: #e8f5ef;
+      --accent: #f0a500;
+      --red: #e53935;
+      --red-light: #fdecea;
+      --purple: #6c3fc5;
+      --purple-light: #ede7f6;
+      --orange: #e07b00;
+      --orange-light: #fff3e0;
+      --blue: #1565c0;
+      --blue-light: #e3f2fd;
+      --text: #1a1a1a;
+      --text-sub: #555;
+      --text-muted: #888;
+      --border: #e0e0e0;
+      --bg: #f5f7f6;
+      --white: #fff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: #051F20;
+      color: white;
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .logo { font-size: 1.15rem; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+    .page-title { font-size: 0.82rem; opacity: 0.7; margin-top: 3px; }
+
+    .container { max-width: 620px; margin: 0 auto; padding: 28px 16px 72px; }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--green-dark);
+      margin: 36px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 2px; background: var(--green-light); border-radius: 2px; }
+
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    }
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-label.green { color: var(--green-dark); }
+    .card-label.orange { color: var(--orange); }
+    .card-label.purple { color: var(--purple); }
+
+    /* ━━━ 紹介フロー図 ━━━ */
+    .referral-flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0 18px;
+    }
+    .rf-person {
+      flex: 1;
+      text-align: center;
+      background: var(--green-light);
+      border-radius: 12px;
+      padding: 14px 8px;
+    }
+    .rf-person.new-patient { background: var(--blue-light); }
+    .rf-person .icon { font-size: 2rem; display: block; margin-bottom: 4px; }
+    .rf-person .label { font-size: 0.75rem; font-weight: 700; color: var(--text-sub); }
+    .rf-person .name { font-size: 0.82rem; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .rf-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .rf-arrow .arrow-line { width: 32px; height: 2px; background: var(--accent); }
+    .rf-arrow .arrow-head {
+      width: 0; height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 8px solid var(--accent);
+      margin-top: -6px;
+      margin-left: 28px;
+    }
+    .rf-arrow .arrow-label { font-size: 0.68rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+
+    .referral-results {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .rr-box {
+      flex: 1;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .rr-box.gets-credit { background: var(--green-light); border: 1.5px solid #a8d5be; }
+    .rr-box.gets-discount { background: var(--blue-light); border: 1.5px solid #90caf9; }
+    .rr-box .rr-who { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+    .rr-box .rr-amount { font-size: 1.15rem; font-weight: 800; }
+    .rr-box.gets-credit .rr-amount { color: var(--green-dark); }
+    .rr-box.gets-discount .rr-amount { color: var(--blue); }
+    .rr-box .rr-note { font-size: 0.73rem; color: var(--text-sub); margin-top: 4px; }
+
+    /* ━━━ クレジット累積 ━━━ */
+    .credit-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 8px 0 14px;
+    }
+    .ct-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--green-light);
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+    .ct-row .ct-event { flex: 1; }
+    .ct-row .ct-balance { font-weight: 800; color: var(--green-dark); white-space: nowrap; }
+    .ct-usage {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #fff8e1;
+      border: 1.5px dashed var(--accent);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+    .ct-usage .ct-event { flex: 1; }
+    .ct-usage .ct-balance { font-weight: 800; color: var(--orange); white-space: nowrap; }
+
+    .credit-rule {
+      background: var(--green-light);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      color: var(--green-dark);
+      margin-top: 10px;
+    }
+    .credit-rule strong { display: block; margin-bottom: 2px; }
+
+    /* ━━━ 月2回プランのパターン ━━━ */
+    .pattern-block {
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      border-left: 4px solid;
+    }
+    .pattern-block.p1 { border-color: var(--green); background: var(--green-light); }
+    .pattern-block.p2 { border-color: var(--orange); background: var(--orange-light); }
+    .pattern-block.p3 { border-color: var(--purple); background: var(--purple-light); }
+
+    .pb-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .pb-num {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 800; color: white; flex-shrink: 0;
+    }
+    .p1 .pb-num { background: var(--green); }
+    .p2 .pb-num { background: var(--orange); }
+    .p3 .pb-num { background: var(--purple); }
+    .pb-title { font-size: 0.88rem; font-weight: 700; }
+
+    .pb-timeline {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      margin: 8px 0 10px;
+      overflow-x: auto;
+    }
+    .pbt-step { flex: 1; text-align: center; min-width: 80px; }
+    .pbt-dot-wrap {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .pbt-line { flex: 1; height: 2px; }
+    .p1 .pbt-line { background: var(--green); }
+    .p2 .pbt-line { background: var(--orange); }
+    .p3 .pbt-line { background: var(--purple); }
+    .pbt-line.invisible { background: transparent; }
+    .pbt-dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 800; color: white; flex-shrink: 0;
+    }
+    .p1 .pbt-dot { background: var(--green); }
+    .p2 .pbt-dot { background: var(--orange); }
+    .p3 .pbt-dot { background: var(--purple); }
+    .pbt-label { font-size: 0.7rem; font-weight: 700; color: var(--text-sub); }
+    .pbt-desc { font-size: 0.72rem; color: var(--text); margin-top: 2px; line-height: 1.4; padding: 0 4px; }
+
+    .pb-note {
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+
+    /* ━━━ 不明タグ ━━━ */
+    .unknown-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--red-light);
+      color: var(--red);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* ━━━ 質問セクション ━━━ */
+    .q-intro {
+      background: #fff8e1;
+      border: 1.5px solid #ffe082;
+      border-radius: 12px;
+      padding: 16px 18px;
+      font-size: 0.85rem;
+      color: #5d4037;
+      margin-bottom: 20px;
+      line-height: 1.75;
+    }
+    .q-intro strong { color: #4e342e; }
+
+    .q-card {
+      background: white;
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+      border: 1.5px solid #ffe082;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    }
+    .q-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .q-num {
+      width: 26px; height: 26px; flex-shrink: 0;
+      background: var(--accent);
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 800;
+    }
+    .q-title { font-size: 0.92rem; font-weight: 700; padding-top: 3px; }
+    .q-body {
+      font-size: 0.83rem;
+      color: var(--text-sub);
+      padding-left: 36px;
+      line-height: 1.75;
+    }
+    .q-example {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      line-height: 1.7;
+    }
+    .q-example strong { color: var(--text); }
+    .q-options {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .q-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 8px;
+      background: var(--bg);
+      font-size: 0.82rem;
+      border: 1.5px solid var(--border);
+    }
+    .q-option .opt-icon { font-size: 1rem; }
+    .q-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .q-tag.referral { background: var(--green-light); color: var(--green-dark); }
+    .q-tag.monthly { background: var(--purple-light); color: var(--purple); }
+
+    /* divider */
+    .divider { height: 1px; background: var(--border); margin: 24px 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LBC整体院</div>
+  <div class="page-title">ロジック確認シート — 2026年7月</div>
+</header>
+
+<div class="container">
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━
+       SECTION 1: 紹介システム
+  ━━━━━━━━━━━━━━━━━━━━ -->
+
+  <div class="section-title">🤝 紹介システム</div>
+
+  <!-- 基本フロー -->
+  <div class="card">
+    <div class="card-label green">◎ 把握できている内容</div>
+
+    <div class="referral-flow">
+      <div class="rf-person">
+        <span class="icon">👤</span>
+        <div class="label">既存患者</div>
+        <div class="name">紹介する人</div>
+      </div>
+      <div class="rf-arrow">
+        <div style="display:flex;align-items:center;">
+          <div class="arrow-line"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">紹介</div>
+      </div>
+      <div class="rf-person new-patient">
+        <span class="icon">🆕</span>
+        <div class="label">新規患者</div>
+        <div class="name">紹介される人</div>
+      </div>
+    </div>
+
+    <div class="referral-results">
+      <div class="rr-box gets-credit">
+        <div class="rr-who">👤 紹介した人（既存患者）</div>
+        <div class="rr-amount">＋¥1,000</div>
+        <div class="rr-note">クレジットとして付与</div>
+      </div>
+      <div class="rr-box gets-discount">
+        <div class="rr-who">🆕 紹介された人（新規）</div>
+        <div class="rr-amount">¥1,000 引き</div>
+        <div class="rr-note">来院時の施術料金から</div>
+      </div>
+    </div>
+
+    <div class="credit-rule" style="margin-top:16px;">
+      <strong>🔒 紹介できる条件</strong>
+      過去に1回以上施術を受けた患者のみ紹介キャンペーンの対象となる
+    </div>
+  </div>
+
+  <!-- クレジット累積ルール -->
+  <div class="card">
+    <div class="card-label green">◎ クレジットの仕組み</div>
+
+    <div class="credit-timeline">
+      <div class="ct-row">
+        <span>🤝</span>
+        <div class="ct-event">Aさんを紹介 → 来院</div>
+        <div class="ct-balance">残高 ¥1,000</div>
+      </div>
+      <div class="ct-row">
+        <span>🤝</span>
+        <div class="ct-event">Bさんを紹介 → 来院</div>
+        <div class="ct-balance">残高 ¥2,000</div>
+      </div>
+      <div class="ct-row">
+        <span>🤝</span>
+        <div class="ct-event">Cさんを紹介 → 来院</div>
+        <div class="ct-balance">残高 ¥3,000</div>
+      </div>
+      <div class="ct-usage">
+        <span>💳</span>
+        <div class="ct-event">次回来院時に ¥2,000 使いたい</div>
+        <div class="ct-balance">残高 ¥1,000</div>
+      </div>
+    </div>
+
+    <div class="credit-rule">
+      <strong>📌 クレジット使用ルール</strong>
+      ¥1,000単位で使用可能 / 複数まとめて使用OK / 使う・貯める・一部だけ使う、すべて患者が選べる
+    </div>
+  </div>
+
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━
+       SECTION 2: 月2回プラン
+  ━━━━━━━━━━━━━━━━━━━━ -->
+
+  <div class="section-title">📅 月2回プラン（¥10,000/月）</div>
+
+  <div class="card">
+    <div class="card-label green">◎ 把握できている内容</div>
+
+    <!-- Pattern 1 -->
+    <div class="pattern-block p1">
+      <div class="pb-header">
+        <div class="pb-num">1</div>
+        <div class="pb-title">来院時に今月分を一括払い</div>
+      </div>
+      <div class="pb-timeline">
+        <div class="pbt-step">
+          <div class="pbt-dot-wrap">
+            <div class="pbt-line invisible"></div>
+            <div class="pbt-dot">①</div>
+            <div class="pbt-line"></div>
+          </div>
+          <div class="pbt-label">1回目来院</div>
+          <div class="pbt-desc">¥10,000 支払い<br>次回予約もここで</div>
+        </div>
+        <div class="pbt-step">
+          <div class="pbt-dot-wrap">
+            <div class="pbt-line"></div>
+            <div class="pbt-dot">②</div>
+            <div class="pbt-line invisible"></div>
+          </div>
+          <div class="pbt-label">2回目来院</div>
+          <div class="pbt-desc">支払い不要<br>（前払い済み）</div>
+        </div>
+      </div>
+      <div class="pb-note">¥10,000 で今月2回分をカバー。1回目来院時にまとめて支払う。</div>
+    </div>
+
+    <!-- Pattern 2 -->
+    <div class="pattern-block p2">
+      <div class="pb-header">
+        <div class="pb-num">2</div>
+        <div class="pb-title">今回の料金＋月額プランを同時払い <span class="unknown-tag">❓ 確認中</span></div>
+      </div>
+      <div class="pb-timeline">
+        <div class="pbt-step">
+          <div class="pbt-dot-wrap">
+            <div class="pbt-line invisible"></div>
+            <div class="pbt-dot">①</div>
+            <div class="pbt-line"></div>
+          </div>
+          <div class="pbt-label">来院</div>
+          <div class="pbt-desc">今回の料金？<br>＋¥10,000？</div>
+        </div>
+        <div class="pbt-step">
+          <div class="pbt-dot-wrap">
+            <div class="pbt-line"></div>
+            <div class="pbt-dot">②</div>
+            <div class="pbt-line invisible"></div>
+          </div>
+          <div class="pbt-label">次回以降</div>
+          <div class="pbt-desc">¥10,000で<br>2回分カバー？</div>
+        </div>
+      </div>
+      <div class="pb-note">⚠️ 詳細は下の確認事項 Q4 を参照</div>
+    </div>
+
+    <!-- Pattern 3 -->
+    <div class="pattern-block p3">
+      <div class="pb-header">
+        <div class="pb-num">3</div>
+        <div class="pb-title">月額プラン継続中のパターン</div>
+      </div>
+      <div class="pb-timeline">
+        <div class="pbt-step">
+          <div class="pbt-dot-wrap">
+            <div class="pbt-line invisible"></div>
+            <div class="pbt-dot">①</div>
+            <div class="pbt-line"></div>
+          </div>
+          <div class="pbt-label">1回目来院</div>
+          <div class="pbt-desc">未払い<br>（前払い or 当日払い）</div>
+        </div>
+        <div class="pbt-step">
+          <div class="pbt-dot-wrap">
+            <div class="pbt-line"></div>
+            <div class="pbt-dot">②</div>
+            <div class="pbt-line invisible"></div>
+          </div>
+          <div class="pbt-label">2回目来院</div>
+          <div class="pbt-desc">¥10,000 支払い<br>or 次回に繰越</div>
+        </div>
+      </div>
+      <div class="pb-note">継続中は2回目の来院時、または次の月額サイクルで¥10,000を支払う。支払いタイミングは患者次第。</div>
+    </div>
+  </div>
+
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━
+       SECTION 3: ルカスへの質問
+  ━━━━━━━━━━━━━━━━━━━━ -->
+
+  <div class="section-title">❓ ルカスへの確認事項</div>
+
+  <div class="q-intro">
+    上記の内容はミーティングの内容をもとに整理したものです。<br>
+    以下の点だけ確認させてください。回答いただいたらシステムに反映します 🙏
+  </div>
+
+  <!-- Q1 -->
+  <div class="q-card">
+    <div class="q-header">
+      <div class="q-num">1</div>
+      <div class="q-title">紹介割引（¥1,000引き）は何回でも使えますか？<span class="q-tag referral">紹介制度</span></div>
+    </div>
+    <div class="q-body">
+      紹介された人が受ける¥1,000割引は、その患者が別の人にも紹介された場合も都度適用されますか？それとも1人につき1回限りですか？
+      <div class="q-example">
+        <strong>例：</strong>Aさんが来院時、ルカスの紹介で¥1,000引き。<br>
+        次の来院時にBさんの紹介でまた¥1,000引き → <strong>毎回OK？ or 初回だけ？</strong>
+      </div>
+      <div class="q-options">
+        <div class="q-option"><span class="opt-icon">🔁</span> 紹介があれば何度でも¥1,000引き</div>
+        <div class="q-option"><span class="opt-icon">1️⃣</span> 初回来院の1回のみ¥1,000引き</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="q-card">
+    <div class="q-header">
+      <div class="q-num">2</div>
+      <div class="q-title">クレジットの上限はありますか？<span class="q-tag referral">紹介制度</span></div>
+    </div>
+    <div class="q-body">
+      紹介するたびに¥1,000ずつ増えるクレジットに、上限（紹介できる人数の上限）はありますか？
+      <div class="q-example">
+        <strong>例：</strong>3人紹介して¥3,000まで、それ以上は増えない？<br>
+        それとも何人紹介してもOK（上限なし）？
+      </div>
+      <div class="q-options">
+        <div class="q-option"><span class="opt-icon">🔢</span> 上限あり（最大 _____ 人まで）</div>
+        <div class="q-option"><span class="opt-icon">♾️</span> 上限なし（何人紹介してもOK）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="q-card">
+    <div class="q-header">
+      <div class="q-num">3</div>
+      <div class="q-title">紹介割引とクレジット使用は同じ日に両方使えますか？<span class="q-tag referral">紹介制度</span></div>
+    </div>
+    <div class="q-body">
+      1回の施術で「紹介割引¥1,000」と「クレジット使用¥2,000」を同時に使うことは可能ですか？
+      <div class="q-example">
+        <strong>例：</strong>カイロプラクティック ¥4,000<br>
+        − 紹介割引 ¥1,000<br>
+        − クレジット使用 ¥2,000<br>
+        ＝ <strong>合計 ¥1,000 支払い → OK？</strong>
+      </div>
+      <div class="q-options">
+        <div class="q-option"><span class="opt-icon">✅</span> 両方同時に使えてOK</div>
+        <div class="q-option"><span class="opt-icon">❌</span> どちらか一方のみ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="q-card">
+    <div class="q-header">
+      <div class="q-num">4</div>
+      <div class="q-title">月2回プランの「パターン2」を教えてください<span class="q-tag monthly">月額プラン</span></div>
+    </div>
+    <div class="q-body">
+      「今回の施術費用と月額プランの¥10,000を払う」とはどういう意味ですか？
+      <div class="q-example">
+        <strong>選択肢A：</strong>今日の施術（例 ¥6,000）＋来月分の¥10,000 = 合計¥16,000 払う<br><br>
+        <strong>選択肢B：</strong>¥10,000だけ払って、その中に今日の分も含まれる（パターン1と同じ）<br><br>
+        <strong>どちらが正しいですか？それとも別の意味がありますか？</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Q5 -->
+  <div class="q-card">
+    <div class="q-header">
+      <div class="q-num">5</div>
+      <div class="q-title">「今何回目か」はシステムで自動管理が必要ですか？<span class="q-tag monthly">月額プラン</span></div>
+    </div>
+    <div class="q-body">
+      月2回コースのとき、今日が「1回目」か「2回目」かを施術記録シートで表示・管理した方がいいですか？
+      <div class="q-example">
+        <strong>例：</strong>Aさんを検索したときに「今月 1回目 ／ 2回目」が自動で出てくる<br>
+        → これは<strong>あった方が便利</strong>ですか？それとも<strong>ルカス自身が把握しているので不要</strong>？
+      </div>
+      <div class="q-options">
+        <div class="q-option"><span class="opt-icon">✅</span> あった方がいい（自動で出してほしい）</div>
+        <div class="q-option"><span class="opt-icon">🙅</span> ルカスが把握しているので不要</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+</body>
+</html>

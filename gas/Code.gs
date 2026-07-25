@@ -47,6 +47,9 @@ function doGet(e) {
     if (p.action === 'getPatientList') {
       return jsonRes(handleGetPatientList(cfg));
     }
+    if (p.action === 'getPatientDetails') {
+      return jsonRes(handleGetPatientDetails(p.customerId, cfg));
+    }
 
     // レガシー JSONP（カレンダーのグレーアウト用）
     if (p.date && p.callback) {
@@ -112,14 +115,64 @@ function handleGetPatientList(cfg) {
     var page = res.results[i];
     var name = getTextProp(page.properties, '名前');
     if (!name) continue;
+    var creditBalance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
     patients.push({
-      customerId: page.id,
-      patientNum: getTextProp(page.properties, '診察番号'),
-      name:       name,
-      furigana:   getTextProp(page.properties, 'フリガナ'),
+      customerId:    page.id,
+      patientNum:    getTextProp(page.properties, '診察番号'),
+      name:          name,
+      furigana:      getTextProp(page.properties, 'フリガナ'),
+      creditBalance: creditBalance,
     });
   }
   return { success: true, patients: patients };
+}
+
+function handleGetPatientDetails(customerId, cfg) {
+  if (!customerId) return { success: false, error: 'customerId required' };
+
+  // 顧客ページからクレジット情報取得
+  var cusRes = UrlFetchApp.fetch(NOTION_API + '/pages/' + customerId, {
+    headers: notionHeaders(cfg),
+    muteHttpExceptions: true,
+  });
+  var customer = JSON.parse(cusRes.getContentText());
+  var creditBalance  = (customer.properties['クレジット残高'] && customer.properties['クレジット残高'].number) || 0;
+  var creditDetailStr = getTextProp(customer.properties, 'クレジット詳細');
+  var credits = parseCredits(creditDetailStr);
+
+  // 60日以内に期限切れになるクレジットを抽出
+  var today = new Date();
+  var expiringCredits = [];
+  credits.forEach(function(c) {
+    var exp = new Date(c.date);
+    exp.setFullYear(exp.getFullYear() + 1);
+    var daysLeft = Math.floor((exp - today) / 86400000);
+    if (daysLeft >= 0 && daysLeft <= 60) {
+      expiringCredits.push({ amount: c.amount, daysLeft: daysLeft, expiryDate: fmtDate(exp) });
+    }
+  });
+
+  // 通算施術回数・前回来院日をカルテDBから取得
+  var karteRes = notionQuery(cfg, cfg.KARTE_DB_ID, {
+    filter: { property: '顧客マスタ', relation: { contains: customerId } },
+    sorts:  [{ property: '日付', direction: 'descending' }],
+    page_size: 100,
+  });
+  var visitCount    = karteRes.results ? karteRes.results.length : 0;
+  var lastVisitDate = '';
+  if (visitCount > 0) {
+    var dp = karteRes.results[0].properties['日付'];
+    if (dp && dp.date) lastVisitDate = dp.date.start;
+  }
+
+  return {
+    success:         true,
+    creditBalance:   creditBalance,
+    expiringCredits: expiringCredits,
+    visitCount:      visitCount,
+    lastVisitDate:   lastVisitDate,
+    isFirstVisit:    visitCount === 0,
+  };
 }
 
 /* ── 予約送信 ── */
@@ -426,33 +479,92 @@ function handleSubmitTreatmentRecord(data) {
   var cfg = getConfig();
 
   var karte = findTodayKarte(cfg, data.customerId);
-
   if (!karte) {
-    // 問診票なしで直接来院したケース（カルテを新規作成）
     data.resolvedCourseName = COURSE_ID_MAP[data.courseId] || '';
     karte = createKarte(cfg, data, data.customerId, data.patientNum, false);
   }
 
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
-  var upd = {
-    'ステータス': { status: { name: '完了' } },
-  };
-  if (courseLabel) {
-    upd['コース'] = { select: { name: courseLabel } };
-  }
+  var upd = { 'ステータス': { status: { name: '完了' } } };
+  if (courseLabel)  upd['コース']      = { select: { name: courseLabel } };
   if (data.salesAmount !== undefined && data.salesAmount !== null && data.salesAmount !== '') {
     upd['売上金額'] = { number: Number(data.salesAmount) };
   }
-  if (data.paymentMethod) {
-    upd['支払い方法'] = { select: { name: data.paymentMethod } };
-  }
-  if (data.treatmentMemo) {
-    upd['施術メモ'] = richText(data.treatmentMemo);
+  if (data.paymentMethod) upd['支払い方法'] = { select: { name: data.paymentMethod } };
+  if (data.treatmentMemo) upd['施術メモ']   = richText(data.treatmentMemo);
+
+  // 紹介・クレジット情報をカルテに記録
+  if (data.referrerName)    upd['紹介者名']     = richText(data.referrerName);
+  if (data.referralDiscount) upd['紹介割引適用'] = { checkbox: true };
+  if (data.creditUsed && Number(data.creditUsed) > 0) {
+    upd['クレジット使用額'] = { number: Number(data.creditUsed) };
   }
 
   notionPatch(cfg, '/pages/' + karte.id, { properties: upd });
 
+  // 紹介者にクレジット付与（初回割引が適用された場合）
+  if (data.referralDiscount && data.referrerId) {
+    addCredit(cfg, data.referrerId, 1000);
+  }
+
+  // 患者のクレジット消費（FIFO）
+  if (data.creditUsed && Number(data.creditUsed) > 0) {
+    useCredit(cfg, data.customerId, Number(data.creditUsed));
+  }
+
   return { success: true, patientNum: data.patientNum };
+}
+
+/* ── クレジット管理ヘルパー ── */
+
+function parseCredits(str) {
+  if (!str) return [];
+  try { return JSON.parse(str); } catch(e) { return []; }
+}
+
+function serializeCredits(arr) {
+  return JSON.stringify(arr);
+}
+
+function addCredit(cfg, customerId, amount) {
+  var res = UrlFetchApp.fetch(NOTION_API + '/pages/' + customerId, {
+    headers: notionHeaders(cfg), muteHttpExceptions: true,
+  });
+  var page = JSON.parse(res.getContentText());
+  var balance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
+  var credits = parseCredits(getTextProp(page.properties, 'クレジット詳細'));
+  credits.push({ date: todayStr(), amount: amount });
+  updateCustomerProp(cfg, customerId, {
+    'クレジット残高': { number: balance + amount },
+    'クレジット詳細': richText(serializeCredits(credits)),
+  });
+}
+
+function useCredit(cfg, customerId, amount) {
+  var res = UrlFetchApp.fetch(NOTION_API + '/pages/' + customerId, {
+    headers: notionHeaders(cfg), muteHttpExceptions: true,
+  });
+  var page = JSON.parse(res.getContentText());
+  var balance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
+  var credits = parseCredits(getTextProp(page.properties, 'クレジット詳細'));
+
+  // 古い順（FIFO）で消費
+  credits.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+  var remaining = amount;
+  var newCredits = [];
+  for (var i = 0; i < credits.length; i++) {
+    if (remaining <= 0) { newCredits.push(credits[i]); continue; }
+    if (credits[i].amount <= remaining) {
+      remaining -= credits[i].amount;
+    } else {
+      newCredits.push({ date: credits[i].date, amount: credits[i].amount - remaining });
+      remaining = 0;
+    }
+  }
+  updateCustomerProp(cfg, customerId, {
+    'クレジット残高': { number: Math.max(0, balance - amount) },
+    'クレジット詳細': richText(serializeCredits(newCredits)),
+  });
 }
 
 // フォームの内部値 → 日本語表示名
@@ -874,4 +986,38 @@ function fmtDate(d) {
   return d.getFullYear() + '-'
     + String(d.getMonth() + 1).padStart(2, '0') + '-'
     + String(d.getDate()).padStart(2, '0');
+}
+
+/* ============================================================
+   セットアップ — Notionフィールド追加（一度だけ実行）
+   ============================================================ */
+
+function addNotionFields() {
+  var cfg = getConfig();
+  var h   = notionHeaders(cfg);
+
+  var customerRes = UrlFetchApp.fetch(NOTION_API + '/databases/' + cfg.CUSTOMER_DB_ID, {
+    method: 'patch', headers: h, muteHttpExceptions: true,
+    payload: JSON.stringify({
+      properties: {
+        'クレジット残高': { number: { format: 'yen' } },
+        'クレジット詳細': { rich_text: {} },
+      }
+    }),
+  });
+  Logger.log('カスタマーDB: ' + customerRes.getResponseCode() + ' ' + customerRes.getContentText().substring(0, 200));
+
+  var karteRes = UrlFetchApp.fetch(NOTION_API + '/databases/' + cfg.KARTE_DB_ID, {
+    method: 'patch', headers: h, muteHttpExceptions: true,
+    payload: JSON.stringify({
+      properties: {
+        '紹介者名':       { rich_text: {} },
+        'クレジット使用額': { number: { format: 'yen' } },
+        '紹介割引適用':   { checkbox: {} },
+      }
+    }),
+  });
+  Logger.log('カルテDB: ' + karteRes.getResponseCode() + ' ' + karteRes.getContentText().substring(0, 200));
+
+  Logger.log('完了！ログを確認してください。');
 }

@@ -8,22 +8,28 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
   <style>
     :root {
-      --primary: #2c7a5c;
-      --primary-dark: #1e5c42;
+      --primary:       #2c7a5c;
+      --primary-dark:  #1e5c42;
       --primary-light: #e8f5ef;
-      --accent: #f0a500;
-      --danger: #e53935;
-      --danger-light: #fdecea;
-      --text: #1a1a1a;
-      --text-sub: #444;
-      --text-muted: #888;
-      --border: #e0e0e0;
-      --border-focus: #2c7a5c;
-      --bg: #f5f7f6;
-      --white: #fff;
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow: 0 1px 6px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+      --primary-mid:   #a8d5be;
+      --accent:        #f0a500;
+      --accent-light:  #fff8e1;
+      --danger:        #e53935;
+      --danger-light:  #fdecea;
+      --warning:       #e07b00;
+      --warning-light: #fff3e0;
+      --blue:          #1565c0;
+      --blue-light:    #e3f2fd;
+      --text:          #1a1a1a;
+      --text-sub:      #444;
+      --text-muted:    #888;
+      --border:        #e0e0e0;
+      --border-focus:  #2c7a5c;
+      --bg:            #f5f7f6;
+      --white:         #fff;
+      --radius:        12px;
+      --radius-sm:     8px;
+      --shadow:        0 1px 6px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -139,8 +145,7 @@
     .amount-wrap { position: relative; }
     .amount-prefix {
       position: absolute;
-      left: 13px;
-      top: 50%;
+      left: 13px; top: 50%;
       transform: translateY(-50%);
       font-size: 1rem;
       color: var(--text-sub);
@@ -158,6 +163,7 @@
     .field-error.visible { display: flex; align-items: center; gap: 4px; }
     .field-error::before { content: '!'; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; background:var(--danger); color:var(--white); border-radius:50%; font-size:0.65rem; font-weight:700; flex-shrink:0; }
 
+    /* ─── コース選択 ─── */
     .course-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
     .course-item {
       display: flex;
@@ -170,38 +176,197 @@
       transition: border-color 0.15s, background 0.15s;
       gap: 10px;
     }
-    .course-item:has(input:checked) {
-      border-color: var(--primary);
-      background: var(--primary-light);
-    }
+    .course-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
     .course-item input[type="radio"] { accent-color: var(--primary); width: 18px; height: 18px; flex-shrink: 0; }
-    .course-item-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+    .course-item-name  { font-weight: 600; font-size: 0.95rem; flex: 1; }
     .course-item-price { font-size: 0.88rem; color: var(--text-muted); font-weight: 600; }
+    .course-item-tag {
+      font-size: 0.65rem; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+      background: var(--primary-light); color: var(--primary-dark);
+    }
 
-    .banner {
-      display: flex;
+    /* ─── 月2回プラン申込チェック ─── */
+    .monthly-addon {
+      display: none;
       align-items: center;
-      gap: 14px;
-      padding: 16px 18px;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--accent-light);
+      border: 1.5px dashed var(--accent);
+      border-radius: var(--radius-sm);
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    .monthly-addon.visible { display: flex; }
+    .monthly-addon input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; flex-shrink: 0; }
+    .monthly-addon-text { flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--warning); }
+    .monthly-addon-price { font-size: 0.88rem; font-weight: 700; color: var(--warning); }
+
+    /* ─── 支払い方法 ─── */
+    .payment-list { display: flex; gap: 10px; margin-top: 4px; }
+    .payment-item {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px;
+      padding: 11px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      font-weight: 600; font-size: 0.9rem;
+    }
+    .payment-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
+    .payment-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+    /* ─── 患者バナー ─── */
+    .banner {
+      display: flex; align-items: flex-start;
+      gap: 14px; padding: 16px 18px;
       border-radius: var(--radius);
       margin-bottom: 16px;
       background: #e8f5ef;
       border: 1.5px solid #a8d5be;
       animation: fadeIn 0.22s ease;
     }
-    .banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .banner-icon { font-size: 1.8rem; flex-shrink: 0; padding-top: 2px; }
     .banner-name { font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); }
     .banner-num  { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+    .banner-visit {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; font-weight: 700;
+      background: var(--primary); color: white;
+      padding: 3px 9px; border-radius: 20px;
+      margin-top: 6px;
+    }
 
-    .btn-submit {
-      width: 100%;
-      padding: 15px;
-      background: var(--primary);
-      color: var(--white);
-      border: none;
+    /* ─── クレジット表示 ─── */
+    .credit-section {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 16px;
+      background: var(--blue-light);
+      border: 1.5px solid #90caf9;
       border-radius: var(--radius-sm);
-      font-size: 1rem;
-      font-weight: 700;
+      margin-bottom: 16px;
+      animation: fadeIn 0.22s ease;
+    }
+    .credit-section.visible { display: flex; }
+    .credit-row { display: flex; align-items: center; gap: 10px; }
+    .credit-balance { font-size: 1.1rem; font-weight: 800; color: var(--blue); }
+    .credit-label   { font-size: 0.8rem; color: var(--text-sub); flex: 1; }
+
+    .credit-warning {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 12px;
+      background: var(--warning-light);
+      border: 1.5px solid #ffb300;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: var(--warning);
+    }
+    .credit-warning strong { display: block; font-size: 0.82rem; margin-bottom: 1px; }
+
+    /* クレジット使用ステッパー */
+    .credit-use-row {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+    .credit-use-row.visible { display: flex; }
+    .credit-use-label { font-size: 0.82rem; font-weight: 700; color: var(--text-sub); flex: 1; }
+    .stepper {
+      display: flex; align-items: center; gap: 0;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .stepper button {
+      width: 36px; height: 36px;
+      background: var(--bg); border: none;
+      font-size: 1.2rem; font-weight: 700;
+      cursor: pointer; color: var(--primary);
+      transition: background 0.1s;
+    }
+    .stepper button:hover { background: var(--primary-light); }
+    .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
+    .stepper-val {
+      min-width: 70px; text-align: center;
+      font-size: 0.9rem; font-weight: 800;
+      padding: 0 8px;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      color: var(--blue);
+    }
+
+    /* ─── 紹介者検索 ─── */
+    .referral-section {
+      display: none;
+      padding: 16px 18px;
+      background: var(--primary-light);
+      border: 1.5px solid var(--primary-mid);
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      animation: fadeIn 0.22s ease;
+    }
+    .referral-section.visible { display: block; }
+    .referral-title {
+      font-size: 0.82rem; font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .referral-applied {
+      display: none;
+      align-items: center; gap: 8px;
+      padding: 10px 12px;
+      background: var(--primary);
+      border-radius: 8px;
+      color: white;
+      font-size: 0.85rem; font-weight: 700;
+      margin-top: 8px;
+    }
+    .referral-applied.visible { display: flex; }
+    .referral-clear {
+      margin-left: auto;
+      background: rgba(255,255,255,0.25);
+      border: none; color: white;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.75rem; cursor: pointer;
+    }
+
+    /* ─── 売上サマリー ─── */
+    .amount-summary {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.82rem;
+    }
+    .amount-summary.visible { display: flex; }
+    .as-row { display: flex; justify-content: space-between; color: var(--text-sub); }
+    .as-row.total {
+      font-weight: 800; font-size: 0.9rem;
+      color: var(--primary-dark);
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .as-row.discount { color: var(--danger); }
+
+    /* ─── ボタン ─── */
+    .btn-submit {
+      width: 100%; padding: 15px;
+      background: var(--primary); color: var(--white);
+      border: none; border-radius: var(--radius-sm);
+      font-size: 1rem; font-weight: 700;
       cursor: pointer;
       transition: background 0.15s, opacity 0.15s;
       letter-spacing: 0.3px;
@@ -210,13 +375,10 @@
     .btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
 
     .loading-row {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
+      display: none; align-items: center;
+      justify-content: center; gap: 10px;
       padding: 10px 0;
-      color: var(--text-muted);
-      font-size: 0.9rem;
+      color: var(--text-muted); font-size: 0.9rem;
     }
     .spinner {
       width: 18px; height: 18px;
@@ -227,19 +389,16 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Success */
+    /* ─── 成功画面 ─── */
     #successScreen {
-      display: none;
-      text-align: center;
+      display: none; text-align: center;
       padding: 60px 24px 40px;
-      max-width: 480px;
-      margin: 0 auto;
+      max-width: 480px; margin: 0 auto;
     }
     #successScreen.visible { display: block; }
     .success-anim {
       width: 72px; height: 72px;
-      background: var(--primary);
-      border-radius: 50%;
+      background: var(--primary); border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 2.2rem; color: var(--white);
       margin: 0 auto 20px;
@@ -249,53 +408,42 @@
     .success-detail strong { color: var(--text); }
     .btn-back {
       padding: 13px 32px;
-      background: var(--primary);
-      color: var(--white);
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
+      background: var(--primary); color: var(--white);
+      border: none; border-radius: var(--radius-sm);
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
     }
     .btn-back:hover { background: var(--primary-dark); }
 
-    /* Toast */
+    /* ─── Toast ─── */
     .toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
       background: #333; color: #fff;
       padding: 11px 20px; border-radius: 24px;
       font-size: 0.88rem; white-space: nowrap;
       opacity: 0; pointer-events: none;
-      transition: opacity 0.25s;
-      z-index: 999;
+      transition: opacity 0.25s; z-index: 999;
     }
     .toast.show { opacity: 1; }
-    .toast.is-error { background: var(--danger); }
+    .toast.is-error   { background: var(--danger); }
     .toast.is-success { background: var(--primary); }
 
+    /* ─── オートコンプリート ─── */
     .autocomplete-wrap { position: relative; }
     .autocomplete-dropdown {
       display: none;
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0; right: 0;
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
       background: var(--white);
       border: 1.5px solid var(--border-focus);
       border-radius: var(--radius-sm);
-      box-shadow: var(--shadow);
-      z-index: 50;
-      max-height: 280px;
-      overflow-y: auto;
+      box-shadow: var(--shadow); z-index: 50;
+      max-height: 280px; overflow-y: auto;
     }
     .autocomplete-dropdown.open { display: block; }
     .autocomplete-item {
-      display: flex;
-      align-items: center;
-      padding: 12px 14px;
-      cursor: pointer;
+      display: flex; align-items: center;
+      padding: 12px 14px; cursor: pointer;
       border-bottom: 1px solid var(--border);
-      gap: 10px;
-      transition: background 0.1s;
+      gap: 10px; transition: background 0.1s;
     }
     .autocomplete-item:last-child { border-bottom: none; }
     .autocomplete-item:hover { background: var(--primary-light); }
@@ -305,44 +453,18 @@
     .autocomplete-item-num  { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
     .no-results { padding: 14px; font-size: 0.88rem; color: var(--text-muted); text-align: center; }
 
-    /* Password gate */
-    #passwordGate {
-      max-width: 400px;
-      margin: 60px auto 0;
-      padding: 0 14px;
-    }
-    .pw-icon { font-size: 3rem; text-align: center; margin-bottom: 16px; }
+    /* ─── パスワードゲート ─── */
+    #passwordGate { max-width: 400px; margin: 60px auto 0; padding: 0 14px; }
+    .pw-icon  { font-size: 3rem; text-align: center; margin-bottom: 16px; }
     .pw-title { font-size: 1.1rem; font-weight: 800; color: var(--primary-dark); text-align: center; margin-bottom: 6px; }
-    .pw-sub { font-size: 0.83rem; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+    .pw-sub   { font-size: 0.83rem; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
     .pw-input-wrap { position: relative; margin-bottom: 12px; }
     .pw-input-wrap input { padding-right: 44px; }
     .pw-toggle {
       position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-      background: none; border: none; cursor: pointer; font-size: 1.1rem;
-      color: var(--text-muted); padding: 4px;
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; color: var(--text-muted); padding: 4px;
     }
-
-    /* Payment method */
-    .payment-list { display: flex; gap: 10px; margin-top: 4px; }
-    .payment-item {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 11px 8px;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-    .payment-item:has(input:checked) {
-      border-color: var(--primary);
-      background: var(--primary-light);
-    }
-    .payment-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
   </style>
 </head>
 <body>
@@ -356,7 +478,7 @@
   <p>施術後にご入力ください（スタッフ専用）</p>
 </div>
 
-<!-- ══ PHASE 0: パスワード認証 ══ -->
+<!-- ══ パスワード認証 ══ -->
 <div id="passwordGate">
   <div class="card">
     <div class="pw-icon">🔐</div>
@@ -379,17 +501,13 @@
 <div id="mainForm" style="display:none">
   <div class="container">
 
-    <!-- ══ PHASE 1: 患者検索 ══ -->
+    <!-- ══ Phase 1: 患者検索 ══ -->
     <div id="phase1">
       <div class="card">
         <div class="card-title"><span>🔍</span>患者を検索</div>
-
-        <!-- 読み込み中 -->
         <div id="loadingPatients" class="loading-row" style="display:flex">
           <span class="spinner"></span><span>患者データを読み込み中...</span>
         </div>
-
-        <!-- 検索エリア -->
         <div id="searchArea" style="display:none">
           <div class="form-group" style="margin-bottom:0">
             <div class="field-label">氏名<span class="badge-req">必須</span></div>
@@ -404,8 +522,6 @@
             <div class="field-error" id="e_name"></div>
           </div>
         </div>
-
-        <!-- 読み込みエラー -->
         <div id="loadError" style="display:none">
           <p style="color:var(--danger);font-size:0.88rem;margin-bottom:12px">患者データの読み込みに失敗しました。</p>
           <button class="btn-submit" onclick="loadPatients()">再読み込み</button>
@@ -413,15 +529,54 @@
       </div>
     </div>
 
-    <!-- ══ PHASE 2: 施術記録 ══ -->
+    <!-- ══ Phase 2: 施術記録 ══ -->
     <div id="phase2" style="display:none">
 
       <!-- 患者バナー -->
       <div class="banner" id="patientBanner">
         <div class="banner-icon">👤</div>
-        <div>
+        <div style="flex:1">
           <div class="banner-name" id="bannerName"></div>
-          <div class="banner-num" id="bannerNum"></div>
+          <div class="banner-num"  id="bannerNum"></div>
+          <div class="banner-visit" id="bannerVisit" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- クレジット表示 -->
+      <div class="credit-section" id="creditSection">
+        <div class="credit-row">
+          <span style="font-size:1.2rem">💳</span>
+          <span class="credit-label">クレジット残高</span>
+          <span class="credit-balance" id="creditBalance"></span>
+        </div>
+        <div class="credit-warning" id="creditWarning" style="display:none">
+          <span style="font-size:1.1rem">⚠️</span>
+          <div id="creditWarningText"></div>
+        </div>
+        <div class="credit-use-row" id="creditUseRow">
+          <span class="credit-use-label">今日使用するクレジット</span>
+          <div class="stepper">
+            <button type="button" onclick="changeCredit(-1)" id="creditMinus">−</button>
+            <div class="stepper-val" id="creditUsedDisplay">¥0</div>
+            <button type="button" onclick="changeCredit(1)"  id="creditPlus">＋</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 紹介者セクション（初回のみ表示） -->
+      <div class="referral-section" id="referralSection">
+        <div class="referral-title">🤝 紹介者はいますか？（初回来院 ¥1,000引き）</div>
+        <div class="autocomplete-wrap">
+          <input type="text" id="referrerSearch"
+            placeholder="紹介者の名前を検索"
+            autocomplete="off"
+            oninput="onReferrerInput(this.value)"
+            onfocus="onReferrerInput(this.value)">
+          <div class="autocomplete-dropdown" id="referrerDropdown"></div>
+        </div>
+        <div class="referral-applied" id="referralApplied">
+          <span>✓ <span id="referralAppliedName"></span> さんの紹介 — ¥1,000引き適用</span>
+          <button class="referral-clear" onclick="clearReferrer()">取消</button>
         </div>
       </div>
 
@@ -429,6 +584,12 @@
       <div class="card">
         <div class="card-title"><span>💆</span>施術コース<span class="badge-req">必須</span></div>
         <div class="course-list" id="courseList"></div>
+        <!-- 月2回プラン同時申込チェック -->
+        <label class="monthly-addon" id="monthlyAddon">
+          <input type="checkbox" id="monthlyAddonCheck" onchange="recalcAmount()">
+          <span class="monthly-addon-text">月2回プランも同時申込（+¥10,000）</span>
+          <span class="monthly-addon-price">+¥10,000</span>
+        </label>
         <div class="field-error" id="e_course" style="margin-top:10px"></div>
       </div>
 
@@ -437,13 +598,13 @@
         <div class="card-title"><span>💳</span>支払い方法<span class="badge-req">必須</span></div>
         <div class="payment-list">
           <label class="payment-item">
-            <input type="radio" name="payment" value="現金"> 💵 現金
+            <input type="radio" name="payment" value="現金" onchange="recalcAmount()"> 💵 現金
           </label>
           <label class="payment-item">
-            <input type="radio" name="payment" value="カード"> 💳 カード
+            <input type="radio" name="payment" value="カード" onchange="recalcAmount()"> 💳 カード
           </label>
           <label class="payment-item">
-            <input type="radio" name="payment" value="未払い"> ⏳ 未払い
+            <input type="radio" name="payment" value="未払い" onchange="recalcAmount()"> ⏳ 未払い
           </label>
         </div>
         <div class="field-error" id="e_payment" style="margin-top:10px"></div>
@@ -454,7 +615,16 @@
         <div class="card-title"><span>💴</span>売上金額<span class="badge-req">必須</span></div>
         <div class="amount-wrap">
           <span class="amount-prefix">¥</span>
-          <input type="number" id="salesAmount" inputmode="numeric" min="0" step="500" placeholder="0">
+          <input type="number" id="salesAmount" inputmode="numeric" min="0" step="500" placeholder="0"
+            oninput="clearErr('e_salesAmount','salesAmount')">
+        </div>
+        <!-- 内訳サマリー -->
+        <div class="amount-summary" id="amountSummary">
+          <div class="as-row" id="as_base" style="display:none"><span id="as_base_label"></span><span id="as_base_val"></span></div>
+          <div class="as-row" id="as_monthly" style="display:none"><span>月2回プラン申込</span><span>+¥10,000</span></div>
+          <div class="as-row discount" id="as_referral" style="display:none"><span>紹介割引</span><span>−¥1,000</span></div>
+          <div class="as-row discount" id="as_credit" style="display:none"><span>クレジット使用</span><span id="as_credit_val"></span></div>
+          <div class="as-row total"><span>合計</span><span id="as_total"></span></div>
         </div>
         <div class="field-error" id="e_salesAmount" style="margin-top:8px"></div>
       </div>
@@ -492,22 +662,37 @@ const CONFIG = {
   GAS_URL: 'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
 };
 
-// ── コース設定 ─────────────────────────────────────────────
-// ここを編集するだけでコース一覧・金額が変わります
+/* ── コース設定 ────────────────────────────────── */
 const COURSES = [
-  { id: 'chiro',    name: 'カイロプラクティック', price: 4000  },
-  { id: 'fascia',   name: '筋膜リリース',         price: 5000  },
-  { id: 'cupping',  name: '吸い玉（カッピング）',  price: 4000  },
-  { id: 'total',    name: 'トータルケア',          price: 6000  },
-  { id: 'monthly2', name: '月2回コース',           price: 10000 },
+  { id: 'chiro',          name: 'カイロプラクティック',        price: 4000,  tag: '' },
+  { id: 'fascia',         name: '筋膜リリース',                price: 5000,  tag: '' },
+  { id: 'cupping',        name: '吸い玉（カッピング）',         price: 4000,  tag: '' },
+  { id: 'total',          name: 'トータルケア',                price: 6000,  tag: '' },
+  { id: 'monthly2',       name: '月2回プラン（今月2回カバー）', price: 10000, tag: '月額' },
+  { id: 'monthly2_2nd',   name: '月2回プラン（2回目・前払済）', price: 0,     tag: '前払済' },
 ];
 const COURSE_MAP = COURSES.reduce((m, c) => { m[c.id] = c; return m; }, {});
+const MONTHLY_IDS = new Set(['monthly2', 'monthly2_2nd']);
 
-const S = { submitting: false, customerId: null, patientNum: null, patientName: null, toastTm: null };
+/* ── 状態 ──────────────────────────────────────── */
+const S = {
+  submitting:      false,
+  customerId:      null,
+  patientNum:      null,
+  patientName:     null,
+  creditBalance:   0,
+  creditUsed:      0,
+  referrerId:      null,
+  referrerName:    null,
+  referralApplied: false,
+  isFirstVisit:    false,
+  toastTm:         null,
+};
 let allPatients = [];
 let _acMatches  = [];
+let _refMatches = [];
 
-/* ── パスワード認証 ── */
+/* ── 初期化 ──────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function() {
   renderCourses();
   if (sessionStorage.getItem('lbc_auth') === '1') {
@@ -517,6 +702,7 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+/* ── パスワード認証 ────────────────────────────── */
 function togglePwVisibility() {
   const inp = document.getElementById('pwInput');
   inp.type = inp.type === 'password' ? 'text' : 'password';
@@ -549,17 +735,19 @@ async function verifyPassword() {
   }
 }
 
+/* ── コース描画 ────────────────────────────────── */
 function renderCourses() {
   document.getElementById('courseList').innerHTML = COURSES.map(c =>
     `<label class="course-item">
       <input type="radio" name="course" value="${c.id}" onchange="onCourseChange()">
       <span class="course-item-name">${c.name}</span>
-      <span class="course-item-price">¥${c.price.toLocaleString()}</span>
+      ${c.tag ? `<span class="course-item-tag">${c.tag}</span>` : ''}
+      <span class="course-item-price">${c.price > 0 ? '¥' + c.price.toLocaleString() : '¥0'}</span>
     </label>`
   ).join('');
 }
 
-/* ── 患者リスト読み込み ── */
+/* ── 患者リスト読み込み ────────────────────────── */
 async function loadPatients() {
   document.getElementById('loadingPatients').style.display = 'flex';
   document.getElementById('searchArea').style.display      = 'none';
@@ -578,7 +766,7 @@ async function loadPatients() {
   }
 }
 
-/* ── 患者オートコンプリート ── */
+/* ── 患者オートコンプリート ──────────────────── */
 function onNameInput(query) {
   const q  = (query || '').trim().toLowerCase().replace(/[\s　]/g, '');
   const dd = document.getElementById('autocompleteDropdown');
@@ -596,7 +784,6 @@ function onNameInput(query) {
     dd.classList.add('open');
     return;
   }
-
   dd.innerHTML = _acMatches.map((p, i) =>
     `<div class="autocomplete-item" onmousedown="event.preventDefault()" onclick="selectPatient(${i})">
       <div class="autocomplete-item-main">
@@ -609,80 +796,288 @@ function onNameInput(query) {
   dd.classList.add('open');
 }
 
-function selectPatient(idx) {
+async function selectPatient(idx) {
   const p = _acMatches[idx];
   if (!p) return;
   document.getElementById('autocompleteDropdown').classList.remove('open');
   document.getElementById('nameSearch').value = p.name;
-  showPhase2(p.customerId, p.patientNum, p.name);
+
+  // クレジット残高は患者リストから取得済み
+  S.creditBalance = p.creditBalance || 0;
+
+  // 詳細情報（通算回数・前回日付・期限切れクレジット）をロード
+  try {
+    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId));
+    const data = await res.json();
+    if (data.success) {
+      showPhase2(p.customerId, p.patientNum, p.name, data);
+    } else {
+      showPhase2(p.customerId, p.patientNum, p.name, {});
+    }
+  } catch {
+    showPhase2(p.customerId, p.patientNum, p.name, {});
+  }
 }
 
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.autocomplete-wrap')) {
-    const dd = document.getElementById('autocompleteDropdown');
-    if (dd) dd.classList.remove('open');
+    document.querySelectorAll('.autocomplete-dropdown').forEach(d => d.classList.remove('open'));
   }
 });
 
-function escHtml(s) {
-  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+/* ── Phase 2 表示 ──────────────────────────────── */
+function showPhase2(customerId, patientNum, patientName, details) {
+  S.customerId   = customerId;
+  S.patientNum   = patientNum;
+  S.patientName  = patientName;
+  S.creditUsed   = 0;
+  S.referrerId   = null;
+  S.referrerName = null;
+  S.referralApplied = false;
+  S.isFirstVisit = !!(details && details.isFirstVisit);
 
-/* ── Phase 2 表示 ── */
-function showPhase2(customerId, patientNum, patientName) {
-  S.customerId  = customerId;
-  S.patientNum  = patientNum;
-  S.patientName = patientName;
-
+  // バナー
   document.getElementById('bannerName').textContent = patientName + ' 様';
   document.getElementById('bannerNum').textContent  = '診察番号: ' + patientNum;
 
+  const visitEl = document.getElementById('bannerVisit');
+  if (details && details.visitCount !== undefined) {
+    const nth = details.visitCount + 1;
+    const last = details.lastVisitDate ? '前回 ' + details.lastVisitDate : '初回来院';
+    visitEl.textContent = nth + '回目  —  ' + last;
+    visitEl.style.display = 'inline-flex';
+  } else {
+    visitEl.style.display = 'none';
+  }
+
+  // クレジット表示
+  const creditSec = document.getElementById('creditSection');
+  if (S.creditBalance > 0) {
+    document.getElementById('creditBalance').textContent = '¥' + S.creditBalance.toLocaleString();
+
+    // 期限警告
+    const warnEl   = document.getElementById('creditWarning');
+    const warnText = document.getElementById('creditWarningText');
+    if (details && details.expiringCredits && details.expiringCredits.length > 0) {
+      const exp = details.expiringCredits[0];
+      warnText.innerHTML = `<strong>⚠️ クレジット期限まであと ${exp.daysLeft} 日</strong>¥${exp.amount.toLocaleString()} が ${exp.expiryDate} に期限切れになります`;
+      warnEl.style.display = 'flex';
+    } else {
+      warnEl.style.display = 'none';
+    }
+
+    // 使用ステッパー（初回でない場合のみ）
+    const useRow = document.getElementById('creditUseRow');
+    useRow.classList.toggle('visible', !S.isFirstVisit);
+    document.getElementById('creditUsedDisplay').textContent = '¥0';
+
+    creditSec.classList.add('visible');
+  } else {
+    creditSec.classList.remove('visible');
+  }
+
+  // 紹介者セクション（初回のみ）
+  document.getElementById('referralSection').classList.toggle('visible', S.isFirstVisit);
+  document.getElementById('referrerSearch').value = '';
+  document.getElementById('referralApplied').classList.remove('visible');
+
+  // Phase 切替
   document.getElementById('phase1').style.display = 'none';
   document.getElementById('phase2').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  recalcAmount();
 }
 
-/* ── コース選択 → 金額自動入力 ── */
+/* ── 紹介者オートコンプリート ────────────────── */
+function onReferrerInput(query) {
+  const q  = (query || '').trim().toLowerCase().replace(/[\s　]/g, '');
+  const dd = document.getElementById('referrerDropdown');
+  if (!q) { dd.classList.remove('open'); dd.innerHTML = ''; _refMatches = []; return; }
+
+  // 自分自身を除外、クレジットがなくても表示（施術経験者なら紹介できる）
+  _refMatches = allPatients.filter(p => {
+    if (p.customerId === S.customerId) return false;
+    const name = (p.name     || '').toLowerCase().replace(/[\s　]/g, '');
+    const furi = (p.furigana || '').toLowerCase().replace(/[\s　]/g, '');
+    const num  = (p.patientNum || '').toLowerCase();
+    return name.includes(q) || furi.includes(q) || num.includes(q);
+  }).slice(0, 8);
+
+  if (!_refMatches.length) {
+    dd.innerHTML = '<div class="no-results">該当する患者が見つかりません</div>';
+    dd.classList.add('open');
+    return;
+  }
+  dd.innerHTML = _refMatches.map((p, i) =>
+    `<div class="autocomplete-item" onmousedown="event.preventDefault()" onclick="selectReferrer(${i})">
+      <div class="autocomplete-item-main">
+        <div class="autocomplete-item-name">${escHtml(p.name)}</div>
+        ${p.furigana ? `<div class="autocomplete-item-furi">${escHtml(p.furigana)}</div>` : ''}
+      </div>
+      <div class="autocomplete-item-num">${escHtml(p.patientNum)}</div>
+    </div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+function selectReferrer(idx) {
+  const p = _refMatches[idx];
+  if (!p) return;
+  document.getElementById('referrerDropdown').classList.remove('open');
+  document.getElementById('referrerSearch').value = p.name;
+  S.referrerId   = p.customerId;
+  S.referrerName = p.name;
+  S.referralApplied = true;
+
+  document.getElementById('referralAppliedName').textContent = p.name;
+  document.getElementById('referralApplied').classList.add('visible');
+  recalcAmount();
+}
+
+function clearReferrer() {
+  S.referrerId      = null;
+  S.referrerName    = null;
+  S.referralApplied = false;
+  document.getElementById('referrerSearch').value = '';
+  document.getElementById('referralApplied').classList.remove('visible');
+  recalcAmount();
+}
+
+/* ── クレジット使用ステッパー ──────────────── */
+function changeCredit(delta) {
+  const maxCredit = S.creditBalance;
+  const newVal = S.creditUsed + delta * 1000;
+  if (newVal < 0 || newVal > maxCredit) return;
+  S.creditUsed = newVal;
+  document.getElementById('creditUsedDisplay').textContent = '¥' + newVal.toLocaleString();
+  document.getElementById('creditMinus').disabled = newVal <= 0;
+  document.getElementById('creditPlus').disabled  = newVal >= maxCredit;
+  recalcAmount();
+}
+
+/* ── コース選択 ────────────────────────────────── */
 function onCourseChange() {
   const courseId = document.querySelector('input[name="course"]:checked')?.value;
-  if (courseId && COURSE_MAP[courseId]) {
-    document.getElementById('salesAmount').value = COURSE_MAP[courseId].price;
+  const isMonthly = MONTHLY_IDS.has(courseId);
+
+  // 月2回コース系は「月2回プラン同時申込」チェックを非表示
+  const addon = document.getElementById('monthlyAddon');
+  if (isMonthly) {
+    addon.classList.remove('visible');
+    document.getElementById('monthlyAddonCheck').checked = false;
+  } else {
+    addon.classList.add('visible');
   }
+
+  // 2回目・前払済は支払いを「未払い」に自動設定
+  if (courseId === 'monthly2_2nd') {
+    const unpaid = document.querySelector('input[name="payment"][value="未払い"]');
+    if (unpaid) unpaid.checked = true;
+  }
+
   clearErr('e_course');
+  recalcAmount();
 }
 
-/* ── 送信 ── */
+/* ── 売上金額 自動計算 ─────────────────────────── */
+function recalcAmount() {
+  const courseId   = document.querySelector('input[name="course"]:checked')?.value;
+  const payment    = document.querySelector('input[name="payment"]:checked')?.value;
+  const addonCheck = document.getElementById('monthlyAddonCheck').checked;
+
+  if (!courseId) return;
+
+  const course     = COURSE_MAP[courseId];
+  const basePrice  = course ? course.price : 0;
+  const addonPrice = addonCheck ? 10000 : 0;
+
+  // 2回目前払済 or 未払い選択時は金額0
+  const isUnpaid = courseId === 'monthly2_2nd' || payment === '未払い';
+
+  const referralDiscount = S.referralApplied ? 1000 : 0;
+  const creditDiscount   = (isUnpaid || S.referralApplied) ? 0 : S.creditUsed;
+  const total = isUnpaid ? 0 : Math.max(0, basePrice + addonPrice - referralDiscount - creditDiscount);
+
+  document.getElementById('salesAmount').value = total;
+
+  // 内訳サマリー更新
+  const summary = document.getElementById('amountSummary');
+  if (courseId) {
+    const baseRow = document.getElementById('as_base');
+    document.getElementById('as_base_label').textContent = course ? course.name : '';
+    document.getElementById('as_base_val').textContent   = '¥' + basePrice.toLocaleString();
+    baseRow.style.display = basePrice > 0 ? 'flex' : 'none';
+
+    document.getElementById('as_monthly').style.display  = addonCheck ? 'flex' : 'none';
+    document.getElementById('as_referral').style.display = referralDiscount > 0 ? 'flex' : 'none';
+
+    const creditRow = document.getElementById('as_credit');
+    if (creditDiscount > 0) {
+      document.getElementById('as_credit_val').textContent = '−¥' + creditDiscount.toLocaleString();
+      creditRow.style.display = 'flex';
+    } else {
+      creditRow.style.display = 'none';
+    }
+
+    document.getElementById('as_total').textContent = '¥' + total.toLocaleString();
+    summary.classList.add('visible');
+  } else {
+    summary.classList.remove('visible');
+  }
+
+  // クレジットステッパーを無効化（紹介割引 or 未払い時）
+  const useRow = document.getElementById('creditUseRow');
+  if (isUnpaid || S.referralApplied) {
+    useRow.style.opacity = '0.4';
+    useRow.style.pointerEvents = 'none';
+  } else {
+    useRow.style.opacity = '';
+    useRow.style.pointerEvents = '';
+  }
+}
+
+/* ── 送信 ────────────────────────────────────────── */
 async function submitRecord() {
   if (S.submitting) return;
 
-  const courseId     = document.querySelector('input[name="course"]:checked')?.value;
+  const courseId      = document.querySelector('input[name="course"]:checked')?.value;
   const paymentMethod = document.querySelector('input[name="payment"]:checked')?.value;
-  const salesAmount  = document.getElementById('salesAmount').value;
-  const memo         = document.getElementById('memo').value.trim();
+  const salesAmount   = document.getElementById('salesAmount').value;
+  const memo          = document.getElementById('memo').value.trim();
 
   let ok = true;
-  if (!courseId) { showErr('e_course', 'コースを選択してください'); ok = false; } else clearErr('e_course');
+  if (!courseId)      { showErr('e_course', 'コースを選択してください'); ok = false; }      else clearErr('e_course');
   if (!paymentMethod) { showErr('e_payment', '支払い方法を選択してください'); ok = false; } else clearErr('e_payment');
-  if (!salesAmount || Number(salesAmount) < 0) { showErr('e_salesAmount', '売上金額を入力してください', 'salesAmount'); ok = false; } else clearErr('e_salesAmount', 'salesAmount');
+  if (salesAmount === '' || Number(salesAmount) < 0) {
+    showErr('e_salesAmount', '売上金額を入力してください', 'salesAmount'); ok = false;
+  } else clearErr('e_salesAmount', 'salesAmount');
   if (!ok) return;
 
+  // 月2回コース系は GAS に 'monthly2' として送る
+  const gasId = courseId === 'monthly2_2nd' ? 'monthly2' : courseId;
+
   S.submitting = true;
-  document.getElementById('submitBtn').disabled        = true;
-  document.getElementById('loadingRow').style.display  = 'flex';
+  document.getElementById('submitBtn').disabled       = true;
+  document.getElementById('loadingRow').style.display = 'flex';
 
   try {
+    const payload = {
+      action:          'submitTreatmentRecord',
+      customerId:      S.customerId,
+      patientNum:      S.patientNum,
+      courseId:        gasId,
+      paymentMethod,
+      salesAmount:     Number(salesAmount),
+      treatmentMemo:   memo,
+      referrerId:      S.referrerId      || null,
+      referrerName:    S.referrerName    || null,
+      referralDiscount: S.referralApplied,
+      creditUsed:      S.creditUsed,
+    };
     const res  = await fetch(CONFIG.GAS_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify({
-        action:         'submitTreatmentRecord',
-        customerId:     S.customerId,
-        patientNum:     S.patientNum,
-        courseId,
-        paymentMethod,
-        salesAmount:    Number(salesAmount),
-        treatmentMemo:  memo,
-      }),
+      body:    JSON.stringify(payload),
     });
     const data = await res.json();
     document.getElementById('loadingRow').style.display = 'none';
@@ -705,14 +1100,18 @@ async function submitRecord() {
 function showSuccess(courseId, amount) {
   const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : courseId;
   document.getElementById('mainForm').style.display = 'none';
-  document.getElementById('successDetail').innerHTML =
-    '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）<br>' +
-    courseName + '　¥' + amount.toLocaleString();
+  const details = [
+    '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）',
+    courseName + '　¥' + amount.toLocaleString(),
+  ];
+  if (S.referralApplied && S.referrerName) details.push('紹介割引適用（' + S.referrerName + ' さん +¥1,000クレジット）');
+  if (S.creditUsed > 0) details.push('クレジット使用 ¥' + S.creditUsed.toLocaleString());
+  document.getElementById('successDetail').innerHTML = details.join('<br>');
   document.getElementById('successScreen').classList.add('visible');
   window.scrollTo({ top: 0 });
 }
 
-/* ── UI ヘルパー ── */
+/* ── UI ヘルパー ─────────────────────────────────── */
 function showErr(id, msg, inputId) {
   const el = document.getElementById(id);
   if (el) { el.textContent = msg; el.classList.add('visible'); }
@@ -726,10 +1125,13 @@ function clearErr(id, inputId) {
 function toast(msg, type) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = 'toast' + (type === 'error' ? ' is-error' : type === 'success' ? ' is-success' : '');
+  el.className   = 'toast' + (type === 'error' ? ' is-error' : type === 'success' ? ' is-success' : '');
   el.classList.add('show');
   clearTimeout(S.toastTm);
   S.toastTm = setTimeout(() => el.classList.remove('show'), 3500);
+}
+function escHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 </script>
 </body>

@@ -950,8 +950,11 @@ function sendBookingEmail(cfg, data, patientNum, includeQLink) {
 
 function saveBodyImage(cfg, base64DataUrl, prefix) {
   try {
-    const match = base64DataUrl.match(/^data:image\/(jpeg|png);base64,(.+)$/);
-    if (!match) return '';
+    const match = base64DataUrl.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/s);
+    if (!match) {
+      Logger.log('saveBodyImage: regex no match. len=' + (base64DataUrl || '').length + ' head=' + (base64DataUrl || '').substring(0, 40));
+      return '';
+    }
     const mimeType = 'image/' + match[1];
     const blob = Utilities.newBlob(Utilities.base64Decode(match[2]), mimeType);
     const fileName = 'body_' + prefix + '_' + new Date().getTime() + '.' + match[1];
@@ -960,7 +963,7 @@ function saveBodyImage(cfg, base64DataUrl, prefix) {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return 'https://drive.google.com/uc?export=view&id=' + file.getId();
   } catch (err) {
-    Logger.log('saveBodyImage error: ' + err.message);
+    Logger.log('saveBodyImage error: ' + err.message + ' stack: ' + err.stack);
     return '';
   }
 }

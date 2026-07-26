@@ -298,24 +298,28 @@ function handleSubmitAll(data) {
   var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';
   var karte = createKarte(cfg, data, customerId, patientNum, hasQ);
 
-  // 人体図保存（Notion直接アップロード）
+  // 人体図保存（Drive PDF）
   var bodyImageUrl = '';
   var bodyDebug = 'skipped';
   if (hasQ) {
     if (!data.bodyImage || data.bodyImage.length <= 100) {
       bodyDebug = 'no_data(len=' + (data.bodyImage ? data.bodyImage.length : 0) + ')';
+    } else if (!cfg.DRIVE_FOLDER_ID) {
+      bodyDebug = 'no_folder_id';
     } else {
       bodyImageUrl = saveBodyImage(cfg, data.bodyImage, patientNum);
       bodyDebug = bodyImageUrl ? 'saved' : 'save_failed';
     }
   }
 
-  // 署名画像保存（Notion直接アップロード）
+  // 署名画像保存（Drive PDF）
   var signatureUrl = '';
   var sigDebug = 'skipped';
   if (hasQ) {
     if (!data.signatureImage || data.signatureImage.length <= 100) {
       sigDebug = 'no_data(len=' + (data.signatureImage ? data.signatureImage.length : 0) + ')';
+    } else if (!cfg.DRIVE_FOLDER_ID) {
+      sigDebug = 'no_folder_id';
     } else {
       signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + patientNum);
       sigDebug = signatureUrl ? 'saved' : 'save_failed';
@@ -352,15 +356,15 @@ function handleSubmitQuestionnaire(data) {
     karteId = karte ? karte.id : null;
   }
 
-  // 人体図を Notion に保存
+  // 人体図を Drive PDF に保存
   let bodyImageUrl = '';
-  if (data.bodyImage && data.bodyImage.length > 100) {
+  if (data.bodyImage && data.bodyImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
     bodyImageUrl = saveBodyImage(cfg, data.bodyImage, data.booking || 'q');
   }
 
-  // 署名画像を Notion に保存
+  // 署名画像を Drive PDF に保存
   let signatureUrl = '';
-  if (data.signatureImage && data.signatureImage.length > 100) {
+  if (data.signatureImage && data.signatureImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
     signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + (data.booking || 'q'));
   }
 
@@ -715,12 +719,8 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
       color: color
     }};
   }
-    function imgBlock(urlOrId) {
-    if (typeof urlOrId === 'string' && urlOrId.startsWith('notion_upload:')) {
-      var uploadId = urlOrId.slice(14);
-      return { object: 'block', type: 'image', image: { type: 'file_upload', file_upload: { id: uploadId } } };
-    }
-    return { object: 'block', type: 'image', image: { type: 'external', external: { url: urlOrId } } };
+    function imgBlock(url) {
+    return { object: 'block', type: 'embed', embed: { url: url } };
   }
 
   var blocks = [];
@@ -945,7 +945,7 @@ function sendBookingEmail(cfg, data, patientNum, includeQLink) {
 }
 
 /* ============================================================
-   Notion File Upload API — 人体図・署名保存
+   Google Drive — 人体図・署名をPDFで保存
    ============================================================ */
 
 function saveBodyImage(cfg, base64DataUrl, prefix) {
@@ -957,47 +957,28 @@ function saveBodyImage(cfg, base64DataUrl, prefix) {
     }
     const mimeType = 'image/' + match[1];
     const bytes = Utilities.base64Decode(match[2]);
-    const fileName = 'body_' + prefix + '_' + new Date().getTime() + '.' + match[1];
+    const fileName = 'body_' + prefix + '_' + new Date().getTime();
 
-    // Step 1: Notionにファイルアップロードオブジェクトを作成
-    const res1 = UrlFetchApp.fetch(NOTION_API + '/file_uploads', {
-      method: 'post',
-      headers: notionHeaders(cfg),
-      payload: JSON.stringify({ filename: fileName, content_type: mimeType }),
-      muteHttpExceptions: true,
-    });
-    const upload = JSON.parse(res1.getContentText());
-    if (!upload.id || !upload.upload_url) {
-      Logger.log('saveBodyImage: create upload failed - ' + res1.getContentText().substring(0, 300));
-      return '';
-    }
+    // 一時Google Docに画像を挿入してPDFへ変換
+    const tmpDoc = DocumentApp.create('_tmp_' + fileName);
+    const body = tmpDoc.getBody();
+    body.insertImage(0, Utilities.newBlob(bytes, mimeType, fileName));
+    tmpDoc.saveAndClose();
 
-    // Step 2: multipart/form-data でバイナリを送信
-    const boundary = 'GASBoundary' + new Date().getTime();
-    const head = Utilities.newBlob(
-      '--' + boundary + '\r\n' +
-      'Content-Disposition: form-data; name="file"; filename="' + fileName + '"\r\n' +
-      'Content-Type: ' + mimeType + '\r\n\r\n'
-    ).getBytes();
-    const tail = Utilities.newBlob('\r\n--' + boundary + '--').getBytes();
-    const payload = head.concat(bytes).concat(tail);
+    const tmpFile = DriveApp.getFileById(tmpDoc.getId());
+    const pdfBlob = tmpFile.getAs('application/pdf');
+    pdfBlob.setName(fileName + '.pdf');
 
-    const res2 = UrlFetchApp.fetch(upload.upload_url, {
-      method: 'post',
-      headers: {
-        'Authorization': 'Bearer ' + cfg.NOTION_TOKEN,
-        'Notion-Version': NOTION_VER,
-        'Content-Type': 'multipart/form-data; boundary=' + boundary,
-      },
-      payload: payload,
-      muteHttpExceptions: true,
-    });
-    if (res2.getResponseCode() >= 400) {
-      Logger.log('saveBodyImage: upload failed ' + res2.getResponseCode() + ' - ' + res2.getContentText().substring(0, 200));
-      return '';
-    }
-    Logger.log('saveBodyImage: success, upload_id=' + upload.id);
-    return 'notion_upload:' + upload.id;
+    // 指定フォルダにPDFを保存
+    const folder = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
+    const pdfFile = folder.createFile(pdfBlob);
+    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // 一時Docを削除
+    tmpFile.setTrashed(true);
+
+    Logger.log('saveBodyImage: PDF saved, id=' + pdfFile.getId());
+    return 'https://drive.google.com/file/d/' + pdfFile.getId() + '/preview';
   } catch (err) {
     Logger.log('saveBodyImage error: ' + err.message + '\nstack: ' + err.stack);
     return '';

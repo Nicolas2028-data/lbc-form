@@ -804,7 +804,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     blocks.push(imgBlock(bodyImageUrl));
   } else {
     blocks.push({ object: 'block', type: 'paragraph', paragraph: {
-      rich_text: [rt('人体図: （記入なし）', false, 'gray')]
+      rich_text: [rt('未記入', false, 'gray')]
     }});
   }
   blocks.push({ object: 'block', type: 'paragraph', paragraph: {
@@ -814,7 +814,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     blocks.push(imgBlock(signatureUrl));
   } else {
     blocks.push({ object: 'block', type: 'paragraph', paragraph: {
-      rich_text: [rt('（未署名）', false, 'gray')]
+      rich_text: [rt('未記入', false, 'gray')]
     }});
   }
 
@@ -1047,8 +1047,8 @@ function fmtDate(d) {
    ============================================================ */
 
 function testSubmitAll() {
-  // 小さいPNG（1x1 透明）をBase64で生成
-  var tiny1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  // テスト用PNG（10x10 赤色）
+  var tiny1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAFUlEQVR4nGP8z8BQTwMJDIViIAYABzYABWtIJfEAAAAASUVORK5CYII=';
 
   var testData = {
     action:            'submitAll',

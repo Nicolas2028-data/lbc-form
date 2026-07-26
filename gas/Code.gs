@@ -961,7 +961,7 @@ function saveBodyImage(cfg, base64DataUrl, prefix) {
     blob.setName(fileName);
     const file = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID).createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return 'https://drive.google.com/uc?export=view&id=' + file.getId();
+    return 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1600';
   } catch (err) {
     Logger.log('saveBodyImage error: ' + err.message + ' stack: ' + err.stack);
     return '';

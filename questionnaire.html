@@ -877,15 +877,15 @@
             </label>
           </div>
         </div>
-        <div id="facePreferenceSection" style="margin-top:12px">
+        <div id="facePreferenceSection" style="margin-top:12px; opacity:0.35; pointer-events:none">
           <div class="field-label" style="margin-bottom:8px"><span id="lbl_face_q">顔出しについて</span></div>
           <div class="radio-list">
             <label class="radio-item">
-              <input type="radio" name="facePreference" value="face_ok">
+              <input type="radio" name="facePreference" value="face_ok" disabled>
               <span id="lbl_face_ok">顔出しOK</span>
             </label>
             <label class="radio-item">
-              <input type="radio" name="facePreference" value="no_face">
+              <input type="radio" name="facePreference" value="no_face" disabled>
               <span id="lbl_face_no">顔は映さないでほしい</span>
             </label>
           </div>
@@ -1887,7 +1887,20 @@ function drawSig(e, canvas) {
   ctx.stroke();
   _slx = p.x; _sly = p.y;
 }
-function onPhotoConsentChange() {}
+function onPhotoConsentChange() {
+  var val = document.querySelector('input[name="photoConsent"]:checked')?.value;
+  var sec = document.getElementById('facePreferenceSection');
+  var inputs = sec.querySelectorAll('input[name="facePreference"]');
+  if (val === 'yes') {
+    sec.style.opacity = '1';
+    sec.style.pointerEvents = 'auto';
+    inputs.forEach(function(r) { r.disabled = false; });
+  } else {
+    sec.style.opacity = '0.35';
+    sec.style.pointerEvents = 'none';
+    inputs.forEach(function(r) { r.disabled = true; r.checked = false; });
+  }
+}
 
 function clearSig() {
   const canvas = document.getElementById('sigCanvas');

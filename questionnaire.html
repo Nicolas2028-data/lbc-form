@@ -877,7 +877,7 @@
             </label>
           </div>
         </div>
-        <div id="facePreferenceSection" style="display:none; margin-top:12px">
+        <div id="facePreferenceSection" style="margin-top:12px">
           <div class="field-label" style="margin-bottom:8px"><span id="lbl_face_q">顔出しについて</span></div>
           <div class="radio-list">
             <label class="radio-item">
@@ -1887,10 +1887,7 @@ function drawSig(e, canvas) {
   ctx.stroke();
   _slx = p.x; _sly = p.y;
 }
-function onPhotoConsentChange() {
-  var val = document.querySelector('input[name="photoConsent"]:checked')?.value;
-  document.getElementById('facePreferenceSection').style.display = val === 'yes' ? 'block' : 'none';
-}
+function onPhotoConsentChange() {}
 
 function clearSig() {
   const canvas = document.getElementById('sigCanvas');

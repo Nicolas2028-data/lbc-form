@@ -801,8 +801,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   blocks.push(div());
   blocks.push(h2('🖼', '人体図・署名'));
   if (bodyImageUrl) {
-    var fid = bodyImageUrl.match(/\/d\/([^\/\?]+)/);
-    blocks.push(imgBlock(fid ? 'https://lh3.googleusercontent.com/d/' + fid[1] : bodyImageUrl));
+    blocks.push(imgBlock(bodyImageUrl));
   } else {
     blocks.push({ object: 'block', type: 'paragraph', paragraph: {
       rich_text: [rt('人体図: （記入なし）', false, 'gray')]
@@ -812,8 +811,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     rich_text: [rt('署名', true)]
   }});
   if (signatureUrl) {
-    var sid = signatureUrl.match(/\/d\/([^\/\?]+)/);
-    blocks.push(imgBlock(sid ? 'https://lh3.googleusercontent.com/d/' + sid[1] : signatureUrl));
+    blocks.push(imgBlock(signatureUrl));
   } else {
     blocks.push({ object: 'block', type: 'paragraph', paragraph: {
       rich_text: [rt('（未署名）', false, 'gray')]
@@ -960,7 +958,7 @@ function saveBodyImage(cfg, base64DataUrl, prefix) {
     blob.setName(fileName);
     const file = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID).createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return 'https://drive.google.com/file/d/' + file.getId() + '/view';
+    return 'https://drive.google.com/uc?export=view&id=' + file.getId();
   } catch (err) {
     Logger.log('saveBodyImage error: ' + err.message);
     return '';
@@ -1042,6 +1040,61 @@ function fmtDate(d) {
   return d.getFullYear() + '-'
     + String(d.getMonth() + 1).padStart(2, '0') + '-'
     + String(d.getDate()).padStart(2, '0');
+}
+
+/* ============================================================
+   テスト — 全データ書き込み確認（GASエディタから手動実行）
+   ============================================================ */
+
+function testSubmitAll() {
+  // 小さいPNG（1x1 透明）をBase64で生成
+  var tiny1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  var testData = {
+    action:            'submitAll',
+    visitType:         'first',
+    name:              'テスト太郎',
+    furigana:          'テストタロウ',
+    phone:             '090-1234-5678',
+    email:             '',
+    dob:               '1990-04-01',
+    lang:              'ja',
+    howFound:          'google',
+    courseId:          'total',
+    hasChanges:        'yes',
+    // 症状
+    mainSymptom:       'lower_back',
+    symptomDuration:   'over_month',
+    painLevel:         7,
+    // 安全確認
+    safetyCheck:       ['hospital'],
+    safetyNote:        '高血圧',
+    safetyDetail:      { hospital: '四日市市民病院' },
+    // 希望
+    treatmentGoal:     'pain_relief',
+    treatmentStrength: 'normal',
+    dislikedTreatment: ['joint_adjustment'],
+    // 撮影同意
+    photoConsent:      'yes',
+    facePreference:    'face_ok',
+    // 同意
+    consentAgreed:     true,
+    consentDate:       '2026-07-26',
+    // 画像（テスト用ダミー）
+    bodyImage:         tiny1x1,
+    signatureImage:    tiny1x1,
+  };
+
+  var result = handleSubmitAll(testData);
+  Logger.log('=== テスト結果 ===');
+  Logger.log(JSON.stringify(result, null, 2));
+  if (result._bodyDebug)  Logger.log('人体図: ' + result._bodyDebug);
+  if (result._sigDebug)   Logger.log('署名:   ' + result._sigDebug);
+  if (result.success) {
+    Logger.log('✅ 成功！ Notionのカルテ「テスト太郎」を確認してください');
+  } else {
+    Logger.log('❌ エラー: ' + result.error);
+  }
 }
 
 /* ============================================================

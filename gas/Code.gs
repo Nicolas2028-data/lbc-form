@@ -945,7 +945,7 @@ function sendBookingEmail(cfg, data, patientNum, includeQLink) {
 }
 
 /* ============================================================
-   Google Drive — 人体図・署名をPDFで保存
+   Google Drive — 人体図・署名を保存
    ============================================================ */
 
 function saveBodyImage(cfg, base64DataUrl, prefix) {
@@ -956,29 +956,15 @@ function saveBodyImage(cfg, base64DataUrl, prefix) {
       return '';
     }
     const mimeType = 'image/' + match[1];
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
     const bytes = Utilities.base64Decode(match[2]);
-    const fileName = 'body_' + prefix + '_' + new Date().getTime();
-
-    // 一時Google Docに画像を挿入してPDFへ変換
-    const tmpDoc = DocumentApp.create('_tmp_' + fileName);
-    const body = tmpDoc.getBody();
-    body.insertImage(0, Utilities.newBlob(bytes, mimeType, fileName));
-    tmpDoc.saveAndClose();
-
-    const tmpFile = DriveApp.getFileById(tmpDoc.getId());
-    const pdfBlob = tmpFile.getAs('application/pdf');
-    pdfBlob.setName(fileName + '.pdf');
-
-    // 指定フォルダにPDFを保存
+    const fileName = 'body_' + prefix + '_' + new Date().getTime() + '.' + ext;
+    const blob = Utilities.newBlob(bytes, mimeType, fileName);
     const folder = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
-    const pdfFile = folder.createFile(pdfBlob);
-    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // 一時Docを削除
-    tmpFile.setTrashed(true);
-
-    Logger.log('saveBodyImage: PDF saved, id=' + pdfFile.getId());
-    return 'https://drive.google.com/file/d/' + pdfFile.getId() + '/preview';
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    Logger.log('saveBodyImage: saved, id=' + file.getId() + ', name=' + fileName);
+    return 'https://drive.google.com/file/d/' + file.getId() + '/preview';
   } catch (err) {
     Logger.log('saveBodyImage error: ' + err.message + '\nstack: ' + err.stack);
     return '';

@@ -17,7 +17,7 @@
       --danger-light: #fdecea;
       --text: #1a1a1a;
       --text-sub: #444;
-      --text-muted: #888;
+      --text-muted: #aaa;
       --border: #e0e0e0;
       --border-focus: #2c7a5c;
       --bg: #f5f7f6;
@@ -52,7 +52,7 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.18);
     }
     .logo { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; }
-    .logo span { color: var(--accent); }
+    .logo span { color: #fff; }
     .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.75; display: block; letter-spacing: 0.5px; }
     .lang-select {
       background: rgba(255,255,255,0.15);
@@ -170,7 +170,7 @@
     input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     input[type="number"]::-webkit-outer-spin-button,
     input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
-    input::placeholder, textarea::placeholder { color: #bbb; }
+    input::placeholder, textarea::placeholder { color: #c5c5c5; }
     input:focus, textarea:focus, select.field-select:focus {
       outline: none;
       border-color: var(--border-focus);
@@ -539,6 +539,7 @@
     .toast.is-error { background: var(--danger); }
     .toast.is-success { background: var(--primary); }
   </style>
+  <script src="js/common.js"></script>
   <script src="i18n/i18n.js"></script>
 </head>
 <body>
@@ -984,17 +985,7 @@
 const CONFIG = {
   GAS_URL:   'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
   ENV_PARAM: new URLSearchParams(location.search).get('env') || '',
-  requestId: (() => {
-    let rid = localStorage.getItem('lbc_request_id');
-    if (!rid) {
-      rid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0;
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-      });
-      localStorage.setItem('lbc_request_id', rid);
-    }
-    return rid;
-  })(),
+  requestId: getOrCreateRequestId('lbc_request_id'),
 };
 
 /* I18N は i18n/i18n.js で定義 */
@@ -1140,6 +1131,7 @@ function applyTexts() {
    INIT
    ============================================================ */
 window.addEventListener('DOMContentLoaded', async () => {
+  await I18N_READY;
   buildDobSelects();
   const lang = new URLSearchParams(window.location.search).get('lang') || 'ja';
   setLang(lang); // also calls restoreFormState() at end
@@ -1305,7 +1297,7 @@ async function lookupPatient() {
 
   if (!phone) {
     showErr('e_phone', L('e_phone'), 'phone'); return;
-  } else if (!I18N[Q.lang].phonePattern.test(rawPhone.replace(/[-\s]/g, ''))) {
+  } else if (!PHONE_PATTERNS[Q.lang].test(rawPhone.replace(/[-\s]/g, ''))) {
     showErr('e_phone', L('e_phone'), 'phone'); return;
   } else {
     clearErr('e_phone', 'phone');
@@ -1331,17 +1323,8 @@ async function lookupPatient() {
     return;
   }
 
-  const lookupCtrl = new AbortController();
-  const lookupTid = setTimeout(() => lookupCtrl.abort(), 20000);
   try {
-    const res  = await fetch(CONFIG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'lookupPatient', phone, lang: Q.lang, env: CONFIG.ENV_PARAM }),
-      signal: lookupCtrl.signal,
-    });
-    clearTimeout(lookupTid);
-    const data = await res.json();
+    const data = await gasPost(CONFIG.GAS_URL, { action: 'lookupPatient', phone, lang: Q.lang, env: CONFIG.ENV_PARAM }, 20000);
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
     if (!data.success) {
@@ -1360,7 +1343,6 @@ async function lookupPatient() {
       showPhase2('first', null, null, '');
     }
   } catch {
-    clearTimeout(lookupTid);
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
     toast(L('err_lookup'), 'error');
@@ -1839,17 +1821,8 @@ async function submitQuestionnaire() {
     return;
   }
 
-  const submitCtrl = new AbortController();
-  const submitTid = setTimeout(() => submitCtrl.abort(), 60000);
   try {
-    const res  = await fetch(CONFIG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
-      signal: submitCtrl.signal,
-    });
-    clearTimeout(submitTid);
-    const data = await res.json();
+    const data = await gasPost(CONFIG.GAS_URL, payload, 60000);
     console.log('[LBC] GAS response:', JSON.stringify(data));
     if (data.success) {
       showSuccess();
@@ -1858,7 +1831,6 @@ async function submitQuestionnaire() {
       document.getElementById('submitBtn').disabled = false;
     }
   } catch {
-    clearTimeout(submitTid);
     toast(L('err_net'), 'error');
     document.getElementById('submitBtn').disabled = false;
   } finally {

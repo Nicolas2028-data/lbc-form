@@ -737,6 +737,7 @@ const S = {
 let allPatients = [];
 let _acMatches  = [];
 let _refMatches = [];
+let _authPw     = '';
 
 /* ── 初期化 ──────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function() {
@@ -764,10 +765,14 @@ async function verifyPassword() {
     const res  = await fetch(CONFIG.GAS_URL + '?action=verifyStaff&pw=' + encodeURIComponent(pw) + envQ());
     const data = await res.json();
     if (data.ok) {
+      _authPw = pw;
       sessionStorage.setItem('lbc_auth', '1');
       document.getElementById('passwordGate').style.display = 'none';
       document.getElementById('mainForm').style.display = 'block';
       loadPatients();
+    } else if (data.error === 'auth_locked') {
+      const min = Math.ceil((data.remainingSec || 900) / 60);
+      showErr('e_pw', 'ログイン試行回数が上限に達しました。' + min + '分後に再度お試しください。');
     } else {
       showErr('e_pw', 'パスワードが正しくありません');
       document.getElementById('pwInput').value = '';
@@ -799,7 +804,7 @@ async function loadPatients() {
   document.getElementById('searchArea').style.display      = 'none';
   document.getElementById('loadError').style.display       = 'none';
   try {
-    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientList' + envQ());
+    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientList', password: _authPw, env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'load failed');
     allPatients = data.patients || [];
@@ -836,7 +841,7 @@ async function selectPendingPatient(idx) {
   document.getElementById('nameSearch').value = p.name;
   S.creditBalance = p.creditBalance || 0;
   try {
-    var res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId) + envQ());
+    var res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, password: _authPw, env: CONFIG.ENV_PARAM }) });
     var data = await res.json();
     showPhase2(p.customerId, p.patientNum, p.name, data.success ? data : {});
   } catch {
@@ -885,7 +890,7 @@ async function selectPatient(idx) {
 
   // 詳細情報（通算回数・前回日付・期限切れクレジット）をロード
   try {
-    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId) + envQ());
+    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, password: _authPw, env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
     if (data.success) {
       showPhase2(p.customerId, p.patientNum, p.name, data);

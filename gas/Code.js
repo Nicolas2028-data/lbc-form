@@ -66,6 +66,16 @@ function doPost(e) {
     if (action === 'submitQuestionnaire')   return jsonRes(handleSubmitQuestionnaire(data, cfg));
     if (action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data, cfg));
     if (action === 'submitBooking')         return jsonRes(handleSubmitBooking(data, cfg));
+    if (action === 'getPatientList') {
+      var authLP = verifyStaffPassword(data.password, cfg);
+      if (!authLP.ok) return jsonRes({ success: false, error: authLP.error, remainingSec: authLP.remainingSec });
+      return jsonRes(handleGetPatientList(cfg));
+    }
+    if (action === 'getPatientDetails') {
+      var authDP = verifyStaffPassword(data.password, cfg);
+      if (!authDP.ok) return jsonRes({ success: false, error: authDP.error, remainingSec: authDP.remainingSec });
+      return jsonRes(handleGetPatientDetails(data.customerId, cfg));
+    }
     return jsonRes({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     Logger.log('doPost error [' + action + ']: ' + err.message + '\n' + err.stack);
@@ -81,9 +91,21 @@ function doGet(e) {
 
     if (p.action === 'getSlots')          return jsonRes(getMonthSlots(p.month, cfg));
     if (p.action === 'verifyStaff')       return jsonRes(handleVerifyStaff(p, cfg));
+    if (p.action === 'devResetAuthLock' && cfg._env === 'staging') {
+      PropertiesService.getScriptProperties().deleteProperty('bf_staff_staging');
+      return jsonRes({ cleared: true });
+    }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
-    if (p.action === 'getPatientList')    return jsonRes(handleGetPatientList(cfg));
-    if (p.action === 'getPatientDetails') return jsonRes(handleGetPatientDetails(p.customerId, cfg));
+    if (p.action === 'getPatientList') {
+      var authL = verifyStaffPassword(p.pw, cfg);
+      if (!authL.ok) return jsonRes({ success: false, error: authL.error, remainingSec: authL.remainingSec });
+      return jsonRes(handleGetPatientList(cfg));
+    }
+    if (p.action === 'getPatientDetails') {
+      var authD = verifyStaffPassword(p.pw, cfg);
+      if (!authD.ok) return jsonRes({ success: false, error: authD.error, remainingSec: authD.remainingSec });
+      return jsonRes(handleGetPatientDetails(p.customerId, cfg));
+    }
 
     // レガシー JSONP（index.html カレンダーのグレーアウト用。凍結）
     if (p.date && p.callback) {
@@ -486,11 +508,77 @@ function handleSubmitQuestionnaire(data, cfg) {
 }
 
 /* ============================================================
+   スタッフ認証：ブルートフォース保護
+   ============================================================ */
+
+var AUTH_MAX_ATTEMPTS = 5;
+var AUTH_WINDOW_MS   = 15 * 60 * 1000;
+var AUTH_LOCKOUT_MS  = 15 * 60 * 1000;
+
+function bfKey(cfg) {
+  return 'bf_staff_' + (cfg._env || 'production');
+}
+
+function checkBruteForce(cfg) {
+  var props = PropertiesService.getScriptProperties();
+  var raw   = props.getProperty(bfKey(cfg));
+  if (!raw) return { allowed: true };
+  var s   = JSON.parse(raw);
+  var now = Date.now();
+  if (s.lockedUntil && s.lockedUntil > now) {
+    return { allowed: false, remainingSec: Math.ceil((s.lockedUntil - now) / 1000) };
+  }
+  if (now - (s.windowStart || 0) > AUTH_WINDOW_MS) {
+    props.deleteProperty(bfKey(cfg));
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+
+function recordAuthFail(cfg) {
+  var props = PropertiesService.getScriptProperties();
+  var key   = bfKey(cfg);
+  var raw   = props.getProperty(key);
+  var now   = Date.now();
+  var s     = raw ? JSON.parse(raw) : { attempts: 0, windowStart: now };
+  if (now - s.windowStart > AUTH_WINDOW_MS) s = { attempts: 0, windowStart: now };
+  s.attempts++;
+  if (s.attempts >= AUTH_MAX_ATTEMPTS) {
+    s.lockedUntil = now + AUTH_LOCKOUT_MS;
+    s.attempts    = 0;
+    s.windowStart = now + AUTH_LOCKOUT_MS;
+  }
+  props.setProperty(key, JSON.stringify(s));
+}
+
+function recordAuthSuccess(cfg) {
+  PropertiesService.getScriptProperties().deleteProperty(bfKey(cfg));
+}
+
+function verifyStaffPassword(password, cfg) {
+  var bf = checkBruteForce(cfg);
+  if (!bf.allowed) return { ok: false, error: 'auth_locked', remainingSec: bf.remainingSec };
+  if (!password || !cfg.STAFF_PASSWORD || password !== cfg.STAFF_PASSWORD) {
+    recordAuthFail(cfg);
+    return { ok: false, error: 'auth_fail' };
+  }
+  recordAuthSuccess(cfg);
+  return { ok: true };
+}
+
+/* ============================================================
    ハンドラ: スタッフ認証
    ============================================================ */
 
 function handleVerifyStaff(p, cfg) {
-  return { ok: p.pw === cfg.STAFF_PASSWORD };
+  var result = verifyStaffPassword(p.pw, cfg);
+  if (!result.ok) {
+    try {
+      var ss = getLedger(cfg);
+      logAccess(ss, 'verifyStaff', p.requestId, result.error, '', 0, '');
+    } catch(e) {}
+  }
+  return result;
 }
 
 /* ============================================================
@@ -595,9 +683,14 @@ function handleSubmitTreatmentRecord(data, cfg) {
   cfg = cfg || getConfig();
   var t0 = Date.now();
 
-  // スタッフ認可
-  if (data.password !== cfg.STAFF_PASSWORD) {
-    return { success: false, error: 'auth_fail' };
+  // スタッフ認可（ブルートフォース保護）
+  var authResult = verifyStaffPassword(data.password, cfg);
+  if (!authResult.ok) {
+    try {
+      var ss0 = getLedger(cfg);
+      logAccess(ss0, 'submitTreatmentRecord', data.requestId, authResult.error, '', 0, '');
+    } catch(e) {}
+    return { success: false, error: authResult.error, remainingSec: authResult.remainingSec };
   }
 
   var ss         = getLedger(cfg);
@@ -1390,7 +1483,11 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
 
   blocks.push(h2('🤕', '本日のお悩み'));
   blocks.push(bul('主症状', mainSymLabel));
-  if (data.symptomDuration) blocks.push(bul('症状の期間', VALUE_LABEL[data.symptomDuration] || data.symptomDuration));
+  if (data.symptomDuration) {
+    var durKey = String(data.symptomDuration);
+    var durLabel = VALUE_LABEL[durKey] || (durKey.indexOf('other:') === 0 ? durKey.slice(6).trim() : durKey);
+    blocks.push(bul('症状の期間', durLabel));
+  }
   blocks.push(bul('痛みレベル', painStr));
   blocks.push(div());
 
@@ -1563,6 +1660,10 @@ var VALUE_LABEL = {
   posture_goal: '姿勢を整えたい', maintenance: '身体のメンテナンス',
   light: '弱め', normal: '普通', strong: '強め',
   strong_pressure: '強い圧', joint_adjustment: '関節調整（ボキボキ）',
+  // 旧フォームキー互換エイリアス
+  back_pain: '腰痛', shoulder: '肩こり', neck: '首こり',
+  week: '1週間以内', month: '1ヶ月以内', '1_3_months': '1〜3ヶ月',
+  medium: '普通',
 };
 
 /* ============================================================
@@ -1884,6 +1985,14 @@ function debugSyncOneCustomer() {
   });
   Logger.log('status: ' + res.getResponseCode());
   Logger.log('response: ' + res.getContentText().slice(0, 800));
+}
+
+// ブルートフォースロック解除（GASエディタから手動実行用）
+function clearAuthLock() {
+  var props = PropertiesService.getScriptProperties();
+  props.deleteProperty('bf_staff_staging');
+  props.deleteProperty('bf_staff_production');
+  Logger.log('✅ bf_staff クリア完了');
 }
 
 // Notion API疎通確認 + シート状態確認

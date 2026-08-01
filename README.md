@@ -8,9 +8,32 @@
 index.html            予約フォーム（凍結中。変更禁止）
 questionnaire.html    問診票（ja/es/pt）
 treatment-record.html 施術記録シート（日本語のみ）
+i18n/
+  i18n.js             問診票の翻訳文字列（ja/es/pt）
 gas/
   Code.js             GAS バックエンド（clasp で管理）
   appsscript.json     GAS マニフェスト
+docs/
+  manual-lucas.md     ルカス向け運用マニュアル
+```
+
+## アーキテクチャ
+
+```
+[GitHub Pages (questionnaire.html / treatment-record.html)]
+        │ fetch POST/GET
+        ▼
+[GAS Webアプリ (doPost/doGet)]
+  - スタッフ認証（brute-force 保護付き）
+  - バリデーション・採番
+  - Google スプレッドシート台帳に追記して即応答
+  - 予約確認メール送信（予約フォームのみ）
+        ▼
+[Google スプレッドシート = 原本 (Source of Truth)]
+  - 顧客マスタ / 施術台帳 / 問診台帳 / クレジット台帳 / アクセスログ
+        ↓ 1分毎の時間トリガー (syncToNotion)
+[Notion ダッシュボード = 表示専用]
+  - 顧客マスタ DB / 施術カルテ DB
 ```
 
 公開URL: https://nicolas2028-data.github.io/lbc-form
@@ -77,3 +100,32 @@ gas/
 1. 顧客マスタで旧行の `ステータス` を `archived` に変更
 2. 施術台帳・問診台帳・クレジット台帳の旧 `診察番号` を新しい番号に統一（赤伝方式は不要、直接書き換え可）
 3. Notion は次の同期サイクルで自動更新される
+
+## 本番環境切替（初回セットアップ）
+
+ステージング検証完了後、GAS エディタから以下の手順を実施する。
+
+### 手順
+
+1. **本番 Notion DB を準備**
+   - ステージング DB をコピーして本番用 DB を作成（または既存 DB を使用）
+   - インテグレーションに接続する
+
+2. **GAS スクリプトプロパティを設定**（GAS エディタ → プロジェクトの設定 → スクリプトのプロパティ）
+   - `CUSTOMER_DB_ID` — 本番 顧客マスタ DB ID
+   - `KARTE_DB_ID` — 本番 施術カルテ DB ID
+   - `STAFF_PASSWORD` — ルカスのパスワード（4文字以上）
+
+3. **GAS エディタから `setupProduction()` を実行**
+   - 本番台帳スプレッドシートが自動作成される
+   - `LEDGER_SPREADSHEET_ID` と `ENV=production` が自動設定される
+   - トリガー（1分同期・日次サマリ）が再設定される
+
+4. **本番疎通確認**
+   - 問診票でテスト送信 → Notion に反映されることを確認
+   - 施術記録シートにログイン → 記録送信 → スプレッドシートに追記されることを確認
+   - 翌朝の日次サマリメールを確認
+
+### 緊急時のロールバック
+
+本番で問題が発生した場合は、GAS エディタでスクリプトプロパティの `ENV` を `staging` に戻す（即時反映）。

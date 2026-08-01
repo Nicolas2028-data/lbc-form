@@ -198,6 +198,8 @@ function getConfig(env) {
 function resolveEnv(requested) {
   if (requested !== 'staging') return null;
   var props = PropertiesService.getScriptProperties().getProperties();
+  // 本番モードのときは env=staging パラメータを無視する
+  if ((props.ENV || 'production') === 'production') return null;
   return props.STAGING_CUSTOMER_DB_ID ? 'staging' : null;
 }
 

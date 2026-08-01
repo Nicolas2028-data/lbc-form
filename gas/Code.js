@@ -95,6 +95,10 @@ function doGet(e) {
       PropertiesService.getScriptProperties().deleteProperty('bf_staff_staging');
       return jsonRes({ cleared: true });
     }
+    if (p.action === 'devFixPhones' && cfg._env === 'staging') {
+      fixExistingPhones();
+      return jsonRes({ done: true });
+    }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
     if (p.action === 'getPatientList') {
       var authL = verifyStaffPassword(p.pw, cfg);
@@ -1864,6 +1868,29 @@ function reformatSheets() {
   var ss  = getLedger(cfg);
   applySheetHeaders(ss);
   Logger.log('✅ シートヘッダー更新完了');
+}
+
+// 顧客マスタの電話番号先頭0を一括補完して再同期対象にする（一回だけ手動実行）
+function fixExistingPhones() {
+  var cfg   = getConfig();
+  var ss    = getLedger(cfg);
+  var sheet = ss.getSheetByName('顧客マスタ');
+  if (sheet.getLastRow() < 2) { Logger.log('データなし'); return; }
+  var rows  = sheet.getRange(2, 1, sheet.getLastRow() - 1, 15).getValues();
+  var fixed = 0;
+  rows.forEach(function(r, i) {
+    var phone = String(r[CM.phone] || '');
+    var norm  = normalizePhone(phone);
+    if (norm && norm !== phone) {
+      var row = i + 2;
+      sheet.getRange(row, CM.phone + 1).setValue(norm);
+      sheet.getRange(row, CM.synced_at + 1).setValue(''); // 再同期
+      Logger.log('row ' + row + ': ' + phone + ' → ' + norm);
+      fixed++;
+    }
+  });
+  if (fixed > 0) incSyncCounter(ss, fixed);
+  Logger.log('✅ fixExistingPhones 完了: ' + fixed + '件修正');
 }
 
 // ステージング用 Drive フォルダを作成して DRIVE_FOLDER_ID を設定

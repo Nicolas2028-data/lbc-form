@@ -120,6 +120,13 @@ function doGet(e) {
       PropertiesService.getScriptProperties().setProperty('STAFF_PASSWORD', newPw);
       return jsonRes({ ok: true });
     }
+    if (p.action === 'devSetProductionDbIds' && cfg._env === 'staging') {
+      var cId = String(p.customerDbId || '');
+      var kId = String(p.karteDbId || '');
+      if (!cId || !kId) return jsonRes({ ok: false, error: 'customerDbId and karteDbId required' });
+      PropertiesService.getScriptProperties().setProperties({ CUSTOMER_DB_ID: cId, KARTE_DB_ID: kId });
+      return jsonRes({ ok: true, customerDbId: cId, karteDbId: kId });
+    }
     if (p.action === 'devCheckConfig' && cfg._env === 'staging') {
       var allProps = PropertiesService.getScriptProperties().getProperties();
       return jsonRes({
@@ -1992,7 +1999,8 @@ function setupProduction() {
 
   installTriggers();
   Logger.log('✅ 本番環境セットアップ完了！ ID: ' + ssId);
-  Logger.log('次のステップ: Notion 顧客マスタ・カルテDB の CUSTOMER_DB_ID / KARTE_DB_ID を設定してください。');
+  Logger.log('台帳URL: ' + ss.getUrl());
+  Logger.log('次のステップ: 問診票・施術記録シートで本番疎通確認を行ってください。');
 }
 
 /* ============================================================

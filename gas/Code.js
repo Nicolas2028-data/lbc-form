@@ -1992,15 +1992,56 @@ function setupProduction() {
   applySheetHeaders(ss);
   ss.getSheetByName('_sync').getRange('A1').setValue(0);
 
-  props.setProperties({
-    'ENV':                  'production',
-    'LEDGER_SPREADSHEET_ID': ssId,
-  }, true);
+  props.setProperty('ENV', 'production');
+  props.setProperty('LEDGER_SPREADSHEET_ID', ssId);
 
   installTriggers();
   Logger.log('✅ 本番環境セットアップ完了！ ID: ' + ssId);
   Logger.log('台帳URL: ' + ss.getUrl());
   Logger.log('次のステップ: 問診票・施術記録シートで本番疎通確認を行ってください。');
+}
+
+/* ============================================================
+   本番プロパティ復元（setupProduction後にプロパティが消えた場合）
+   GASエディタから手動実行する。NOTION_TOKEN と STAFF_PASSWORD は
+   別途スクリプトプロパティ画面で手動入力すること。
+   ============================================================ */
+function recoverProductionProperties() {
+  var props = PropertiesService.getScriptProperties();
+  var current = props.getProperties();
+
+  // 既存値を保持したまま、消えた値だけ補完する
+  var toSet = {};
+
+  if (!current.CUSTOMER_DB_ID)
+    toSet.CUSTOMER_DB_ID = 'bafca368-66c7-4bb7-8129-65c2e966cd51';
+  if (!current.KARTE_DB_ID)
+    toSet.KARTE_DB_ID = '1fe16e73-6413-44d5-ba61-a56cd235b7b5';
+  if (!current.STAGING_CUSTOMER_DB_ID)
+    toSet.STAGING_CUSTOMER_DB_ID = '3af88446-d062-812c-998a-ef68015d5ea5';
+  if (!current.SITE_URL)
+    toSet.SITE_URL = 'https://nicolas2028-data.github.io/lbc-form';
+  if (!current.NOTIFY_EMAIL)
+    toSet.NOTIFY_EMAIL = 'v.nico2003@gmail.com';
+
+  if (Object.keys(toSet).length > 0) {
+    props.setProperties(toSet);
+    Logger.log('✅ 復元完了: ' + JSON.stringify(Object.keys(toSet)));
+  } else {
+    Logger.log('ℹ️ 復元不要: 全プロパティが既に存在します');
+  }
+
+  Logger.log('--- 現在の設定状態 ---');
+  var c = props.getProperties();
+  Logger.log('ENV: '                    + (c.ENV || '(未設定)'));
+  Logger.log('LEDGER_SPREADSHEET_ID: ' + (c.LEDGER_SPREADSHEET_ID || '(未設定)'));
+  Logger.log('CUSTOMER_DB_ID: '        + (c.CUSTOMER_DB_ID || '(未設定)'));
+  Logger.log('KARTE_DB_ID: '           + (c.KARTE_DB_ID || '(未設定)'));
+  Logger.log('NOTION_TOKEN: '          + (c.NOTION_TOKEN ? '✅ 設定済み' : '❌ 要手動入力'));
+  Logger.log('STAFF_PASSWORD: '        + (c.STAFF_PASSWORD ? '✅ 設定済み' : '❌ 要手動入力'));
+  Logger.log('NOTIFY_EMAIL: '          + (c.NOTIFY_EMAIL || '(未設定)'));
+  Logger.log('DRIVE_FOLDER_ID: '       + (c.DRIVE_FOLDER_ID ? '✅ 設定済み' : '⚠️ 未設定（人体図機能に必要）'));
+  Logger.log('STAGING_CUSTOMER_DB_ID: '+ (c.STAGING_CUSTOMER_DB_ID || '(未設定)'));
 }
 
 /* ============================================================

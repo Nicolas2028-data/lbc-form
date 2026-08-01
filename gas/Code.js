@@ -338,10 +338,10 @@ function handleLookupPatient(data, cfg) {
 
   // 複数ヒット（家族共用番号等）→ 候補リストを返す
   return {
-    success:    true,
-    found:      true,
-    multiple:   true,
-    candidates: matches.map(function(m) {
+    success:  true,
+    found:    true,
+    multiple: true,
+    matches:  matches.map(function(m) {
       return {
         customerId: String(m.row[CM.customer_id]),
         patientNum: String(m.row[CM.customer_id]),

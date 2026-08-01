@@ -703,8 +703,10 @@
 
 <script>
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
+  GAS_URL:   'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
+  ENV_PARAM: new URLSearchParams(location.search).get('env') || '',
 };
+const envQ = () => CONFIG.ENV_PARAM ? '&env=' + CONFIG.ENV_PARAM : '';
 
 /* ── コース設定 ────────────────────────────────── */
 const COURSES = [
@@ -759,7 +761,7 @@ async function verifyPassword() {
   document.getElementById('pwLoading').style.display = 'flex';
   document.querySelector('#passwordGate .btn-submit').disabled = true;
   try {
-    const res  = await fetch(CONFIG.GAS_URL + '?action=verifyStaff&pw=' + encodeURIComponent(pw));
+    const res  = await fetch(CONFIG.GAS_URL + '?action=verifyStaff&pw=' + encodeURIComponent(pw) + envQ());
     const data = await res.json();
     if (data.ok) {
       sessionStorage.setItem('lbc_auth', '1');
@@ -797,7 +799,7 @@ async function loadPatients() {
   document.getElementById('searchArea').style.display      = 'none';
   document.getElementById('loadError').style.display       = 'none';
   try {
-    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientList');
+    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientList' + envQ());
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'load failed');
     allPatients = data.patients || [];
@@ -834,7 +836,7 @@ async function selectPendingPatient(idx) {
   document.getElementById('nameSearch').value = p.name;
   S.creditBalance = p.creditBalance || 0;
   try {
-    var res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId));
+    var res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId) + envQ());
     var data = await res.json();
     showPhase2(p.customerId, p.patientNum, p.name, data.success ? data : {});
   } catch {
@@ -883,7 +885,7 @@ async function selectPatient(idx) {
 
   // 詳細情報（通算回数・前回日付・期限切れクレジット）をロード
   try {
-    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId));
+    const res  = await fetch(CONFIG.GAS_URL + '?action=getPatientDetails&customerId=' + encodeURIComponent(p.customerId) + envQ());
     const data = await res.json();
     if (data.success) {
       showPhase2(p.customerId, p.patientNum, p.name, data);
@@ -1172,6 +1174,7 @@ async function submitRecord() {
       referrerName:    S.referrerName    || null,
       referralDiscount: S.referralApplied,
       creditUsed:      S.creditUsed,
+      env:             CONFIG.ENV_PARAM,
     };
     const res  = await fetch(CONFIG.GAS_URL, {
       method:  'POST',

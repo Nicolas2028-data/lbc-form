@@ -1,13 +1,19 @@
 /* ============================================================
    LBC Care — Google Apps Script バックエンド
    ============================================================
-   【スクリプトプロパティに設定が必要な値】
-   NOTION_TOKEN    : Notion API トークン（ntn_...）
-   CUSTOMER_DB_ID  : 顧客マスタ DB → bafca368-66c7-4bb7-8129-65c2e966cd51
-   KARTE_DB_ID     : 施術カルテ DB → 1fe16e73-6413-44d5-ba61-a56cd235b7b5
-   DRIVE_FOLDER_ID : 人体図画像保存先 Google Drive フォルダ ID → 1wbZ-dYw7doDdPk0mYHR-jLfJJL3JCgNk
-   STAFF_PASSWORD  : スタッフモードのパスワード
-   SITE_URL        : フォームの公開URL → https://nicolas2028-data.github.io/lbc-form
+   【スクリプトプロパティ】
+   NOTION_TOKEN              : Notion API トークン
+   CUSTOMER_DB_ID            : 本番 顧客マスタ DB ID
+   KARTE_DB_ID               : 本番 施術カルテ DB ID
+   LEDGER_SPREADSHEET_ID     : 本番 台帳スプレッドシート ID
+   DRIVE_FOLDER_ID           : 人体図保存 Drive フォルダ ID
+   STAFF_PASSWORD            : スタッフ認証パスワード
+   SITE_URL                  : フォーム公開URL
+   NOTIFY_EMAIL              : エラー通知先メール
+   ENV                       : production / staging
+   STAGING_CUSTOMER_DB_ID    : ステージング 顧客マスタ DB ID
+   STAGING_KARTE_DB_ID       : ステージング 施術カルテ DB ID
+   STAGING_LEDGER_SPREADSHEET_ID : ステージング 台帳ID
    ============================================================ */
 
 const NOTION_API = 'https://api.notion.com/v1';
@@ -18,11 +24,12 @@ const NOTION_VER = '2022-06-28';
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    if (data.action === 'lookupPatient')       return jsonRes(handleLookupPatient(data));
-    if (data.action === 'submitBooking')       return jsonRes(handleSubmitBooking(data));
-    if (data.action === 'submitAll')           return jsonRes(handleSubmitAll(data));
-    if (data.action === 'submitQuestionnaire')    return jsonRes(handleSubmitQuestionnaire(data));
-    if (data.action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data));
+    const cfg  = getConfig(resolveEnv(data.env));
+    if (data.action === 'lookupPatient')          return jsonRes(handleLookupPatient(data, cfg));
+    if (data.action === 'submitBooking')          return jsonRes(handleSubmitBooking(data, cfg));
+    if (data.action === 'submitAll')              return jsonRes(handleSubmitAll(data, cfg));
+    if (data.action === 'submitQuestionnaire')    return jsonRes(handleSubmitQuestionnaire(data, cfg));
+    if (data.action === 'submitTreatmentRecord')  return jsonRes(handleSubmitTreatmentRecord(data, cfg));
     return jsonRes({ success: false, error: 'Unknown action: ' + data.action });
   } catch (err) {
     Logger.log('doPost error: ' + err.message);
@@ -33,7 +40,7 @@ function doPost(e) {
 function doGet(e) {
   try {
     const p   = e.parameter;
-    const cfg = getConfig();
+    const cfg = getConfig(resolveEnv(p.env));
 
     if (p.action === 'getSlots') {
       return jsonRes(getMonthSlots(p.month, cfg));
@@ -70,8 +77,8 @@ function doGet(e) {
 
 /* ── 患者照合 ── */
 
-function handleLookupPatient(data) {
-  const cfg = getConfig();
+function handleLookupPatient(data, cfg) {
+  cfg = cfg || getConfig();
   const name  = (data.name  || '').replace(/[\s　]/g, '');
   const phone = (data.phone || '').replace(/[\s\-\(\)\.]/g, '');
   if (!name || !phone) return { success: true, found: false };
@@ -102,6 +109,7 @@ function findCustomerByNamePhone(cfg, normName, normPhone) {
 }
 
 function handleGetPatientList(cfg) {
+  cfg = cfg || getConfig();
   var res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, {
     sorts: [{ property: '名前', direction: 'ascending' }],
     page_size: 100,
@@ -220,8 +228,8 @@ function handleGetPatientDetails(customerId, cfg) {
 
 /* ── 予約送信 ── */
 
-function handleSubmitBooking(data) {
-  const cfg = getConfig();
+function handleSubmitBooking(data, cfg) {
+  cfg = cfg || getConfig();
 
   // 顧客マスタ検索 or 新規作成
   let customer   = data.email ? findCustomerByEmail(cfg, data.email) : null;
@@ -251,8 +259,8 @@ function handleSubmitBooking(data) {
 
 /* ── 問診票送信（スタンドアロン・メインエントリ） ── */
 
-function handleSubmitAll(data) {
-  const cfg = getConfig();
+function handleSubmitAll(data, cfg) {
+  cfg = cfg || getConfig();
   let customerId = data.customerId || '';
   let patientNum = data.patientNum || '';
 
@@ -334,8 +342,8 @@ function handleSubmitAll(data) {
 
 /* ── 問診票送信 ── */
 
-function handleSubmitQuestionnaire(data) {
-  const cfg = getConfig();
+function handleSubmitQuestionnaire(data, cfg) {
+  cfg = cfg || getConfig();
 
   // 顧客を特定（メール → 診察番号の順で検索）
   let customer = null;
@@ -518,8 +526,8 @@ function findTodayKarte(cfg, customerId) {
 
 /* ── 施術記録シート ── */
 
-function handleSubmitTreatmentRecord(data) {
-  var cfg = getConfig();
+function handleSubmitTreatmentRecord(data, cfg) {
+  cfg = cfg || getConfig();
 
   var karte = findTodayKarte(cfg, data.customerId);
   if (!karte) {
@@ -1017,8 +1025,24 @@ function notionPatch(cfg, path, body) {
    ユーティリティ
    ============================================================ */
 
-function getConfig() {
-  return PropertiesService.getScriptProperties().getProperties();
+function getConfig(env) {
+  const props = PropertiesService.getScriptProperties().getProperties();
+  const e = env || props.ENV || 'production';
+  if (e === 'staging' && props.STAGING_CUSTOMER_DB_ID) {
+    return Object.assign({}, props, {
+      CUSTOMER_DB_ID:        props.STAGING_CUSTOMER_DB_ID,
+      KARTE_DB_ID:           props.STAGING_KARTE_DB_ID,
+      LEDGER_SPREADSHEET_ID: props.STAGING_LEDGER_SPREADSHEET_ID || '',
+      _env: 'staging',
+    });
+  }
+  return Object.assign({}, props, { _env: 'production' });
+}
+
+function resolveEnv(requested) {
+  if (requested !== 'staging') return null;
+  const props = PropertiesService.getScriptProperties().getProperties();
+  return props.STAGING_CUSTOMER_DB_ID ? 'staging' : null;
 }
 
 function jsonRes(obj) {
@@ -1135,4 +1159,88 @@ function addNotionFields() {
   Logger.log('カルテDB: ' + karteRes.getResponseCode() + ' ' + karteRes.getContentText().substring(0, 200));
 
   Logger.log('完了！ログを確認してください。');
+}
+
+/* ============================================================
+   Step 0.5 セットアップ — ステージング環境を一括構築（一度だけ実行）
+   ============================================================ */
+
+function setupStaging() {
+  var props = PropertiesService.getScriptProperties();
+
+  // ── 1. 台帳スプレッドシート作成 ──
+  var ss = SpreadsheetApp.create('LBC台帳 [STAGING]');
+  var ssId = ss.getId();
+  Logger.log('台帳スプレッドシートID: ' + ssId);
+  Logger.log('台帳URL: ' + ss.getUrl());
+
+  // デフォルトシートをリネーム
+  ss.getSheets()[0].setName('顧客マスタ');
+
+  // 追加タブ
+  ss.insertSheet('施術台帳');
+  ss.insertSheet('問診台帳');
+  ss.insertSheet('クレジット台帳');
+  ss.insertSheet('アクセスログ');
+  ss.insertSheet('_sync');
+
+  // ── 2. ヘッダー設定 ──
+  ss.getSheetByName('顧客マスタ').getRange(1, 1, 1, 15).setValues([[
+    'customer_id', '名前', 'フリガナ', '電話番号', 'email',
+    '生年月日', '初回訪問日', '言語', '来院のきっかけ', '住所',
+    'ステータス', 'notion_page_id', 'created_at', 'updated_at', 'synced_at'
+  ]]);
+
+  ss.getSheetByName('施術台帳').getRange(1, 1, 1, 18).setValues([[
+    'entry_id', '種別', 'target_entry_id', '施術日', 'customer_id',
+    'コース', '売上金額', '支払い方法', '施術メモ', '問診票提出',
+    'クレジット使用額', '紹介者customer_id', '集計対象', 'notion_page_id',
+    'created_at', 'updated_at', 'synced_at', 'sync_error_count'
+  ]]);
+
+  ss.getSheetByName('問診台帳').getRange(1, 1, 1, 23).setValues([[
+    'entry_id', '施術日', 'customer_id', 'visit_type', 'has_changes',
+    '主症状', '症状期間', '痛みレベル', '安全確認', '安全確認メモ',
+    '施術目的', '強さ希望', '苦手な施術', '撮影同意', '顔出し希望',
+    '同意済み', '同意日時', '人体図URL', '署名URL', 'notion_karte_page_id',
+    'created_at', 'synced_at', 'sync_error_count'
+  ]]);
+
+  ss.getSheetByName('クレジット台帳').getRange(1, 1, 1, 10).setValues([[
+    'entry_id', '日付', 'customer_id', '種別', '金額',
+    '有効期限', '関連entry_id', 'created_at', 'synced_at', 'sync_error_count'
+  ]]);
+
+  ss.getSheetByName('アクセスログ').getRange(1, 1, 1, 7).setValues([[
+    'timestamp', 'action', 'request_id', '結果', 'エラー概要', '処理時間ms', 'customer_id_hint'
+  ]]);
+
+  // _sync カウンタ初期化
+  ss.getSheetByName('_sync').getRange('A1').setValue(0);
+  ss.getSheetByName('_sync').getRange('A1').setNote('未同期件数カウンタ。直接編集禁止。');
+
+  // ── 3. ヘッダー行を固定・太字 ──
+  ['顧客マスタ', '施術台帳', '問診台帳', 'クレジット台帳', 'アクセスログ'].forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#e8f0fe');
+  });
+
+  // ── 4. スクリプトプロパティ設定 ──
+  props.setProperties({
+    'ENV':                           'staging',
+    'NOTIFY_EMAIL':                  'kakimorilucas@gmail.com',
+    'STAGING_CUSTOMER_DB_ID':        '3af88446-d062-812c-998a-ef68015d5ea5',
+    'STAGING_KARTE_DB_ID':           '3af88446-d062-81e9-80bc-cbd8d9bc39b9',
+    'STAGING_LEDGER_SPREADSHEET_ID': ssId,
+  }, true); // merge=true で既存プロパティ（NOTION_TOKEN等）を保持
+
+  Logger.log('');
+  Logger.log('✅ ステージング環境セットアップ完了！');
+  Logger.log('台帳スプレッドシートID: ' + ssId);
+  Logger.log('ENV: ' + props.getProperty('ENV'));
+  Logger.log('STAGING_CUSTOMER_DB_ID: ' + props.getProperty('STAGING_CUSTOMER_DB_ID'));
+  Logger.log('STAGING_KARTE_DB_ID: ' + props.getProperty('STAGING_KARTE_DB_ID'));
+  Logger.log('');
+  Logger.log('次のステップ: GASエディタで「プロジェクト設定 → スクリプトプロパティ」を開き、設定値を確認してください。');
 }

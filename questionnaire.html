@@ -968,7 +968,8 @@
    CONFIG
    ============================================================ */
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
+  GAS_URL:   'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec',
+  ENV_PARAM: new URLSearchParams(location.search).get('env') || '',
 };
 
 /* ============================================================
@@ -1617,7 +1618,7 @@ async function lookupPatient() {
     const res  = await fetch(CONFIG.GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'lookupPatient', name, phone, lang: Q.lang }),
+      body: JSON.stringify({ action: 'lookupPatient', name, phone, lang: Q.lang, env: CONFIG.ENV_PARAM }),
       signal: lookupCtrl.signal,
     });
     clearTimeout(lookupTid);
@@ -2066,6 +2067,7 @@ async function submitQuestionnaire() {
     consentDate:    today,
     photoConsent:   document.querySelector('input[name="photoConsent"]:checked')?.value || '',
     facePreference: document.querySelector('input[name="facePreference"]:checked')?.value || '',
+    env:            CONFIG.ENV_PARAM,
   };
 
   if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {

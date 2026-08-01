@@ -816,6 +816,8 @@ async function verifyPassword() {
     } else if (data.error === 'auth_locked') {
       const min = Math.ceil((data.remainingSec || 900) / 60);
       showErr('e_pw', 'ログイン試行回数が上限に達しました。' + min + '分後に再度お試しください。');
+    } else if (data.error === 'config_error') {
+      showErr('e_pw', '【管理者へ】GASスクリプトプロパティにSTAFF_PASSWORDが設定されていません。');
     } else {
       showErr('e_pw', 'パスワードが正しくありません');
       document.getElementById('pwInput').value = '';

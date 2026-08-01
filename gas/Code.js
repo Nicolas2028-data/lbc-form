@@ -114,6 +114,33 @@ function doGet(e) {
       installTriggers();
       return jsonRes({ done: true });
     }
+    if (p.action === 'devSetStagingPw' && cfg._env === 'staging') {
+      var newPw = String(p.pw || '');
+      if (newPw.length < 4) return jsonRes({ ok: false, error: 'pw too short' });
+      PropertiesService.getScriptProperties().setProperty('STAFF_PASSWORD', newPw);
+      return jsonRes({ ok: true });
+    }
+    if (p.action === 'devCheckConfig' && cfg._env === 'staging') {
+      var allProps = PropertiesService.getScriptProperties().getProperties();
+      return jsonRes({
+        env:               allProps.ENV || '(unset)',
+        hasToken:          !!allProps.NOTION_TOKEN,
+        hasStaffPassword:  !!allProps.STAFF_PASSWORD,
+        hasNotifyEmail:    !!allProps.NOTIFY_EMAIL,
+        production: {
+          hasCustomerDb:   !!allProps.CUSTOMER_DB_ID,
+          hasKarteDb:      !!allProps.KARTE_DB_ID,
+          hasLedger:       !!allProps.LEDGER_SPREADSHEET_ID,
+          customerDb:      allProps.CUSTOMER_DB_ID || '',
+          karteDb:         allProps.KARTE_DB_ID || '',
+        },
+        staging: {
+          hasCustomerDb:   !!allProps.STAGING_CUSTOMER_DB_ID,
+          hasKarteDb:      !!allProps.STAGING_KARTE_DB_ID,
+          hasLedger:       !!allProps.STAGING_LEDGER_SPREADSHEET_ID,
+        },
+      });
+    }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
     if (p.action === 'getPatientList') {
       var authL = verifyStaffPassword(p.pw, cfg);
@@ -575,9 +602,10 @@ function recordAuthSuccess(cfg) {
 }
 
 function verifyStaffPassword(password, cfg) {
+  if (!cfg.STAFF_PASSWORD) return { ok: false, error: 'config_error', message: 'STAFF_PASSWORD が設定されていません。GAS スクリプトプロパティを確認してください。' };
   var bf = checkBruteForce(cfg);
   if (!bf.allowed) return { ok: false, error: 'auth_locked', remainingSec: bf.remainingSec };
-  if (!password || !cfg.STAFF_PASSWORD || password !== cfg.STAFF_PASSWORD) {
+  if (!password || password !== cfg.STAFF_PASSWORD) {
     recordAuthFail(cfg);
     return { ok: false, error: 'auth_fail' };
   }
@@ -680,10 +708,11 @@ function handleGetPatientDetails(customerId, cfg) {
     if (String(r[TR.type]) !== 'record') continue;
     var eid      = String(r[TR.entry_id]);
     var isVoided = !!voidedIds[eid];
+    var rDate    = toDateStr(r[TR.date]);
     if (!isVoided && String(r[TR.count_eligible]) !== 'FALSE') {
-      visitDates.push(String(r[TR.date]));
+      visitDates.push(rDate);
     }
-    if (String(r[TR.date]) === today && !isVoided) {
+    if (rDate === today && !isVoided) {
       todayRecords.push({
         entryId:       eid,
         course:        String(r[TR.course] || ''),
@@ -807,13 +836,18 @@ function handleSubmitVoidRecord(data, cfg) {
   if (!targetId || !customerId) return { success: false, error: 'targetEntryId required' };
 
   var origRow = null;
+  var alreadyVoided = false;
   for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i][TR.entry_id]) === targetId) { origRow = rows[i]; break; }
+    if (String(rows[i][TR.entry_id]) === targetId) { origRow = rows[i]; }
+    if (String(rows[i][TR.type]) === 'void' && String(rows[i][TR.target_entry_id]) === targetId) {
+      alreadyVoided = true;
+    }
   }
   if (!origRow)                                       return { success: false, error: 'record_not_found' };
   if (String(origRow[TR.customer_id]) !== customerId) return { success: false, error: 'record_not_found' };
   if (String(origRow[TR.type]) !== 'record')          return { success: false, error: 'already_voided' };
-  if (String(origRow[TR.date]) !== today)             return { success: false, error: 'past_date_void_not_allowed' };
+  if (alreadyVoided)                                  return { success: false, error: 'already_voided' };
+  if (toDateStr(origRow[TR.date]) !== today)          return { success: false, error: 'past_date_void_not_allowed' };
 
   var now    = nowISO();
   var voidId = genUUID();
@@ -1316,7 +1350,7 @@ function sendDailySummary() {
     // 取消エントリのtarget IDを収集
     var voidedIds = {};
     for (var v = 0; v < treatRows.length; v++) {
-      if (String(treatRows[v][TR.date]) === yesterday && String(treatRows[v][TR.type]) === 'void') {
+      if (toDateStr(treatRows[v][TR.date]) === yesterday && String(treatRows[v][TR.type]) === 'void') {
         var tgt = String(treatRows[v][TR.target_entry_id] || '');
         if (tgt) voidedIds[tgt] = true;
       }
@@ -1325,7 +1359,7 @@ function sendDailySummary() {
     var visits = 0, sales = 0, creditMoves = 0, syncErrors = 0, authFails = 0;
     for (var i = 0; i < treatRows.length; i++) {
       var r = treatRows[i];
-      var rDate = String(r[TR.date]);
+      var rDate = toDateStr(r[TR.date]);
       var rType = String(r[TR.type]);
       if (rDate === yesterday && rType === 'record' && String(r[TR.count_eligible]) !== 'FALSE') {
         if (!voidedIds[String(r[TR.entry_id])]) {
@@ -1917,6 +1951,48 @@ function setupStaging() {
 // GASエディタから手動実行: installTriggers の動作確認
 function setupTriggers() {
   installTriggers();
+}
+
+// スタッフパスワード設定（GASエディタから手動実行）— 例: setStaffPassword('my_secure_password')
+function setStaffPassword(pw) {
+  if (!pw || pw.length < 4) { Logger.log('❌ パスワードが短すぎます（4文字以上必要）'); return; }
+  PropertiesService.getScriptProperties().setProperty('STAFF_PASSWORD', pw);
+  Logger.log('✅ STAFF_PASSWORD を設定しました');
+}
+
+// 本番環境セットアップ（GASエディタから手動実行）
+// 前提: CUSTOMER_DB_ID / KARTE_DB_ID / NOTION_TOKEN / STAFF_PASSWORD / NOTIFY_EMAIL を先に設定
+function setupProduction() {
+  var props = PropertiesService.getScriptProperties();
+  var existingId = props.getProperty('LEDGER_SPREADSHEET_ID');
+  if (existingId) {
+    Logger.log('⚠️  本番台帳 ID はすでに設定済みです: ' + existingId + ' — 続けますか？上書きするには既存行を削除してください。');
+    return;
+  }
+
+  var ss   = SpreadsheetApp.create('LBC台帳 [本番]');
+  var ssId = ss.getId();
+  Logger.log('台帳スプレッドシートID: ' + ssId);
+  Logger.log('台帳URL: ' + ss.getUrl());
+
+  ss.getSheets()[0].setName('顧客マスタ');
+  ss.insertSheet('施術台帳');
+  ss.insertSheet('問診台帳');
+  ss.insertSheet('クレジット台帳');
+  ss.insertSheet('アクセスログ');
+  ss.insertSheet('_sync');
+
+  applySheetHeaders(ss);
+  ss.getSheetByName('_sync').getRange('A1').setValue(0);
+
+  props.setProperties({
+    'ENV':                  'production',
+    'LEDGER_SPREADSHEET_ID': ssId,
+  }, true);
+
+  installTriggers();
+  Logger.log('✅ 本番環境セットアップ完了！ ID: ' + ssId);
+  Logger.log('次のステップ: Notion 顧客マスタ・カルテDB の CUSTOMER_DB_ID / KARTE_DB_ID を設定してください。');
 }
 
 /* ============================================================

@@ -3,65 +3,92 @@
    ============================================================
    【スクリプトプロパティ】
    NOTION_TOKEN              : Notion API トークン
-   CUSTOMER_DB_ID            : 本番 顧客マスタ DB ID
-   KARTE_DB_ID               : 本番 施術カルテ DB ID
+   CUSTOMER_DB_ID            : 本番 顧客マスタ Notion DB ID
+   KARTE_DB_ID               : 本番 施術カルテ Notion DB ID
    LEDGER_SPREADSHEET_ID     : 本番 台帳スプレッドシート ID
    DRIVE_FOLDER_ID           : 人体図保存 Drive フォルダ ID
    STAFF_PASSWORD            : スタッフ認証パスワード
    SITE_URL                  : フォーム公開URL
    NOTIFY_EMAIL              : エラー通知先メール
    ENV                       : production / staging
-   STAGING_CUSTOMER_DB_ID    : ステージング 顧客マスタ DB ID
-   STAGING_KARTE_DB_ID       : ステージング 施術カルテ DB ID
-   STAGING_LEDGER_SPREADSHEET_ID : ステージング 台帳ID
+   STAGING_CUSTOMER_DB_ID    : ステージング 顧客マスタ Notion DB ID
+   STAGING_KARTE_DB_ID       : ステージング 施術カルテ Notion DB ID
+   STAGING_LEDGER_SPREADSHEET_ID : ステージング 台帳 ID
    ============================================================ */
 
 const NOTION_API = 'https://api.notion.com/v1';
 const NOTION_VER = '2022-06-28';
 
-/* ── エントリポイント ── */
+/* ── 台帳タブ列インデックス (0-based, 列A=0) ── */
+const CM = { // 顧客マスタ
+  customer_id:0, name:1, furigana:2, phone:3, email:4, dob:5,
+  first_visit:6, lang:7, how_found:8, address:9, status:10,
+  notion_page_id:11, created_at:12, updated_at:13, synced_at:14,
+};
+const TR = { // 施術台帳
+  entry_id:0, type:1, target_entry_id:2, date:3, customer_id:4,
+  course:5, sales:6, payment:7, memo:8, has_questionnaire:9,
+  credit_used:10, referrer_customer_id:11, count_eligible:12,
+  notion_page_id:13, created_at:14, updated_at:15, synced_at:16,
+  error_count:17,
+};
+const QU = { // 問診台帳
+  entry_id:0, date:1, customer_id:2, visit_type:3, has_changes:4,
+  main_symptom:5, duration:6, pain_level:7, safety_check:8,
+  safety_note:9, goal:10, strength:11, disliked:12,
+  photo_consent:13, face_pref:14, consent_agreed:15,
+  consent_date:16, body_image_url:17, sig_url:18,
+  notion_page_id:19, created_at:20, synced_at:21, error_count:22,
+  raw_json:23, // full payload (without image data) for block building
+};
+const CR = { // クレジット台帳
+  entry_id:0, date:1, customer_id:2, type:3, amount:4,
+  expiry:5, rel_entry_id:6, created_at:7, synced_at:8, error_count:9,
+};
+const AL = { // アクセスログ
+  timestamp:0, action:1, request_id:2, result:3, error_msg:4,
+  elapsed_ms:5, customer_id_hint:6,
+};
+
+/* ============================================================
+   エントリポイント
+   ============================================================ */
 
 function doPost(e) {
+  var t0 = Date.now();
+  var action = '?';
   try {
-    const data = JSON.parse(e.postData.contents);
-    const cfg  = getConfig(resolveEnv(data.env));
-    if (data.action === 'lookupPatient')          return jsonRes(handleLookupPatient(data, cfg));
-    if (data.action === 'submitBooking')          return jsonRes(handleSubmitBooking(data, cfg));
-    if (data.action === 'submitAll')              return jsonRes(handleSubmitAll(data, cfg));
-    if (data.action === 'submitQuestionnaire')    return jsonRes(handleSubmitQuestionnaire(data, cfg));
-    if (data.action === 'submitTreatmentRecord')  return jsonRes(handleSubmitTreatmentRecord(data, cfg));
-    return jsonRes({ success: false, error: 'Unknown action: ' + data.action });
+    var data   = JSON.parse(e.postData.contents);
+    action     = data.action || '?';
+    var cfg    = getConfig(resolveEnv(data.env));
+    if (action === 'lookupPatient')         return jsonRes(handleLookupPatient(data, cfg));
+    if (action === 'submitAll')             return jsonRes(handleSubmitAll(data, cfg));
+    if (action === 'submitQuestionnaire')   return jsonRes(handleSubmitQuestionnaire(data, cfg));
+    if (action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data, cfg));
+    if (action === 'submitBooking')         return jsonRes(handleSubmitBooking(data, cfg));
+    return jsonRes({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
-    Logger.log('doPost error: ' + err.message);
+    Logger.log('doPost error [' + action + ']: ' + err.message + '\n' + err.stack);
+    notifyError(action, err);
     return jsonRes({ success: false, error: err.message });
   }
 }
 
 function doGet(e) {
   try {
-    const p   = e.parameter;
-    const cfg = getConfig(resolveEnv(p.env));
+    var p   = e.parameter;
+    var cfg = getConfig(resolveEnv(p.env));
 
-    if (p.action === 'getSlots') {
-      return jsonRes(getMonthSlots(p.month, cfg));
-    }
-    if (p.action === 'verifyStaff') {
-      return jsonRes({ ok: p.pw === cfg.STAFF_PASSWORD });
-    }
-    if (p.action === 'validateToken') {
-      return jsonRes({ valid: false }); // 再予約トークン機能は将来実装
-    }
-    if (p.action === 'getPatientList') {
-      return jsonRes(handleGetPatientList(cfg));
-    }
-    if (p.action === 'getPatientDetails') {
-      return jsonRes(handleGetPatientDetails(p.customerId, cfg));
-    }
+    if (p.action === 'getSlots')          return jsonRes(getMonthSlots(p.month, cfg));
+    if (p.action === 'verifyStaff')       return jsonRes(handleVerifyStaff(p, cfg));
+    if (p.action === 'validateToken')     return jsonRes({ valid: false });
+    if (p.action === 'getPatientList')    return jsonRes(handleGetPatientList(cfg));
+    if (p.action === 'getPatientDetails') return jsonRes(handleGetPatientDetails(p.customerId, cfg));
 
-    // レガシー JSONP（カレンダーのグレーアウト用）
+    // レガシー JSONP（index.html カレンダーのグレーアウト用。凍結）
     if (p.date && p.callback) {
-      const booked = getBookedTimesForDate(p.date, cfg);
-      const out = ContentService.createTextOutput(
+      var booked = getBookedTimesForDate(p.date, cfg);
+      var out = ContentService.createTextOutput(
         p.callback + '(' + JSON.stringify({ date: p.date, booked: booked }) + ')'
       );
       out.setMimeType(ContentService.MimeType.JAVASCRIPT);
@@ -75,145 +102,479 @@ function doGet(e) {
   }
 }
 
-/* ── 患者照合 ── */
+/* ============================================================
+   設定・環境
+   ============================================================ */
 
-function handleLookupPatient(data, cfg) {
-  cfg = cfg || getConfig();
-  const name  = (data.name  || '').replace(/[\s　]/g, '');
-  const phone = (data.phone || '').replace(/[\s\-\(\)\.]/g, '');
-  if (!name || !phone) return { success: true, found: false };
-
-  const customer = findCustomerByNamePhone(cfg, name, phone);
-  if (!customer) return { success: true, found: false };
-
-  return {
-    success:    true,
-    found:      true,
-    customerId: customer.id,
-    patientNum: getTextProp(customer.properties, '診察番号'),
-    name:       getTextProp(customer.properties, '名前'),
-    furigana:   getTextProp(customer.properties, 'フリガナ'),
-  };
+function getConfig(env) {
+  var props = PropertiesService.getScriptProperties().getProperties();
+  var e = env || props.ENV || 'production';
+  if (e === 'staging' && props.STAGING_CUSTOMER_DB_ID) {
+    return Object.assign({}, props, {
+      CUSTOMER_DB_ID:        props.STAGING_CUSTOMER_DB_ID,
+      KARTE_DB_ID:           props.STAGING_KARTE_DB_ID,
+      LEDGER_SPREADSHEET_ID: props.STAGING_LEDGER_SPREADSHEET_ID || '',
+      _env: 'staging',
+    });
+  }
+  return Object.assign({}, props, { _env: 'production' });
 }
 
-function findCustomerByNamePhone(cfg, normName, normPhone) {
-  const res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, { page_size: 100 });
-  for (var i = 0; i < res.results.length; i++) {
-    var page = res.results[i];
-    var storedName  = getTextProp(page.properties, '名前').replace(/[\s　]/g, '');
-    var storedPhone = ((page.properties['電話番号'] && page.properties['電話番号'].phone_number) || '')
-                       .replace(/[\s\-\(\)\.]/g, '');
-    if (storedName === normName && storedPhone === normPhone) return page;
+function resolveEnv(requested) {
+  if (requested !== 'staging') return null;
+  var props = PropertiesService.getScriptProperties().getProperties();
+  return props.STAGING_CUSTOMER_DB_ID ? 'staging' : null;
+}
+
+/* ============================================================
+   電話番号正規化
+   ============================================================ */
+
+function normalizePhone(raw) {
+  if (!raw) return '';
+  var s = String(raw);
+  // 全角数字→半角
+  s = s.replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+  // スペース・ハイフン・括弧・プラス・ドット除去
+  s = s.replace(/[\s\-\(\)\.\+]/g, '');
+  // +81（プラス除去後 81 始まり）→ 0 始まりに変換
+  if (/^81/.test(s)) s = '0' + s.slice(2);
+  // Sheets が数値型として 0 を削除した場合（例: 9099887766）→ 先頭 0 を補完
+  if (/^\d{9,10}$/.test(s) && s[0] !== '0') s = '0' + s;
+  return s;
+}
+
+function isValidPhone(normalized) {
+  return /^0\d{9,10}$/.test(normalized);
+}
+
+/* ============================================================
+   採番（LockService 保護）
+   ============================================================ */
+
+function nextCustomerId(ss) {
+  // 呼び出し元で LockService を取得してから呼ぶこと
+  var sheet = ss.getSheetByName('顧客マスタ');
+  var lastRow = sheet.getLastRow();
+  var max = 0;
+  if (lastRow > 1) {
+    var ids = sheet.getRange(2, CM.customer_id + 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      var n = parseInt(String(ids[i][0]).replace(/\D/g, ''), 10) || 0;
+      if (n > max) max = n;
+    }
+  }
+  return 'P' + String(max + 1).padStart(3, '0');
+}
+
+/* ============================================================
+   ユーティリティ
+   ============================================================ */
+
+function genUUID() {
+  return Utilities.getUuid();
+}
+
+function nowISO() {
+  return new Date().toISOString();
+}
+
+function todayStr() {
+  return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+}
+
+function fmtDate(d) {
+  return d.getFullYear() + '-'
+    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getDate()).padStart(2, '0');
+}
+
+// Sheets から返ってくる Date オブジェクトや文字列を YYYY-MM-DD に統一
+function toDateStr(val) {
+  if (!val) return '';
+  if (val instanceof Date) return fmtDate(val);
+  var s = String(val);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return s;
+}
+
+function makeRow(size, values) {
+  var row = new Array(size).fill('');
+  for (var k in values) {
+    if (values[k] !== undefined && values[k] !== null) row[k] = values[k];
+  }
+  return row;
+}
+
+/* ============================================================
+   台帳シートアクセス
+   ============================================================ */
+
+function getLedger(cfg) {
+  if (!cfg.LEDGER_SPREADSHEET_ID) throw new Error('LEDGER_SPREADSHEET_ID が未設定です');
+  return SpreadsheetApp.openById(cfg.LEDGER_SPREADSHEET_ID);
+}
+
+// シートの全データを 2D 配列で返す（行0=ヘッダー、行1以降=データ）
+function getSheetData(ss, tabName) {
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+}
+
+// 電話番号（正規化済み）で顧客マスタを検索。配列 or null を返す
+// 複数ヒット時は配列（家族共用番号対応）
+function findCustomersByPhone(ss, normalizedPhone) {
+  var rows = getSheetData(ss, '顧客マスタ');
+  var found = [];
+  for (var i = 0; i < rows.length; i++) {
+    if (normalizePhone(String(rows[i][CM.phone])) === normalizedPhone
+        && String(rows[i][CM.status]) !== 'archived') {
+      found.push({ rowIndex: i + 2, row: rows[i] }); // rowIndex は 1-based シート行番号
+    }
+  }
+  return found;
+}
+
+// customer_id で顧客マスタを検索
+function findCustomerById(ss, customerId) {
+  var rows = getSheetData(ss, '顧客マスタ');
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][CM.customer_id]) === customerId) return { rowIndex: i + 2, row: rows[i] };
   }
   return null;
 }
 
+// 顧客マスタに1行追記。LockService は呼び出し元で取得済みであること
+function appendCustomer(ss, data, customerId) {
+  var now = nowISO();
+  var phone = normalizePhone(data.phone || '');
+  var row = makeRow(15, {
+    [CM.customer_id]:    customerId,
+    [CM.name]:           data.name || '',
+    [CM.furigana]:       data.furigana || '',
+    [CM.phone]:          phone,
+    [CM.email]:          data.email || '',
+    [CM.dob]:            data.dob || '',
+    [CM.first_visit]:    data.date || todayStr(),
+    [CM.lang]:           data.lang || 'ja',
+    [CM.how_found]:      data.howFound || '',
+    [CM.address]:        data.address || '',
+    [CM.status]:         'active',
+    [CM.notion_page_id]: '',
+    [CM.created_at]:     now,
+    [CM.updated_at]:     now,
+    [CM.synced_at]:      '',
+  });
+  ss.getSheetByName('顧客マスタ').appendRow(row);
+  return customerId;
+}
+
+// 顧客マスタの指定行を更新（updated_at も更新する）
+function updateCustomerRow(ss, rowIndex, fields) {
+  var sheet = ss.getSheetByName('顧客マスタ');
+  var now = nowISO();
+  for (var col in fields) {
+    sheet.getRange(rowIndex, parseInt(col) + 1).setValue(fields[col]);
+  }
+  sheet.getRange(rowIndex, CM.updated_at + 1).setValue(now);
+  sheet.getRange(rowIndex, CM.synced_at + 1).setValue(''); // 再同期対象に
+}
+
+// 未同期カウンタをインクリメント
+function incSyncCounter(ss, count) {
+  var sheet = ss.getSheetByName('_sync');
+  var cell  = sheet.getRange('A1');
+  cell.setValue(Number(cell.getValue()) + (count || 1));
+}
+
+/* ============================================================
+   アクセスログ
+   ============================================================ */
+
+function logAccess(ss, action, requestId, result, errorMsg, elapsedMs, customerIdHint) {
+  try {
+    var row = makeRow(7, {
+      [AL.timestamp]:        nowISO(),
+      [AL.action]:           action,
+      [AL.request_id]:       requestId || '',
+      [AL.result]:           result,
+      [AL.error_msg]:        (errorMsg || '').slice(0, 200),
+      [AL.elapsed_ms]:       elapsedMs || 0,
+      [AL.customer_id_hint]: customerIdHint || '',
+    });
+    ss.getSheetByName('アクセスログ').appendRow(row);
+  } catch(e) {
+    Logger.log('logAccess error: ' + e.message);
+  }
+}
+
+/* ============================================================
+   ハンドラ: 患者照合（電話番号のみ / シート参照）
+   ============================================================ */
+
+function handleLookupPatient(data, cfg) {
+  cfg = cfg || getConfig();
+  var ss    = getLedger(cfg);
+  var phone = normalizePhone(data.phone || '');
+
+  if (!phone || !isValidPhone(phone)) return { success: true, found: false };
+
+  var matches = findCustomersByPhone(ss, phone);
+
+  if (matches.length === 0) return { success: true, found: false };
+
+  if (matches.length === 1) {
+    var r = matches[0].row;
+    return {
+      success:    true,
+      found:      true,
+      customerId: String(r[CM.customer_id]),
+      patientNum: String(r[CM.customer_id]),
+      name:       String(r[CM.name]),
+      furigana:   String(r[CM.furigana]),
+    };
+  }
+
+  // 複数ヒット（家族共用番号等）→ 候補リストを返す
+  return {
+    success:    true,
+    found:      true,
+    multiple:   true,
+    candidates: matches.map(function(m) {
+      return {
+        customerId: String(m.row[CM.customer_id]),
+        patientNum: String(m.row[CM.customer_id]),
+        name:       String(m.row[CM.name]),
+        furigana:   String(m.row[CM.furigana]),
+      };
+    }),
+  };
+}
+
+/* ============================================================
+   ハンドラ: 問診票送信（メインエントリ）
+   ============================================================ */
+
+function handleSubmitAll(data, cfg) {
+  cfg = cfg || getConfig();
+  var t0 = Date.now();
+  var ss = getLedger(cfg);
+  var customerId;
+
+  // ── 顧客照合 or 新規作成 ──
+  var phone = normalizePhone(data.phone || '');
+  var lock  = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    if (data.visitType === 'return' && data.customerId) {
+      // 再来院: フロントが渡す customerId を電話番号でサーバー側検証
+      var matched = phone ? findCustomersByPhone(ss, phone) : [];
+      if (matched.length === 1) {
+        customerId = String(matched[0].row[CM.customer_id]);
+      } else if (matched.length > 1) {
+        // 複数ヒット: フロントが選択した customerId を使用（整合チェック）
+        var ids = matched.map(function(m) { return String(m.row[CM.customer_id]); });
+        customerId = ids.indexOf(data.customerId) >= 0 ? data.customerId : ids[0];
+      } else if (data.customerId) {
+        customerId = data.customerId; // 電話番号不明の場合フロント値を補助的に使用
+      }
+      // 既存顧客の情報更新（言語・生年月日等）
+      var existing = customerId ? findCustomerById(ss, customerId) : null;
+      if (existing) {
+        var upd = {};
+        if (data.dob && !String(existing.row[CM.dob])) upd[CM.dob] = data.dob;
+        if (data.furigana) upd[CM.furigana] = data.furigana;
+        if (data.lang)     upd[CM.lang]     = data.lang;
+        if (Object.keys(upd).length) updateCustomerRow(ss, existing.rowIndex, upd);
+      }
+    } else {
+      // 初回 or 再来院フォールバック: 電話番号で照合
+      var existingMatches = phone ? findCustomersByPhone(ss, phone) : [];
+      if (existingMatches.length >= 1) {
+        customerId = String(existingMatches[0].row[CM.customer_id]);
+        var upd2 = {};
+        if (data.dob)      upd2[CM.dob]      = data.dob;
+        if (data.furigana) upd2[CM.furigana]  = data.furigana;
+        if (data.lang)     upd2[CM.lang]      = data.lang;
+        if (data.howFound) upd2[CM.how_found] = data.howFound;
+        if (Object.keys(upd2).length) updateCustomerRow(ss, existingMatches[0].rowIndex, upd2);
+      } else {
+        // 新規作成（ロック内）
+        customerId = nextCustomerId(ss);
+        appendCustomer(ss, data, customerId);
+        incSyncCounter(ss);
+      }
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  if (!customerId) return { success: false, error: '顧客IDを特定できませんでした' };
+
+  // ── 画像保存 ──
+  var bodyImageUrl = '', sigUrl = '';
+  var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';
+  if (hasQ && cfg.DRIVE_FOLDER_ID) {
+    if (data.bodyImage && data.bodyImage.length > 100) {
+      bodyImageUrl = saveBodyImage(cfg, data.bodyImage, customerId);
+    }
+    if (data.signatureImage && data.signatureImage.length > 100) {
+      sigUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + customerId);
+    }
+  }
+
+  // ── 問診台帳に追記 ──
+  var now      = nowISO();
+  var entryId  = genUUID();
+  var rawJson  = JSON.stringify({
+    visitType: data.visitType, hasChanges: data.hasChanges,
+    mainSymptom: data.mainSymptom, mainSymptomOther: data.mainSymptomOther,
+    symptomDuration: data.symptomDuration, painLevel: data.painLevel,
+    safetyCheck: data.safetyCheck, safetyNote: data.safetyNote, safetyDetail: data.safetyDetail,
+    treatmentGoal: data.treatmentGoal, treatmentStrength: data.treatmentStrength,
+    dislikedTreatment: data.dislikedTreatment,
+    photoConsent: data.photoConsent, facePreference: data.facePreference,
+    consentAgreed: data.consentAgreed, consentDate: data.consentDate,
+    name: data.name, furigana: data.furigana, phone: phone,
+    dob: data.dob, email: data.email, howFound: data.howFound,
+    referrerName: data.referrerName, lang: data.lang,
+  });
+
+  var quRow = makeRow(24, {
+    [QU.entry_id]:       entryId,
+    [QU.date]:           data.date || todayStr(),
+    [QU.customer_id]:    customerId,
+    [QU.visit_type]:     data.visitType || 'first',
+    [QU.has_changes]:    data.hasChanges || '',
+    [QU.main_symptom]:   Array.isArray(data.mainSymptom) ? data.mainSymptom.join(',') : (data.mainSymptom || ''),
+    [QU.duration]:       data.symptomDuration || '',
+    [QU.pain_level]:     data.painLevel !== undefined && data.painLevel !== null ? data.painLevel : '',
+    [QU.safety_check]:   (data.safetyCheck || []).join(','),
+    [QU.safety_note]:    data.safetyNote || '',
+    [QU.goal]:           data.treatmentGoal || '',
+    [QU.strength]:       data.treatmentStrength || '',
+    [QU.disliked]:       (data.dislikedTreatment || []).join(','),
+    [QU.photo_consent]:  data.photoConsent || '',
+    [QU.face_pref]:      data.facePreference || '',
+    [QU.consent_agreed]: data.consentAgreed ? 'TRUE' : 'FALSE',
+    [QU.consent_date]:   data.consentDate || todayStr(),
+    [QU.body_image_url]: bodyImageUrl,
+    [QU.sig_url]:        sigUrl,
+    [QU.notion_page_id]: '',
+    [QU.created_at]:     now,
+    [QU.synced_at]:      '',
+    [QU.error_count]:    0,
+    [QU.raw_json]:       rawJson,
+  });
+  ss.getSheetByName('問診台帳').appendRow(quRow);
+  incSyncCounter(ss);
+
+  logAccess(ss, 'submitAll', data.requestId, 'ok', '', Date.now() - t0, customerId);
+  return { success: true, patientNum: customerId };
+}
+
+/* ============================================================
+   ハンドラ: スタンドアロン問診票送信（後方互換）
+   ============================================================ */
+
+function handleSubmitQuestionnaire(data, cfg) {
+  cfg = cfg || getConfig();
+  // submitAll と同じフロー（スタンドアロン問診票は visitType を推定）
+  if (!data.visitType) data.visitType = data.booking ? 'return' : 'first';
+  return handleSubmitAll(data, cfg);
+}
+
+/* ============================================================
+   ハンドラ: スタッフ認証
+   ============================================================ */
+
+function handleVerifyStaff(p, cfg) {
+  return { ok: p.pw === cfg.STAFF_PASSWORD };
+}
+
+/* ============================================================
+   ハンドラ: 患者一覧取得（施術記録シート用）
+   ============================================================ */
+
 function handleGetPatientList(cfg) {
   cfg = cfg || getConfig();
-  var res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, {
-    sorts: [{ property: '名前', direction: 'ascending' }],
-    page_size: 100,
-  });
-  if (!res.results) {
-    Logger.log('getPatientList error: ' + JSON.stringify(res));
-    return { success: false, error: res.message || JSON.stringify(res) };
-  }
-  // 今日のカルテを取得し、未記録（売上金額未入力）の患者IDを抽出
-  var pendingIds = {};
-  var todayKartes = notionQuery(cfg, cfg.KARTE_DB_ID, {
-    filter: { property: '日付', date: { equals: todayStr() } },
-    page_size: 100,
-  });
-  if (todayKartes.results) {
-    todayKartes.results.forEach(function(k) {
-      var rel = k.properties['顧客マスタ'] && k.properties['顧客マスタ'].relation;
-      if (!rel || !rel.length) return;
-      var cid = rel[0].id;
-      var hasSales = k.properties['売上金額'] &&
-                     k.properties['売上金額'].number !== null &&
-                     k.properties['売上金額'].number !== undefined;
-      // すでに recorded なら false を維持、まだなら true
-      if (!pendingIds.hasOwnProperty(cid)) {
-        pendingIds[cid] = !hasSales;
-      } else if (hasSales) {
-        pendingIds[cid] = false;
-      }
-    });
+  var ss = getLedger(cfg);
+
+  var customerRows = getSheetData(ss, '顧客マスタ');
+  var treatRows    = getSheetData(ss, '施術台帳');
+  var today        = todayStr();
+
+  // 今日の施術台帳を集計
+  var todayByCustomer = {}; // customerId → { hasSales: bool }
+  for (var i = 0; i < treatRows.length; i++) {
+    var r = treatRows[i];
+    if (String(r[TR.date]) !== today) continue;
+    if (String(r[TR.type]) !== 'record') continue;
+    var cid = String(r[TR.customer_id]);
+    var hasSales = r[TR.sales] !== '' && r[TR.sales] !== null;
+    if (!todayByCustomer[cid]) {
+      todayByCustomer[cid] = { hasSales: hasSales };
+    } else if (hasSales) {
+      todayByCustomer[cid].hasSales = true;
+    }
   }
 
   var patients = [];
-  for (var i = 0; i < res.results.length; i++) {
-    var page = res.results[i];
-    var name = getTextProp(page.properties, '名前');
-    if (!name) continue;
-    var creditBalance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
+  for (var j = 0; j < customerRows.length; j++) {
+    var cr = customerRows[j];
+    if (!String(cr[CM.name])) continue;
+    if (String(cr[CM.status]) === 'archived') continue;
+    var cid2 = String(cr[CM.customer_id]);
+    var today2 = todayByCustomer[cid2];
     patients.push({
-      customerId:      page.id,
-      patientNum:      getTextProp(page.properties, '診察番号'),
-      name:            name,
-      furigana:        getTextProp(page.properties, 'フリガナ'),
-      creditBalance:   creditBalance,
-      treatmentPending: pendingIds[page.id] || false,
+      customerId:       cid2,
+      patientNum:       cid2,
+      name:             String(cr[CM.name]),
+      furigana:         String(cr[CM.furigana]),
+      creditBalance:    Number(computeCreditBalance(ss, cid2)) || 0,
+      treatmentPending: today2 ? !today2.hasSales : false,
     });
   }
   return { success: true, patients: patients };
 }
 
+/* ============================================================
+   ハンドラ: 患者詳細取得（クレジット・来院回数）
+   ============================================================ */
+
 function handleGetPatientDetails(customerId, cfg) {
+  cfg = cfg || getConfig();
   if (!customerId) return { success: false, error: 'customerId required' };
+  var ss = getLedger(cfg);
 
-  // 顧客ページからクレジット情報取得
-  var cusRes = UrlFetchApp.fetch(NOTION_API + '/pages/' + customerId, {
-    headers: notionHeaders(cfg),
-    muteHttpExceptions: true,
-  });
-  var customer = JSON.parse(cusRes.getContentText());
-  var creditBalance  = (customer.properties['クレジット残高'] && customer.properties['クレジット残高'].number) || 0;
-  var creditDetailStr = getTextProp(customer.properties, 'クレジット詳細');
-  var credits = parseCredits(creditDetailStr);
+  // クレジット残高・期限切れ予告
+  var creditBalance  = computeCreditBalance(ss, customerId);
+  var expiringCredits = computeExpiringCredits(ss, customerId);
 
-  // 60日以内に期限切れになるクレジットを抽出
-  var today = new Date();
-  var expiringCredits = [];
-  credits.forEach(function(c) {
-    var exp = new Date(c.date);
-    exp.setFullYear(exp.getFullYear() + 1);
-    var daysLeft = Math.floor((exp - today) / 86400000);
-    if (daysLeft >= 0 && daysLeft <= 60) {
-      expiringCredits.push({ amount: c.amount, daysLeft: daysLeft, expiryDate: fmtDate(exp) });
-    }
-  });
+  // 来院履歴（施術台帳から）
+  var treatRows  = getSheetData(ss, '施術台帳');
+  var today      = todayStr();
+  var visitDates = [];
+  for (var i = 0; i < treatRows.length; i++) {
+    var r = treatRows[i];
+    if (String(r[TR.customer_id]) !== customerId) continue;
+    if (String(r[TR.type]) !== 'record') continue;
+    if (String(r[TR.count_eligible]) === 'FALSE') continue;
+    visitDates.push(String(r[TR.date]));
+  }
+  visitDates.sort().reverse();
 
-  // 通算施術回数・前回来院日をカルテDBから取得
-  var karteRes = notionQuery(cfg, cfg.KARTE_DB_ID, {
-    filter: { property: '顧客マスタ', relation: { contains: customerId } },
-    sorts:  [{ property: '日付', direction: 'descending' }],
-    page_size: 100,
-  });
-  var visitCount    = karteRes.results ? karteRes.results.length : 0;
-  var lastVisitDate = '';
-  if (visitCount > 0) {
-    var dp = karteRes.results[0].properties['日付'];
-    if (dp && dp.date) lastVisitDate = dp.date.start;
+  var visitCount   = visitDates.length;
+  var lastVisit    = visitDates[0] || '';
+  var prevVisit    = '';
+  for (var k = 0; k < visitDates.length; k++) {
+    if (visitDates[k] !== today) { prevVisit = visitDates[k]; break; }
   }
 
-  // 初回判定: カルテが0件、または1件で且つそれが今日のもの（問診票送信で当日作成されたケース）
-  var isFirstVisit = visitCount === 0 || (visitCount === 1 && lastVisitDate === todayStr());
-
-  // 今日のカルテが件数に含まれているか
-  var todayIncluded = visitCount > 0 && lastVisitDate === todayStr();
-  // 今日が何回目か（今日のカルテが含まれていればそのまま、なければ+1）
-  var visitNum = isFirstVisit ? 1 : (todayIncluded ? visitCount : visitCount + 1);
-
-  // 前回来院日（今日のカルテを除いた直近）
-  var prevVisitDate = '';
-  if (!isFirstVisit && karteRes.results) {
-    for (var i = 0; i < karteRes.results.length; i++) {
-      var dp2 = karteRes.results[i].properties['日付'];
-      var d2  = dp2 && dp2.date ? dp2.date.start : '';
-      if (d2 && d2 !== todayStr()) { prevVisitDate = d2; break; }
-    }
-  }
+  var todayIncluded  = lastVisit === today;
+  var isFirstVisit   = visitCount === 0 || (visitCount === 1 && todayIncluded);
+  var visitNum       = isFirstVisit ? 1 : (todayIncluded ? visitCount : visitCount + 1);
 
   return {
     success:         true,
@@ -221,456 +582,740 @@ function handleGetPatientDetails(customerId, cfg) {
     expiringCredits: expiringCredits,
     visitCount:      visitCount,
     visitNum:        visitNum,
-    prevVisitDate:   prevVisitDate,
+    prevVisitDate:   prevVisit,
     isFirstVisit:    isFirstVisit,
   };
 }
 
-/* ── 予約送信 ── */
-
-function handleSubmitBooking(data, cfg) {
-  cfg = cfg || getConfig();
-
-  // 顧客マスタ検索 or 新規作成
-  let customer   = data.email ? findCustomerByEmail(cfg, data.email) : null;
-  let customerId, patientNum;
-
-  if (customer) {
-    customerId = customer.id;
-    patientNum = getTextProp(customer.properties, '診察番号');
-    if (!patientNum) {
-      patientNum = generatePatientNumber(cfg);
-      updateCustomerProp(cfg, customerId, { '診察番号': richText(patientNum) });
-    }
-  } else {
-    patientNum = generatePatientNumber(cfg);
-    const page = createCustomer(cfg, data, patientNum);
-    customerId = page.id;
-  }
-
-  // カルテ作成（問診票なし：再来院・新症状なしのみ）
-  createKarte(cfg, data, customerId, patientNum, false);
-
-  // 確認メール
-  if (data.email) sendBookingEmail(cfg, data, patientNum);
-
-  return { success: true, bookingNumber: patientNum };
-}
-
-/* ── 問診票送信（スタンドアロン・メインエントリ） ── */
-
-function handleSubmitAll(data, cfg) {
-  cfg = cfg || getConfig();
-  let customerId = data.customerId || '';
-  let patientNum = data.patientNum || '';
-
-  if (data.visitType === 'return' && customerId) {
-    // 再来院：照合済み customerId + patientNum を直接使用。基本情報は更新しない
-    // patientNum は lookupPatient で返却済みのため frontend から受け取る
-  } else {
-    // 初回：名前＋電話で再確認してから新規作成
-    var normName  = (data.name  || '').replace(/[\s　]/g, '');
-    var normPhone = (data.phone || '').replace(/[\s\-\(\)\.]/g, '');
-    var existing  = findCustomerByNamePhone(cfg, normName, normPhone);
-
-    if (existing) {
-      customerId = existing.id;
-      patientNum = getTextProp(existing.properties, '診察番号');
-      if (!patientNum) {
-        patientNum = generatePatientNumber(cfg);
-        updateCustomerProp(cfg, customerId, { '診察番号': richText(patientNum) });
-      }
-      var upd = {};
-      if (data.dob) upd['生年月日'] = { date: { start: data.dob } };
-      if (data.furigana) upd['フリガナ'] = richText(data.furigana);
-      if (data.howFound) {
-        var hfLabel = VALUE_LABEL[data.howFound] || data.howFound;
-        upd['来院のきっかけ'] = { multi_select: [{ name: hfLabel }] };
-      }
-      if (data.lang) upd['言語'] = { select: { name: data.lang } };
-      if (Object.keys(upd).length) updateCustomerProp(cfg, customerId, upd);
-    } else {
-      patientNum = generatePatientNumber(cfg);
-      var page = createCustomer(cfg, data, patientNum);
-      customerId = page.id;
-    }
-  }
-
-  // コース名解決（courseId 優先。初回患者はコース未選択のため '未定'）
-  data.resolvedCourseName = COURSE_ID_MAP[data.courseId]
-    || COURSE_NAME_MAP[data.courseName]
-    || data.courseName
-    || '未定';
-
-  // カルテ作成
-  var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';
-  var karte = createKarte(cfg, data, customerId, patientNum, hasQ);
-
-  // 人体図保存（Drive PDF）
-  var bodyImageUrl = '';
-  var bodyDebug = 'skipped';
-  if (hasQ) {
-    if (!data.bodyImage || data.bodyImage.length <= 100) {
-      bodyDebug = 'no_data(len=' + (data.bodyImage ? data.bodyImage.length : 0) + ')';
-    } else if (!cfg.DRIVE_FOLDER_ID) {
-      bodyDebug = 'no_folder_id';
-    } else {
-      bodyImageUrl = saveBodyImage(cfg, data.bodyImage, patientNum);
-      bodyDebug = bodyImageUrl ? 'saved' : 'save_failed';
-    }
-  }
-
-  // 署名画像保存（Drive PDF）
-  var signatureUrl = '';
-  var sigDebug = 'skipped';
-  if (hasQ) {
-    if (!data.signatureImage || data.signatureImage.length <= 100) {
-      sigDebug = 'no_data(len=' + (data.signatureImage ? data.signatureImage.length : 0) + ')';
-    } else if (!cfg.DRIVE_FOLDER_ID) {
-      sigDebug = 'no_folder_id';
-    } else {
-      signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + patientNum);
-      sigDebug = signatureUrl ? 'saved' : 'save_failed';
-    }
-  }
-
-  // 問診票ブロック追記
-  if (hasQ) appendQuestionnaireBlocks(cfg, karte.id, data, bodyImageUrl, signatureUrl);
-
-  return { success: true, patientNum: patientNum, _bodyDebug: bodyDebug, _sigDebug: sigDebug };
-}
-
-/* ── 問診票送信 ── */
-
-function handleSubmitQuestionnaire(data, cfg) {
-  cfg = cfg || getConfig();
-
-  // 顧客を特定（メール → 診察番号の順で検索）
-  let customer = null;
-  if (data.email) customer = findCustomerByEmail(cfg, data.email);
-  if (!customer && data.booking && data.booking.startsWith('LBC-')) {
-    customer = findCustomerByPatientNum(cfg, data.booking);
-  }
-
-  // 生年月日・住所を顧客マスタに反映
-  if (customer && data.dob) {
-    updateCustomerProp(cfg, customer.id, { '生年月日': { date: { start: data.dob } } });
-  }
-
-  // 最新カルテを検索
-  let karteId = null;
-  if (customer) {
-    const karte = findMostRecentKarte(cfg, customer.id);
-    karteId = karte ? karte.id : null;
-  }
-
-  // 人体図を Drive PDF に保存
-  let bodyImageUrl = '';
-  if (data.bodyImage && data.bodyImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
-    bodyImageUrl = saveBodyImage(cfg, data.bodyImage, data.booking || 'q');
-  }
-
-  // 署名画像を Drive PDF に保存
-  let signatureUrl = '';
-  if (data.signatureImage && data.signatureImage.length > 100 && cfg.DRIVE_FOLDER_ID) {
-    signatureUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + (data.booking || 'q'));
-  }
-
-  // カルテページに問診票内容を追記
-  if (karteId) {
-    appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUrl);
-  }
-
-  return { success: true };
-}
-
 /* ============================================================
-   Notion — 顧客マスタ操作
+   ハンドラ: 施術記録送信
    ============================================================ */
-
-function findCustomerByEmail(cfg, email) {
-  const res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, {
-    filter: { property: 'メールアドレス', email: { equals: email } },
-    page_size: 1,
-  });
-  return res.results[0] || null;
-}
-
-function findCustomerByPatientNum(cfg, num) {
-  const res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, {
-    filter: { property: '診察番号', rich_text: { equals: num } },
-    page_size: 1,
-  });
-  return res.results[0] || null;
-}
-
-function createCustomer(cfg, data, patientNum) {
-  const today = todayStr();
-  const langMap = { ja: 'ja', es: 'es', pt: 'pt' };
-  const props = {
-    '名前':        { title: [{ text: { content: data.name || '不明' } }] },
-    'フリガナ':     richText(data.furigana || ''),
-    '電話番号':     { phone_number: data.phone || null },
-    'メールアドレス': { email: data.email || null },
-    '初回訪問日':   { date: { start: today } },
-    '診察番号':     richText(patientNum),
-    '言語':        { select: langMap[data.lang] ? { name: langMap[data.lang] } : null },
-  };
-  if (data.dob) props['生年月日'] = { date: { start: data.dob } };
-  if (data.howFound) {
-    var hfLabel = VALUE_LABEL[data.howFound] || data.howFound;
-    props['来院のきっかけ'] = { multi_select: [{ name: hfLabel }] };
-  }
-  return notionPost(cfg, '/pages', { parent: { database_id: cfg.CUSTOMER_DB_ID }, properties: props });
-}
-
-function updateCustomerProp(cfg, pageId, props) {
-  notionPatch(cfg, '/pages/' + pageId, { properties: props });
-}
-
-function generatePatientNumber(cfg) {
-  const res = notionQuery(cfg, cfg.CUSTOMER_DB_ID, {
-    filter: { property: '診察番号', rich_text: { is_not_empty: true } },
-    sorts: [{ property: '診察番号', direction: 'descending' }],
-    page_size: 1,
-  });
-  let max = 0;
-  if (res.results.length > 0) {
-    const existing = getTextProp(res.results[0].properties, '診察番号');
-    const n = parseInt((existing || '').replace(/\D/g, '')) || 0;
-    max = n;
-  }
-  return 'P' + String(max + 1).padStart(3, '0');
-}
-
-/* ============================================================
-   Notion — カルテ操作
-   ============================================================ */
-
-// Notion コース select の有効値（これ以外は送らない）
-var VALID_COURSES = ['カイロプラクティック', '筋膜リリース', '吸い玉・カッピング', 'トータルケア', '月2回コース'];
-
-// コースID（フォームの value）→ Notion セレクト名
-var COURSE_ID_MAP = {
-  'chiro':   'カイロプラクティック',
-  'fascia':  '筋膜リリース',
-  'cupping': '吸い玉・カッピング',
-  'total':    'トータルケア',
-  'monthly2': '月2回コース',
-};
-
-// コース表示名 → Notion セレクト名（後方互換）
-var COURSE_NAME_MAP = {
-  'カイロプラクティック': 'カイロプラクティック',
-  '筋膜リリース':         '筋膜リリース',
-  '吸玉（カッピング）':   '吸い玉・カッピング',
-  'トータルケア':         'トータルケア',
-  // スペイン語
-  'Quiropráctica':        'カイロプラクティック',
-  'Liberación Miofascial':'筋膜リリース',
-  'Ventosa':              '吸い玉・カッピング',
-  'Cuidado Total':        'トータルケア',
-  // ポルトガル語
-  'Quiropraxia':          'カイロプラクティック',
-  'Liberação Miofascial': '筋膜リリース',
-  'Cuidado Total':        'トータルケア',
-};
-
-function createKarte(cfg, data, customerId, patientNum, hasQuestionnaire) {
-  const langMap = { ja: '日本語', es: 'Español', pt: 'Português' };
-  const courseName = data.resolvedCourseName
-    || COURSE_ID_MAP[data.courseId]
-    || COURSE_NAME_MAP[data.courseName]
-    || data.courseName
-    || '未定';
-  var dateLabel = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
-  var karteTitle = (data.name || patientNum) + ' (' + dateLabel + ')';
-  const props = {
-    '名前':     { title: [{ text: { content: karteTitle } }] },
-    '日付':     { date: { start: todayStr() } },
-    '予約日':   { date: { start: data.date || todayStr() } },
-    '予約時間': richText(data.time || ''),
-    'ステータス': { status: { name: '未着手' } },
-    '対応言語': { select: { name: langMap[data.lang] || '日本語' } },
-    '顧客マスタ': { relation: [{ id: customerId }] },
-    '問診票':   { checkbox: !!hasQuestionnaire },
-  };
-  if (courseName && VALID_COURSES.indexOf(courseName) !== -1) {
-    props['コース'] = { select: { name: courseName } };
-  }
-  return notionPost(cfg, '/pages', { parent: { database_id: cfg.KARTE_DB_ID }, properties: props });
-}
-
-function findMostRecentKarte(cfg, customerId) {
-  const res = notionQuery(cfg, cfg.KARTE_DB_ID, {
-    filter: { property: '顧客マスタ', relation: { contains: customerId } },
-    sorts: [{ property: '日付', direction: 'descending' }],
-    page_size: 1,
-  });
-  return res.results[0] || null;
-}
-
-function findTodayKarte(cfg, customerId) {
-  var res = notionQuery(cfg, cfg.KARTE_DB_ID, {
-    filter: {
-      and: [
-        { property: '顧客マスタ', relation: { contains: customerId } },
-        { property: '日付', date: { equals: todayStr() } },
-      ],
-    },
-    sorts: [{ property: '日付', direction: 'descending' }],
-    page_size: 1,
-  });
-  return res.results[0] || null;
-}
-
-/* ── 施術記録シート ── */
 
 function handleSubmitTreatmentRecord(data, cfg) {
   cfg = cfg || getConfig();
+  var t0 = Date.now();
 
-  var karte = findTodayKarte(cfg, data.customerId);
-  if (!karte) {
-    data.resolvedCourseName = COURSE_ID_MAP[data.courseId] || '';
-    karte = createKarte(cfg, data, data.customerId, data.patientNum, false);
+  // スタッフ認可
+  if (data.password !== cfg.STAFF_PASSWORD) {
+    return { success: false, error: 'auth_fail' };
   }
 
+  var ss         = getLedger(cfg);
+  var customerId = String(data.customerId || '');
+  var now        = nowISO();
+  var entryId    = genUUID();
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
-  var upd = { 'ステータス': { status: { name: '完了' } } };
-  if (courseLabel)  upd['コース']      = { select: { name: courseLabel } };
-  if (data.salesAmount !== undefined && data.salesAmount !== null && data.salesAmount !== '') {
-    upd['売上金額'] = { number: Number(data.salesAmount) };
-  }
-  if (data.paymentMethod) upd['支払い方法'] = { select: { name: data.paymentMethod } };
-  if (data.treatmentMemo) upd['施術メモ']   = richText(data.treatmentMemo);
 
-  // 紹介・クレジット情報をカルテに記録
-  if (data.referrerName)    upd['紹介者名']     = richText(data.referrerName);
-  if (data.referralDiscount) upd['紹介割引適用'] = { checkbox: true };
+  var trRow = makeRow(18, {
+    [TR.entry_id]:             entryId,
+    [TR.type]:                 'record',
+    [TR.target_entry_id]:      '',
+    [TR.date]:                 todayStr(),
+    [TR.customer_id]:          customerId,
+    [TR.course]:               courseLabel,
+    [TR.sales]:                data.salesAmount !== '' && data.salesAmount !== undefined
+                                 ? Number(data.salesAmount) : '',
+    [TR.payment]:              data.paymentMethod || '',
+    [TR.memo]:                 data.treatmentMemo || '',
+    [TR.has_questionnaire]:    'FALSE', // 施術記録は問診なし（問診台帳は別途）
+    [TR.credit_used]:          Number(data.creditUsed) || 0,
+    [TR.referrer_customer_id]: data.referrerId || '',
+    [TR.count_eligible]:       'TRUE',
+    [TR.notion_page_id]:       '',
+    [TR.created_at]:           now,
+    [TR.updated_at]:           now,
+    [TR.synced_at]:            '',
+    [TR.error_count]:          0,
+  });
+  ss.getSheetByName('施術台帳').appendRow(trRow);
+  incSyncCounter(ss);
+
+  // クレジット消費
   if (data.creditUsed && Number(data.creditUsed) > 0) {
-    upd['クレジット使用額'] = { number: Number(data.creditUsed) };
+    var balance = computeCreditBalance(ss, customerId);
+    if (Number(data.creditUsed) > balance) {
+      return { success: false, error: 'クレジット残高不足（残高: ¥' + balance + '）' };
+    }
+    appendCreditEntry(ss, customerId, 'use', -Number(data.creditUsed), '', entryId);
   }
 
-  notionPatch(cfg, '/pages/' + karte.id, { properties: upd });
-
-  // 紹介者にクレジット付与（初回割引が適用された場合）
+  // 紹介クレジット付与（初回来院の紹介者に）
   if (data.referralDiscount && data.referrerId) {
-    addCredit(cfg, data.referrerId, 1000);
-  }
-
-  // 患者のクレジット消費（FIFO）
-  if (data.creditUsed && Number(data.creditUsed) > 0) {
-    useCredit(cfg, data.customerId, Number(data.creditUsed));
-  }
-
-  return { success: true, patientNum: data.patientNum };
-}
-
-/* ── クレジット管理ヘルパー ── */
-
-function parseCredits(str) {
-  if (!str) return [];
-  try { return JSON.parse(str); } catch(e) { return []; }
-}
-
-function serializeCredits(arr) {
-  return JSON.stringify(arr);
-}
-
-function addCredit(cfg, customerId, amount) {
-  var res = UrlFetchApp.fetch(NOTION_API + '/pages/' + customerId, {
-    headers: notionHeaders(cfg), muteHttpExceptions: true,
-  });
-  var page = JSON.parse(res.getContentText());
-  var balance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
-  var credits = parseCredits(getTextProp(page.properties, 'クレジット詳細'));
-  credits.push({ date: todayStr(), amount: amount });
-  updateCustomerProp(cfg, customerId, {
-    'クレジット残高': { number: balance + amount },
-    'クレジット詳細': richText(serializeCredits(credits)),
-  });
-}
-
-function useCredit(cfg, customerId, amount) {
-  var res = UrlFetchApp.fetch(NOTION_API + '/pages/' + customerId, {
-    headers: notionHeaders(cfg), muteHttpExceptions: true,
-  });
-  var page = JSON.parse(res.getContentText());
-  var balance = (page.properties['クレジット残高'] && page.properties['クレジット残高'].number) || 0;
-  var credits = parseCredits(getTextProp(page.properties, 'クレジット詳細'));
-
-  // 古い順（FIFO）で消費
-  credits.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
-  var remaining = amount;
-  var newCredits = [];
-  for (var i = 0; i < credits.length; i++) {
-    if (remaining <= 0) { newCredits.push(credits[i]); continue; }
-    if (credits[i].amount <= remaining) {
-      remaining -= credits[i].amount;
+    var grantCount = countReferralGrants(ss, data.referrerId);
+    if (grantCount < 3) {
+      appendCreditEntry(ss, data.referrerId, 'grant', 1000, '', entryId);
     } else {
-      newCredits.push({ date: credits[i].date, amount: credits[i].amount - remaining });
-      remaining = 0;
+      Logger.log('紹介クレジット上限到達: referrerId=' + data.referrerId + ' count=' + grantCount);
     }
   }
-  updateCustomerProp(cfg, customerId, {
-    'クレジット残高': { number: Math.max(0, balance - amount) },
-    'クレジット詳細': richText(serializeCredits(newCredits)),
+
+  logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
+  return { success: true, patientNum: customerId };
+}
+
+/* ============================================================
+   クレジット台帳ヘルパー
+   ============================================================ */
+
+function appendCreditEntry(ss, customerId, type, amount, relEntryId, grantEntryId) {
+  var now    = nowISO();
+  var expiry = '';
+  if (type === 'grant') {
+    var exp = new Date();
+    exp.setFullYear(exp.getFullYear() + 1);
+    expiry = fmtDate(exp);
+  }
+  var row = makeRow(10, {
+    [CR.entry_id]:     genUUID(),
+    [CR.date]:         todayStr(),
+    [CR.customer_id]:  customerId,
+    [CR.type]:         type,
+    [CR.amount]:       amount,
+    [CR.expiry]:       expiry,
+    [CR.rel_entry_id]: relEntryId || grantEntryId || '',
+    [CR.created_at]:   now,
+    [CR.synced_at]:    '',
+    [CR.error_count]:  0,
   });
+  ss.getSheetByName('クレジット台帳').appendRow(row);
+  incSyncCounter(ss);
 }
 
-// フォームの内部値 → 日本語表示名
-var VALUE_LABEL = {
-  // 来院のきっかけ
-  instagram: 'Instagram', google: 'Google', google_maps: 'Google Maps',
-  referral: '紹介', other: 'その他',
-  // 主症状（HTML value と完全一致）
-  shoulder_stiff: '肩こり', lower_back: '腰痛', neck_stiff: '首こり', headache: '頭痛',
-  posture: '姿勢', fatigue: '疲労', swelling: 'むくみ',
-  // 症状の期間（HTML value と完全一致）
-  within_week: '1週間以内', within_month: '1ヶ月以内', over_month: '1ヶ月以上', over_half_year: '半年以上',
-  // 安全確認（HTML value と完全一致）
-  pregnant: '妊娠中／妊娠の可能性', hospital: '通院中', osteoporosis: '骨粗しょう症',
-  blood_thinner: '血液をサラサラにする薬', numbness: '強いしびれ', recent_injury: '最近の怪我・手術',
-  none: '特になし',
-  // 施術目的（HTML value と完全一致）
-  relax: 'リラックスしたい', pain_relief: '痛みを改善したい',
-  posture_goal: '姿勢を整えたい', root_cause: '根本改善を目指したい', maintenance: '身体のメンテナンス',
-  // 施術強さ
-  light: '弱め', normal: '普通', strong: '強め',
-  // 苦手な施術
-  strong_pressure: '強い圧', joint_adjustment: '関節調整（ボキボキ）',
-};
-
-function toJa(arr) {
-  if (!arr || !arr.length) return null;
-  return arr.map(function(v) { return VALUE_LABEL[v] || v; });
+function computeCreditBalance(ss, customerId) {
+  var rows = getSheetData(ss, 'クレジット台帳');
+  var total = 0;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][CR.customer_id]) === customerId) {
+      total += Number(rows[i][CR.amount]) || 0;
+    }
+  }
+  return total;
 }
+
+function computeExpiringCredits(ss, customerId) {
+  var rows  = getSheetData(ss, 'クレジット台帳');
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var result = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[CR.customer_id]) !== customerId) continue;
+    if (String(r[CR.type]) !== 'grant') continue;
+    if (!r[CR.expiry]) continue;
+    var exp     = new Date(r[CR.expiry]);
+    var daysLeft = Math.floor((exp - today) / 86400000);
+    if (daysLeft >= 0 && daysLeft <= 60) {
+      result.push({ amount: r[CR.amount], daysLeft: daysLeft, expiryDate: fmtDate(exp) });
+    }
+  }
+  return result;
+}
+
+// 紹介 grant 行数を数える（上限チェック用）
+function countReferralGrants(ss, referrerId) {
+  var rows  = getSheetData(ss, 'クレジット台帳');
+  var count = 0;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][CR.customer_id]) === referrerId
+        && String(rows[i][CR.type]) === 'grant') count++;
+  }
+  return count;
+}
+
+/* ============================================================
+   Notion 同期トリガー（1分毎）
+   ============================================================ */
+
+function syncToNotion() {
+  var cfg = getConfig();
+
+  // Drive フォルダ未設定なら自動設定（ステージング用フォルダID固定）
+  if (!cfg.DRIVE_FOLDER_ID) {
+    try {
+      var stagingFolderId = '1F7nAzq-MAGUmrnXm__yyQjyVaV7xanuh';
+      PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', stagingFolderId);
+      cfg.DRIVE_FOLDER_ID = stagingFolderId;
+      Logger.log('syncToNotion: Drive フォルダ自動設定 ' + stagingFolderId);
+    } catch(e) {
+      Logger.log('syncToNotion: Drive フォルダ設定失敗 ' + e.message);
+    }
+  }
+
+  var ss;
+  try {
+    ss = getLedger(cfg);
+  } catch(e) {
+    Logger.log('syncToNotion: getLedger failed: ' + e.message);
+    return;
+  }
+
+  var syncSheet = ss.getSheetByName('_sync');
+  var counter   = Number(syncSheet.getRange('A1').getValue());
+  var lastFull  = syncSheet.getRange('B1').getValue();
+  var formatted = syncSheet.getRange('C1').getValue();
+  var needFull  = !lastFull || (Date.now() - new Date(lastFull).getTime()) > 3600000;
+
+  // ヘッダー未適用なら自動フォーマット
+  if (!formatted) {
+    try {
+      applySheetHeaders(ss);
+      syncSheet.getRange('C1').setValue('formatted');
+      Logger.log('syncToNotion: シートヘッダー自動適用完了');
+    } catch(e) {
+      Logger.log('syncToNotion: ヘッダー適用失敗 ' + e.message);
+    }
+  }
+
+  Logger.log('syncToNotion: counter=' + counter + ', needFull=' + needFull);
+  if (!needFull && counter <= 0) { Logger.log('syncToNotion: early return'); return; }
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) { Logger.log('syncToNotion: lock busy, skip'); return; }
+
+  try {
+    var synced = 0;
+    synced += syncCustomerMaster(ss, cfg);
+    synced += syncQuestionnaire(ss, cfg);
+    synced += syncTreatment(ss, cfg);
+    synced += syncCredit(ss, cfg);
+
+    // カウンタ再計算
+    var newCounter = countUnsyncedRows(ss);
+    syncSheet.getRange('A1').setValue(newCounter);
+    if (needFull) syncSheet.getRange('B1').setValue(nowISO());
+    Logger.log('syncToNotion: synced=' + synced + ', remaining=' + newCounter);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function countUnsyncedRows(ss) {
+  var count = 0;
+  var tabIdx = [
+    { name: '顧客マスタ',    syncedAtIdx: CM.synced_at },
+    { name: '問診台帳',      syncedAtIdx: QU.synced_at },
+    { name: '施術台帳',      syncedAtIdx: TR.synced_at },
+    { name: 'クレジット台帳', syncedAtIdx: CR.synced_at },
+  ];
+  for (var t = 0; t < tabIdx.length; t++) {
+    var rows = getSheetData(ss, tabIdx[t].name);
+    var idx  = tabIdx[t].syncedAtIdx;
+    for (var i = 0; i < rows.length; i++) {
+      if (!rows[i][idx] || rows[i][idx] === '') count++;
+    }
+  }
+  return count;
+}
+
+// 顧客マスタ → Notion 顧客マスタ DB upsert
+function syncCustomerMaster(ss, cfg) {
+  var sheet = ss.getSheetByName('顧客マスタ');
+  var rows  = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 15).getValues() : [];
+  var synced = 0;
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var updatedAt = String(r[CM.updated_at]);
+    var syncedAt  = String(r[CM.synced_at]);
+    if (syncedAt && syncedAt >= updatedAt) continue; // 同期済み
+    var errCount  = Number(r[CM.error_count] || 0);
+    if (errCount >= 5) continue;
+
+    try {
+      var pageId = String(r[CM.notion_page_id]);
+      var langMap = { ja: 'ja', es: 'es', pt: 'pt' };
+      var props = {
+        '名前':          { title: [{ text: { content: String(r[CM.name]) } }] },
+        'フリガナ':       richText(String(r[CM.furigana])),
+        '電話番号':       { phone_number: String(r[CM.phone]) || null },
+        'メールアドレス': { email: String(r[CM.email]) || null },
+        '診察番号':       richText(String(r[CM.customer_id])),
+        '言語':           { select: langMap[String(r[CM.lang])] ? { name: String(r[CM.lang]) } : null },
+      };
+      if (r[CM.dob])         props['生年月日']   = { date: { start: toDateStr(r[CM.dob]) } };
+      if (r[CM.first_visit]) props['初回訪問日'] = { date: { start: toDateStr(r[CM.first_visit]) } };
+      if (r[CM.how_found])   props['来院のきっかけ'] = { multi_select: [{ name: VALUE_LABEL[String(r[CM.how_found])] || String(r[CM.how_found]) }] };
+
+      if (!pageId) {
+        Logger.log('syncCM: creating page for row ' + (i+2) + ' ' + r[CM.customer_id]);
+        var res = notionPost(cfg, '/pages', { parent: { database_id: cfg.CUSTOMER_DB_ID }, properties: props });
+        pageId  = res.id;
+        sheet.getRange(i + 2, CM.notion_page_id + 1).setValue(pageId);
+        Logger.log('syncCM: created page_id=' + pageId);
+      } else {
+        notionPatch(cfg, '/pages/' + pageId, { properties: props });
+      }
+      sheet.getRange(i + 2, CM.synced_at + 1).setValue(updatedAt);
+      Utilities.sleep(350);
+      synced++;
+    } catch(e) {
+      Logger.log('syncCustomerMaster error row=' + (i+2) + ': ' + e.message);
+      sheet.getRange(i + 2, CM.synced_at + 1).setValue('');
+    }
+  }
+  return synced;
+}
+
+// 問診台帳 → Notion カルテ作成 + 問診ブロック追記
+function syncQuestionnaire(ss, cfg) {
+  var sheet = ss.getSheetByName('問診台帳');
+  var rows  = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 24).getValues() : [];
+  var synced = 0;
+
+  for (var i = 0; i < rows.length; i++) {
+    var r        = rows[i];
+    var syncedAt = String(r[QU.synced_at]);
+    if (syncedAt) continue; // 同期済み
+    var errCount = Number(r[QU.error_count] || 0);
+    if (errCount >= 5) continue;
+
+    try {
+      var custId = String(r[QU.customer_id]);
+      // 顧客マスタから Notion 顧客ページID を取得
+      var custData = findCustomerById(ss, custId);
+      var custNotionId = custData ? String(custData.row[CM.notion_page_id]) : '';
+
+      var pageId = String(r[QU.notion_page_id]);
+      if (!pageId) {
+        // Notion カルテページ新規作成
+        var dateLabel = toDateStr(r[QU.date]).replace(/-/g, '/');
+        var title     = String(r[QU.customer_id]) + (custData ? ' ' + String(custData.row[CM.name]) : '') + ' (' + dateLabel + ')';
+        var langMap2  = { ja: '日本語', es: 'Español', pt: 'Português' };
+        var lang      = custData ? String(custData.row[CM.lang]) : 'ja';
+        var karteProps = {
+          '名前':      { title: [{ text: { content: title } }] },
+          '日付':      { date: { start: toDateStr(r[QU.date]) } },
+          'ステータス': { status: { name: '未着手' } },
+          '対応言語':  { select: { name: langMap2[lang] || '日本語' } },
+          '問診票':    { checkbox: true },
+        };
+        if (custNotionId) karteProps['顧客マスタ'] = { relation: [{ id: custNotionId }] };
+        var newPage = notionPost(cfg, '/pages', { parent: { database_id: cfg.KARTE_DB_ID }, properties: karteProps });
+        pageId = newPage.id;
+        sheet.getRange(i + 2, QU.notion_page_id + 1).setValue(pageId);
+        Utilities.sleep(350);
+      }
+
+      // 問診ブロック追記（raw_json から）
+      var rawJson = String(r[QU.raw_json]);
+      if (rawJson && pageId) {
+        var payload = JSON.parse(rawJson);
+        payload.date = String(r[QU.date]);
+        appendQuestionnaireBlocks(cfg, pageId, payload, String(r[QU.body_image_url]), String(r[QU.sig_url]));
+        Utilities.sleep(350);
+      }
+
+      sheet.getRange(i + 2, QU.synced_at + 1).setValue(nowISO());
+
+      // Lucas に Notion 更新通知
+      if (cfg.NOTIFY_EMAIL) {
+        try {
+          var custName = custData ? String(custData.row[CM.name]) : String(r[QU.customer_id]);
+          var dateStr  = toDateStr(r[QU.date]);
+          GmailApp.sendEmail(
+            cfg.NOTIFY_EMAIL,
+            '【LBC Care】新しい問診票が届きました',
+            custName + ' さん（' + String(r[QU.customer_id]) + '）の問診票が ' + dateStr + ' に Notion カルテへ追加されました。\n\n' +
+            'Notion: https://notion.so/' + pageId.replace(/-/g,'')
+          );
+        } catch(mailErr) {
+          Logger.log('通知メール送信失敗: ' + mailErr.message);
+        }
+      }
+      synced++;
+    } catch(e) {
+      Logger.log('syncQuestionnaire error row=' + (i+2) + ': ' + e.message);
+      var cnt = Number(rows[i][QU.error_count] || 0) + 1;
+      sheet.getRange(i + 2, QU.error_count + 1).setValue(cnt);
+      if (cnt >= 5) {
+        notifyError('syncQuestionnaire row=' + (i+2), e);
+      }
+    }
+  }
+  return synced;
+}
+
+// 施術台帳 → Notion カルテプロパティ更新
+function syncTreatment(ss, cfg) {
+  var sheet = ss.getSheetByName('施術台帳');
+  var rows  = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+  var quRows = getSheetData(ss, '問診台帳');
+  var synced = 0;
+
+  for (var i = 0; i < rows.length; i++) {
+    var r        = rows[i];
+    var updatedAt = String(r[TR.updated_at]);
+    var syncedAt  = String(r[TR.synced_at]);
+    if (syncedAt && syncedAt >= updatedAt) continue;
+    var errCount = Number(r[TR.error_count] || 0);
+    if (errCount >= 5) continue;
+    if (String(r[TR.type]) === 'void' || String(r[TR.type]) === 'correction') continue;
+
+    try {
+      var pageId   = String(r[TR.notion_page_id]);
+      var custId   = String(r[TR.customer_id]);
+      var custData = findCustomerById(ss, custId);
+      var custNotionId = custData ? String(custData.row[CM.notion_page_id]) : '';
+
+      if (!pageId) {
+        // 同日の問診台帳エントリから Notion ページIDを探す
+        var trDate = String(r[TR.date]);
+        for (var q = 0; q < quRows.length; q++) {
+          if (String(quRows[q][QU.customer_id]) === custId
+              && String(quRows[q][QU.date]) === trDate
+              && String(quRows[q][QU.notion_page_id])) {
+            pageId = String(quRows[q][QU.notion_page_id]);
+            break;
+          }
+        }
+      }
+
+      if (!pageId) {
+        // 問診なし来院 → カルテページを新規作成
+        var dateLabel2 = String(r[TR.date]).replace(/-/g, '/');
+        var title2 = custId + (custData ? ' ' + String(custData.row[CM.name]) : '') + ' (' + dateLabel2 + ')';
+        var langMap3 = { ja: '日本語', es: 'Español', pt: 'Português' };
+        var lang2 = custData ? String(custData.row[CM.lang]) : 'ja';
+        var newKarteProps = {
+          '名前':      { title: [{ text: { content: title2 } }] },
+          '日付':      { date: { start: toDateStr(r[TR.date]) } },
+          'ステータス': { status: { name: '完了' } },
+          '対応言語':  { select: { name: langMap3[lang2] || '日本語' } },
+          '問診票':    { checkbox: false },
+        };
+        if (custNotionId) newKarteProps['顧客マスタ'] = { relation: [{ id: custNotionId }] };
+        var newP = notionPost(cfg, '/pages', { parent: { database_id: cfg.KARTE_DB_ID }, properties: newKarteProps });
+        pageId   = newP.id;
+        Utilities.sleep(350);
+      }
+
+      var props = { 'ステータス': { status: { name: '完了' } } };
+      if (r[TR.course] && VALID_COURSES.indexOf(String(r[TR.course])) >= 0) {
+        props['コース'] = { select: { name: String(r[TR.course]) } };
+      }
+      if (r[TR.sales] !== '') props['売上金額']   = { number: Number(r[TR.sales]) };
+      if (r[TR.payment])      props['支払い方法'] = { select: { name: String(r[TR.payment]) } };
+      if (r[TR.memo])         props['施術メモ']   = richText(String(r[TR.memo]));
+      if (r[TR.credit_used])  props['クレジット使用額'] = { number: Number(r[TR.credit_used]) };
+      if (r[TR.referrer_customer_id]) props['紹介者名'] = richText(String(r[TR.referrer_customer_id]));
+
+      notionPatch(cfg, '/pages/' + pageId, { properties: props });
+      sheet.getRange(i + 2, TR.notion_page_id + 1).setValue(pageId);
+      sheet.getRange(i + 2, TR.synced_at + 1).setValue(updatedAt);
+      Utilities.sleep(350);
+      synced++;
+    } catch(e) {
+      Logger.log('syncTreatment error row=' + (i+2) + ': ' + e.message);
+      var cnt2 = Number(rows[i][TR.error_count] || 0) + 1;
+      sheet.getRange(i + 2, TR.error_count + 1).setValue(cnt2);
+      if (cnt2 >= 5) notifyError('syncTreatment row=' + (i+2), e);
+    }
+  }
+  return synced;
+}
+
+// クレジット台帳 → Notion 顧客ページの残高プロパティ更新
+function syncCredit(ss, cfg) {
+  var rows = getSheetData(ss, 'クレジット台帳');
+  var sheet = ss.getSheetByName('クレジット台帳');
+  var needUpdate = {}; // customerId → true
+  for (var i = 0; i < rows.length; i++) {
+    if (!rows[i][CR.synced_at]) needUpdate[String(rows[i][CR.customer_id])] = true;
+  }
+  var synced = 0;
+  for (var custId in needUpdate) {
+    try {
+      var custData = findCustomerById(ss, custId);
+      if (!custData) continue;
+      var notionId = String(custData.row[CM.notion_page_id]);
+      if (!notionId) continue;
+      var balance = computeCreditBalance(ss, custId);
+      notionPatch(cfg, '/pages/' + notionId, {
+        properties: { 'クレジット残高': { number: balance } },
+      });
+      Utilities.sleep(350);
+      // 対象顧客の全クレジット行に synced_at を書く
+      for (var j = 0; j < rows.length; j++) {
+        if (String(rows[j][CR.customer_id]) === custId && !rows[j][CR.synced_at]) {
+          sheet.getRange(j + 2, CR.synced_at + 1).setValue(nowISO());
+        }
+      }
+      synced++;
+    } catch(e) {
+      Logger.log('syncCredit error custId=' + custId + ': ' + e.message);
+    }
+  }
+  return synced;
+}
+
+/* ============================================================
+   トリガー管理
+   ============================================================ */
+
+function installTriggers() {
+  // 既存トリガー削除（重複防止）
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    ScriptApp.deleteTrigger(t);
+  });
+
+  var cfg = getConfig();
+
+  // 1. 同期トリガー: 1分毎
+  ScriptApp.newTrigger('syncToNotion')
+    .timeBased().everyMinutes(1).create();
+
+  // 2. onEdit（インストーラブル）: 顧客マスタ編集で updated_at を自動更新
+  if (cfg.LEDGER_SPREADSHEET_ID) {
+    ScriptApp.newTrigger('onLedgerEdit')
+      .forSpreadsheet(cfg.LEDGER_SPREADSHEET_ID)
+      .onEdit().create();
+  }
+
+  // 3. 日次サマリメール: 毎朝8時
+  ScriptApp.newTrigger('sendDailySummary')
+    .timeBased().atHour(8).everyDays(1).create();
+
+  Logger.log('トリガー設置完了: syncToNotion(1分毎) + onLedgerEdit + sendDailySummary(毎朝8時)');
+}
+
+function onLedgerEdit(e) {
+  try {
+    var sheet = e.source.getActiveSheet();
+    if (sheet.getName() !== '顧客マスタ') return;
+    var range = e.range;
+    var now   = nowISO();
+    for (var i = 1; i <= range.getNumRows(); i++) {
+      var row = range.getRow() + i - 1;
+      if (row < 2) continue; // ヘッダー行はスキップ
+      sheet.getRange(row, CM.updated_at + 1).setValue(now);
+      sheet.getRange(row, CM.synced_at + 1).setValue(''); // 再同期対象
+    }
+    // _sync インクリメント
+    var ss        = e.source;
+    var syncSheet = ss.getSheetByName('_sync');
+    if (syncSheet) {
+      var cell = syncSheet.getRange('A1');
+      cell.setValue(Number(cell.getValue()) + 1);
+    }
+  } catch(err) {
+    Logger.log('onLedgerEdit error: ' + err.message);
+  }
+}
+
+/* ============================================================
+   日次サマリメール
+   ============================================================ */
+
+function sendDailySummary() {
+  try {
+    var cfg  = getConfig();
+    var ss   = getLedger(cfg);
+    var yesterday = fmtDate(new Date(Date.now() - 86400000));
+
+    var treatRows  = getSheetData(ss, '施術台帳');
+    var creditRows = getSheetData(ss, 'クレジット台帳');
+    var logRows    = getSheetData(ss, 'アクセスログ');
+
+    var visits = 0, sales = 0, creditMoves = 0, syncErrors = 0, authFails = 0;
+    for (var i = 0; i < treatRows.length; i++) {
+      var r = treatRows[i];
+      if (String(r[TR.date]) === yesterday && String(r[TR.type]) === 'record' && String(r[TR.count_eligible]) !== 'FALSE') {
+        visits++;
+        sales += Number(r[TR.sales]) || 0;
+      }
+      if (Number(r[TR.error_count]) >= 5) syncErrors++;
+    }
+    for (var j = 0; j < logRows.length; j++) {
+      var ts = String(logRows[j][AL.timestamp] || '');
+      if (ts.startsWith(yesterday)) {
+        if (String(logRows[j][AL.result]) === 'auth_fail') authFails++;
+      }
+    }
+
+    var body = [
+      '【LBC Care 日次サマリ】 ' + yesterday,
+      '',
+      '来院数: ' + visits + '件',
+      '売上合計: ¥' + sales.toLocaleString(),
+      '同期エラー累積5回以上の行: ' + syncErrors + '件',
+      '認証失敗: ' + authFails + '件',
+      '',
+      '台帳: https://docs.google.com/spreadsheets/d/' + cfg.LEDGER_SPREADSHEET_ID,
+      '環境: ' + (cfg._env || 'production'),
+    ].join('\n');
+
+    MailApp.sendEmail({ to: cfg.NOTIFY_EMAIL, subject: '【LBC Care】日次サマリ ' + yesterday, body: body });
+  } catch(e) {
+    Logger.log('sendDailySummary error: ' + e.message);
+  }
+}
+
+/* ============================================================
+   エラー通知
+   ============================================================ */
+
+function notifyError(action, err) {
+  try {
+    var cfg = getConfig();
+    if (!cfg.NOTIFY_EMAIL) return;
+    MailApp.sendEmail({
+      to:      cfg.NOTIFY_EMAIL,
+      subject: '[LBC Care エラー] ' + action,
+      body:    'action: ' + action + '\nerror: ' + err.message + '\n\nstack:\n' + (err.stack || ''),
+    });
+  } catch(e) {}
+}
+
+/* ============================================================
+   【凍結】予約フォーム関連（index.html 用。変更禁止）
+   ============================================================ */
+
+function handleSubmitBooking(data, cfg) {
+  cfg = cfg || getConfig();
+  var ss = getLedger(cfg);
+  var phone = normalizePhone(data.phone || '');
+  var customerId;
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var matches = phone ? findCustomersByPhone(ss, phone) : [];
+    if (matches.length >= 1) {
+      customerId = String(matches[0].row[CM.customer_id]);
+    } else if (data.email) {
+      // メールで照合（後方互換）
+      var allRows = getSheetData(ss, '顧客マスタ');
+      for (var i = 0; i < allRows.length; i++) {
+        if (String(allRows[i][CM.email]).toLowerCase() === data.email.toLowerCase()) {
+          customerId = String(allRows[i][CM.customer_id]);
+          break;
+        }
+      }
+    }
+    if (!customerId) {
+      customerId = nextCustomerId(ss);
+      appendCustomer(ss, data, customerId);
+      incSyncCounter(ss);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  // 施術台帳に予約エントリ追記
+  var now = nowISO();
+  var courseLabel = COURSE_ID_MAP[data.courseId] || COURSE_NAME_MAP[data.courseName] || '';
+  var trRow = makeRow(18, {
+    [TR.entry_id]:          genUUID(),
+    [TR.type]:              'record',
+    [TR.date]:              data.date || todayStr(),
+    [TR.customer_id]:       customerId,
+    [TR.course]:            courseLabel,
+    [TR.has_questionnaire]: 'FALSE',
+    [TR.count_eligible]:    'TRUE',
+    [TR.created_at]:        now,
+    [TR.updated_at]:        now,
+    [TR.synced_at]:         '',
+    [TR.error_count]:       0,
+  });
+  ss.getSheetByName('施術台帳').appendRow(trRow);
+  incSyncCounter(ss);
+
+  if (data.email) sendBookingEmail(cfg, data, customerId, true);
+
+  return { success: true, bookingNumber: customerId };
+}
+
+function getMonthSlots(monthStr, cfg) {
+  if (!monthStr) return { success: false, error: 'month required' };
+  var parts = monthStr.split('-').map(Number);
+  var y = parts[0], m = parts[1];
+  var days = new Date(y, m, 0).getDate();
+  var today = new Date(); today.setHours(0,0,0,0);
+  var allTimes = [];
+  for (var h = 8; h < 22; h++) {
+    for (var min of [0, 30]) {
+      allTimes.push(String(h).padStart(2,'0') + ':' + String(min).padStart(2,'0'));
+    }
+  }
+  var startDate = fmtDate(new Date(y, m - 1, 1));
+  var endDate   = fmtDate(new Date(y, m - 1, days));
+  var bookedByDate = getAllBookingsForMonth(cfg, startDate, endDate);
+  var result = {};
+  for (var d = 1; d <= days; d++) {
+    var dt = new Date(y, m - 1, d);
+    if (dt < today) continue;
+    var ds    = fmtDate(dt);
+    var booked = bookedByDate[ds] || [];
+    result[ds] = allTimes.filter(function(t) { return booked.indexOf(t) < 0; });
+  }
+  return { success: true, slots: result };
+}
+
+function getAllBookingsForMonth(cfg, startDate, endDate) {
+  try {
+    var ss = getLedger(cfg);
+    var rows = getSheetData(ss, '施術台帳');
+    var byDate = {};
+    for (var i = 0; i < rows.length; i++) {
+      var r    = rows[i];
+      var date = String(r[TR.date]);
+      var time = String(r[TR.updated_at] || ''); // 予約時間列がないため暫定
+      if (date >= startDate && date <= endDate) {
+        if (!byDate[date]) byDate[date] = [];
+        // TODO: TR に予約時間列を追加する際に更新
+      }
+    }
+    return byDate;
+  } catch(e) {
+    Logger.log('getAllBookingsForMonth error: ' + e.message);
+    return {};
+  }
+}
+
+function getBookedTimesForDate(dateStr, cfg) {
+  try {
+    var ss   = getLedger(cfg);
+    var rows = getSheetData(ss, '施術台帳');
+    var times = [];
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][TR.date]) === dateStr) {
+        // TODO: 予約時間列追加時に更新
+      }
+    }
+    return times;
+  } catch(e) {
+    return [];
+  }
+}
+
+/* ============================================================
+   Notion 問診ブロック構築（同期トリガーから呼ばれる）
+   ============================================================ */
 
 function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUrl) {
   var sep = '、';
 
-  // DOBから年齢を計算
   var ageStr = '';
   if (data.dob) {
-    var dobParts = data.dob.split('-');
-    if (dobParts.length === 3) {
+    var parts = data.dob.split('-');
+    if (parts.length === 3) {
       var today = new Date();
-      var age = today.getFullYear() - parseInt(dobParts[0]);
-      var bMonth = parseInt(dobParts[1]), bDay = parseInt(dobParts[2]);
+      var age   = today.getFullYear() - parseInt(parts[0]);
+      var bMonth = parseInt(parts[1]), bDay = parseInt(parts[2]);
       if (today.getMonth() + 1 < bMonth || (today.getMonth() + 1 === bMonth && today.getDate() < bDay)) age--;
       if (age >= 0 && age <= 130) ageStr = '（' + age + '歳）';
     }
   }
 
-  // 来院のきっかけ（初回のみ）
   var howFoundLabel = '';
   if (data.howFound) {
     howFoundLabel = VALUE_LABEL[data.howFound] || data.howFound;
     if (data.howFound === 'referral' && data.referrerName) howFoundLabel += ' (' + data.referrerName + ')';
-    if (data.howFound === 'other' && data.howFoundOther) howFoundLabel += ' (' + data.howFoundOther + ')';
+    if (data.howFound === 'other' && data.howFoundOther)   howFoundLabel += ' (' + data.howFoundOther + ')';
   }
 
-  // 安全確認
   var safetyLabel = '';
   if (data.safetyCheck && data.safetyCheck.length) {
     safetyLabel = data.safetyCheck.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep);
@@ -679,20 +1324,19 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     safetyLabel = data.safetyNote;
   }
 
-  // 苦手な施術
   var dislikedLabel = '';
   if (data.dislikedTreatment && data.dislikedTreatment.length) {
     dislikedLabel = data.dislikedTreatment.map(function(v) { return VALUE_LABEL[v] || v; }).join(sep);
   }
 
-  // 主症状
   var mainSymLabel = '—';
   if (data.mainSymptom) {
-    mainSymLabel = VALUE_LABEL[data.mainSymptom] || data.mainSymptom;
-    if (data.mainSymptom === 'other' && data.mainSymptomOther) mainSymLabel = data.mainSymptomOther;
+    var syms = Array.isArray(data.mainSymptom) ? data.mainSymptom : String(data.mainSymptom).split(',');
+    mainSymLabel = syms.map(function(s) {
+      return s === 'other' && data.mainSymptomOther ? data.mainSymptomOther : (VALUE_LABEL[s] || s);
+    }).join('、');
   }
 
-  // 痛みレベルのバー表示
   var painStr = '—';
   if (data.painLevel !== null && data.painLevel !== undefined) {
     var lvl = parseInt(data.painLevel);
@@ -700,7 +1344,6 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     painStr = lvl + ' / 10  ' + bar;
   }
 
-  // ── ブロックヘルパー ──
   function rt(text, bold, color) {
     var obj = { type: 'text', text: { content: text } };
     var ann = {};
@@ -710,9 +1353,7 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     return obj;
   }
   function h2(emoji, title) {
-    return { object: 'block', type: 'heading_2', heading_2: {
-      rich_text: [rt(emoji + '  ' + title)]
-    }};
+    return { object: 'block', type: 'heading_2', heading_2: { rich_text: [rt(emoji + '  ' + title)] } };
   }
   function div() { return { object: 'block', type: 'divider', divider: {} }; }
   function bul(label, value) {
@@ -722,23 +1363,18 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   }
   function co(text, icon, color) {
     return { object: 'block', type: 'callout', callout: {
-      rich_text: [rt(text)],
-      icon: { type: 'emoji', emoji: icon },
-      color: color
+      rich_text: [rt(text)], icon: { type: 'emoji', emoji: icon }, color: color
     }};
   }
-    function imgBlock(url) {
+  function imgBlock(url) {
     return { object: 'block', type: 'embed', embed: { url: url } };
   }
 
   var blocks = [];
-  var dateStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  var dateStr   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
   var visitLabel = data.visitType === 'first' ? '初回来院' : '再診';
 
-  // ── ヘッダー
   blocks.push(co('問診票　' + dateStr + '　' + visitLabel, '📋', 'blue_background'));
-
-  // ── 1. 基本情報
   blocks.push(h2('👤', '基本情報'));
   if (data.name)     blocks.push(bul('氏名', data.name));
   if (data.furigana) blocks.push(bul('フリガナ', data.furigana));
@@ -747,19 +1383,17 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     blocks.push(bul('症状の変化', data.hasChanges === 'yes' ? 'あり（新しい問診あり）' : 'なし'));
   }
   if (data.visitType === 'first' && howFoundLabel) blocks.push(bul('来院のきっかけ', howFoundLabel));
-  if (data.dob) blocks.push(bul('生年月日', data.dob + ageStr));
+  if (data.dob)   blocks.push(bul('生年月日', data.dob + ageStr));
   if (data.phone) blocks.push(bul('電話番号', data.phone));
   if (data.email) blocks.push(bul('メールアドレス', data.email));
   blocks.push(div());
 
-  // ── 2. 本日のお悩み
   blocks.push(h2('🤕', '本日のお悩み'));
   blocks.push(bul('主症状', mainSymLabel));
   if (data.symptomDuration) blocks.push(bul('症状の期間', VALUE_LABEL[data.symptomDuration] || data.symptomDuration));
   blocks.push(bul('痛みレベル', painStr));
   blocks.push(div());
 
-  // ── 3. 安全確認
   blocks.push(h2('⚠️', '安全確認'));
   if (safetyLabel) {
     blocks.push(co(safetyLabel, '⚠️', 'red_background'));
@@ -777,16 +1411,13 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   if (data.safetyNote) blocks.push(bul('持病・気になること', data.safetyNote));
   blocks.push(div());
 
-  // ── 4. 本日のご希望
   blocks.push(h2('💆', '本日のご希望'));
   if (data.treatmentGoal)     blocks.push(bul('施術目的', VALUE_LABEL[data.treatmentGoal] || data.treatmentGoal));
   if (data.treatmentStrength) blocks.push(bul('強さ希望', VALUE_LABEL[data.treatmentStrength] || data.treatmentStrength));
   if (dislikedLabel)          blocks.push(bul('苦手な施術', dislikedLabel));
   blocks.push(div());
 
-  // ── 5. 撮影同意
   if (data.photoConsent) {
-    blocks.push(div());
     blocks.push(h2('📸', '撮影同意'));
     var photoLabel = data.photoConsent === 'yes' ? 'はい（協力可）' : 'いいえ（辞退）';
     blocks.push(bul('撮影協力', photoLabel));
@@ -797,7 +1428,6 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     blocks.push(div());
   }
 
-  // ── 6. 同意
   blocks.push(h2('✅', '同意'));
   var consentText = data.consentAgreed ? '✓  同意済み' : '✗  未同意';
   if (data.consentDate) consentText += '（' + data.consentDate + '）';
@@ -805,7 +1435,6 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
     rich_text: [rt(consentText, false, data.consentAgreed ? 'green' : 'red')]
   }});
 
-  // ── 人体図・署名（常に表示）
   blocks.push(div());
   blocks.push(h2('🖼', '人体図・署名'));
   if (bodyImageUrl) {
@@ -830,220 +1459,172 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
 }
 
 /* ============================================================
-   スロット管理
-   ============================================================ */
-
-function getMonthSlots(monthStr, cfg) {
-  if (!monthStr) return { success: false, error: 'month required' };
-  const [y, m] = monthStr.split('-').map(Number);
-  const days = new Date(y, m, 0).getDate();
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  const allTimes = [];
-  for (let h = 8; h < 22; h++) {
-    for (const min of [0, 30]) {
-      allTimes.push(String(h).padStart(2,'0') + ':' + String(min).padStart(2,'0'));
-    }
-  }
-
-  // 月全体を1回のAPIコールで取得
-  const startDate = fmtDate(new Date(y, m - 1, 1));
-  const endDate   = fmtDate(new Date(y, m - 1, days));
-  const bookedByDate = getAllBookingsForMonth(cfg, startDate, endDate);
-
-  const result = {};
-  for (let d = 1; d <= days; d++) {
-    const dt = new Date(y, m - 1, d);
-    if (dt < today) continue;
-    const ds = fmtDate(dt);
-    const booked = bookedByDate[ds] || [];
-    result[ds] = allTimes.filter(t => !booked.includes(t));
-  }
-  return { success: true, slots: result };
-}
-
-function getAllBookingsForMonth(cfg, startDate, endDate) {
-  try {
-    const res = notionQuery(cfg, cfg.KARTE_DB_ID, {
-      filter: {
-        and: [
-          { property: '予約日', date: { on_or_after:  startDate } },
-          { property: '予約日', date: { on_or_before: endDate   } },
-        ],
-      },
-      page_size: 100,
-    });
-    const byDate = {};
-    res.results.forEach(function(p) {
-      const date = p.properties['予約日'] && p.properties['予約日'].date && p.properties['予約日'].date.start;
-      const time = getTextProp(p.properties, '予約時間');
-      if (date && time) {
-        if (!byDate[date]) byDate[date] = [];
-        byDate[date].push(time);
-      }
-    });
-    return byDate;
-  } catch (err) {
-    Logger.log('getAllBookingsForMonth error: ' + err.message);
-    return {};
-  }
-}
-
-function getBookedTimesForDate(dateStr, cfg) {
-  try {
-    const res = notionQuery(cfg, cfg.KARTE_DB_ID, {
-      filter: { property: '予約日', date: { equals: dateStr } },
-      page_size: 100,
-    });
-    return res.results
-      .map(p => getTextProp(p.properties, '予約時間'))
-      .filter(Boolean);
-  } catch (err) {
-    Logger.log('getBookedTimesForDate error: ' + err.message);
-    return [];
-  }
-}
-
-/* ============================================================
-   メール送信
-   ============================================================ */
-
-function sendBookingEmail(cfg, data, patientNum, includeQLink) {
-  if (includeQLink === undefined) includeQLink = true;
-  try {
-    let qLine = '';
-    if (includeQLink) {
-      const siteUrl = cfg.SITE_URL || '';
-      const needsQ  = data.visitType === 'first' || data.hasNewSymptom === 'yes';
-      if (needsQ && siteUrl) {
-        const qUrl = siteUrl + '/questionnaire.html?lang=' + (data.lang || 'ja') +
-          '&name='    + encodeURIComponent(data.name  || '') +
-          '&phone='   + encodeURIComponent(data.phone || '') +
-          '&email='   + encodeURIComponent(data.email || '') +
-          '&booking=' + encodeURIComponent(patientNum) +
-          '&visit='   + (data.visitType || 'first');
-        qLine = '\n\n■ 問診票\n' + qUrl;
-      }
-    }
-
-    const tmpl = {
-      ja: { subj: '[LBC整体院] 仮予約を受け付けました',  greeting: '様', body1: '仮予約を受け付けました。内容を確認後、担当者よりご連絡いたします。', num: '■ 予約番号', dt: '■ 日時', course: '■ コース' },
-      es: { subj: '[LBC Care] Reserva provisional recibida', greeting: ',', body1: 'Hemos recibido su reserva provisional. Le confirmaremos a la brevedad.', num: '■ N° de reserva', dt: '■ Fecha y hora', course: '■ Servicio' },
-      pt: { subj: '[LBC Care] Agendamento provisório recebido', greeting: ',', body1: 'Recebemos seu agendamento provisório. Entraremos em contato em breve para confirmar.', num: '■ N° do agendamento', dt: '■ Data e horário', course: '■ Serviço' },
-    };
-    const t = tmpl[data.lang] || tmpl.ja;
-    const subject = t.subj + '（' + patientNum + '）';
-    const lines = [
-      data.name + ' ' + t.greeting,
-      '',
-      t.body1,
-      '',
-      t.num  + ': ' + patientNum,
-      t.dt   + ': ' + data.date + ' ' + data.time,
-      t.course + ': ' + (data.courseName || ''),
-    ];
-    if (qLine) lines.push(qLine);
-    lines.push('', '──────────────', 'LBC Care / Lucas Body Care', '〒510-0835 Mie Yokkaichi Ooide', 'TEL: 070-9233-4084');
-    const body = lines.join('\n');
-
-    MailApp.sendEmail({ to: data.email, subject, body });
-  } catch (err) {
-    Logger.log('sendBookingEmail error: ' + err.message);
-  }
-}
-
-/* ============================================================
-   Google Drive — 人体図・署名を保存
+   Google Drive — 人体図・署名保存
    ============================================================ */
 
 function saveBodyImage(cfg, base64DataUrl, prefix) {
   try {
-    const match = base64DataUrl.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/s);
-    if (!match) {
-      Logger.log('saveBodyImage: regex no match. len=' + (base64DataUrl || '').length + ' head=' + (base64DataUrl || '').substring(0, 40));
-      return '';
-    }
-    const mimeType = 'image/' + match[1];
-    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-    const bytes = Utilities.base64Decode(match[2]);
-    const fileName = 'body_' + prefix + '_' + new Date().getTime() + '.' + ext;
-    const blob = Utilities.newBlob(bytes, mimeType, fileName);
-    const folder = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
-    const file = folder.createFile(blob);
+    var match = base64DataUrl.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/s);
+    if (!match) return '';
+    var mimeType = 'image/' + match[1];
+    var ext      = match[1] === 'jpeg' ? 'jpg' : match[1];
+    var bytes    = Utilities.base64Decode(match[2]);
+    var fileName = 'body_' + prefix + '_' + Date.now() + '.' + ext;
+    var blob     = Utilities.newBlob(bytes, mimeType, fileName);
+    var folder   = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
+    var file     = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    Logger.log('saveBodyImage: saved, id=' + file.getId() + ', name=' + fileName);
     return 'https://drive.google.com/file/d/' + file.getId() + '/preview';
-  } catch (err) {
-    Logger.log('saveBodyImage error: ' + err.message + '\nstack: ' + err.stack);
+  } catch(e) {
+    Logger.log('saveBodyImage error: ' + e.message);
     return '';
   }
 }
 
 /* ============================================================
-   Notion API ヘルパー
+   メール送信（予約確認）
+   ============================================================ */
+
+function sendBookingEmail(cfg, data, patientNum, includeQLink) {
+  if (includeQLink === undefined) includeQLink = true;
+  try {
+    var qLine = '';
+    if (includeQLink && (data.visitType === 'first' || data.hasNewSymptom === 'yes')) {
+      var siteUrl = cfg.SITE_URL || '';
+      if (siteUrl) {
+        var qUrl = siteUrl + '/questionnaire.html?lang=' + (data.lang || 'ja')
+          + '&name='    + encodeURIComponent(data.name  || '')
+          + '&phone='   + encodeURIComponent(data.phone || '')
+          + '&email='   + encodeURIComponent(data.email || '')
+          + '&booking=' + encodeURIComponent(patientNum)
+          + '&visit='   + (data.visitType || 'first');
+        qLine = '\n\n■ 問診票\n' + qUrl;
+      }
+    }
+    var tmpl = {
+      ja: { subj: '[LBC整体院] 仮予約を受け付けました',         greeting: '様', body1: '仮予約を受け付けました。内容を確認後、担当者よりご連絡いたします。', num: '■ 予約番号', dt: '■ 日時', course: '■ コース' },
+      es: { subj: '[LBC Care] Reserva provisional recibida',    greeting: ',',  body1: 'Hemos recibido su reserva provisional. Le confirmaremos a la brevedad.',                   num: '■ N° de reserva',    dt: '■ Fecha y hora', course: '■ Servicio' },
+      pt: { subj: '[LBC Care] Agendamento provisório recebido', greeting: ',',  body1: 'Recebemos seu agendamento provisório. Entraremos em contato em breve para confirmar.',      num: '■ N° do agendamento', dt: '■ Data e horário', course: '■ Serviço' },
+    };
+    var t       = tmpl[data.lang] || tmpl.ja;
+    var subject = t.subj + '（' + patientNum + '）';
+    var lines   = [
+      data.name + ' ' + t.greeting, '',
+      t.body1, '',
+      t.num    + ': ' + patientNum,
+      t.dt     + ': ' + (data.date || '') + ' ' + (data.time || ''),
+      t.course + ': ' + (data.courseName || ''),
+    ];
+    if (qLine) lines.push(qLine);
+    lines.push('', '──────────────', 'LBC Care / Lucas Body Care', '〒510-0835 Mie Yokkaichi Ooide', 'TEL: 070-9233-4084');
+    MailApp.sendEmail({ to: data.email, subject: subject, body: lines.join('\n') });
+  } catch(e) {
+    Logger.log('sendBookingEmail error: ' + e.message);
+  }
+}
+
+/* ============================================================
+   コース・ラベルマスタ
+   ============================================================ */
+
+var VALID_COURSES = ['カイロプラクティック', '筋膜リリース', '吸い玉・カッピング', 'トータルケア', '月2回コース'];
+
+var COURSE_ID_MAP = {
+  'chiro':    'カイロプラクティック',
+  'fascia':   '筋膜リリース',
+  'cupping':  '吸い玉・カッピング',
+  'total':    'トータルケア',
+  'monthly2': '月2回コース',
+};
+
+var COURSE_NAME_MAP = {
+  'カイロプラクティック':    'カイロプラクティック',
+  '筋膜リリース':            '筋膜リリース',
+  '吸玉（カッピング）':      '吸い玉・カッピング',
+  'トータルケア':            'トータルケア',
+  'Quiropráctica':           'カイロプラクティック',
+  'Liberación Miofascial':   '筋膜リリース',
+  'Ventosa':                 '吸い玉・カッピング',
+  'Cuidado Total':           'トータルケア',
+  'Quiropraxia':             'カイロプラクティック',
+  'Liberação Miofascial':    '筋膜リリース',
+};
+
+var VALUE_LABEL = {
+  instagram: 'Instagram', google: 'Google', google_maps: 'Google Maps',
+  referral: '紹介', other: 'その他',
+  shoulder_stiff: '肩こり', lower_back: '腰痛', neck_stiff: '首こり', headache: '頭痛',
+  posture: '姿勢', fatigue: '疲労', swelling: 'むくみ',
+  within_week: '1週間以内', within_month: '1ヶ月以内', over_month: '1ヶ月以上', over_half_year: '半年以上',
+  pregnant: '妊娠中／妊娠の可能性', hospital: '通院中', osteoporosis: '骨粗しょう症',
+  blood_thinner: '血液をサラサラにする薬', numbness: '強いしびれ', recent_injury: '最近の怪我・手術',
+  none: '特になし',
+  relax: 'リラックスしたい', pain_relief: '痛みを改善したい',
+  posture_goal: '姿勢を整えたい', maintenance: '身体のメンテナンス',
+  light: '弱め', normal: '普通', strong: '強め',
+  strong_pressure: '強い圧', joint_adjustment: '関節調整（ボキボキ）',
+};
+
+/* ============================================================
+   Notion API ヘルパー（ページネーション対応）
    ============================================================ */
 
 function notionHeaders(cfg) {
   return {
-    'Authorization': 'Bearer ' + cfg.NOTION_TOKEN,
+    'Authorization':  'Bearer ' + cfg.NOTION_TOKEN,
     'Notion-Version': NOTION_VER,
-    'Content-Type': 'application/json',
+    'Content-Type':   'application/json',
   };
 }
 
 function notionQuery(cfg, dbId, body) {
-  const res = UrlFetchApp.fetch(NOTION_API + '/databases/' + dbId + '/query', {
-    method: 'post',
-    headers: notionHeaders(cfg),
-    payload: JSON.stringify(body),
-    muteHttpExceptions: true,
+  var res = UrlFetchApp.fetch(NOTION_API + '/databases/' + dbId + '/query', {
+    method: 'post', headers: notionHeaders(cfg),
+    payload: JSON.stringify(body), muteHttpExceptions: true,
   });
   return JSON.parse(res.getContentText());
+}
+
+// ページネーション対応: 全件取得
+function notionQueryAll(cfg, dbId, filter, sorts) {
+  var results = [];
+  var cursor  = null;
+  do {
+    var body = { page_size: 100 };
+    if (filter)      body.filter      = filter;
+    if (sorts)       body.sorts       = sorts;
+    if (cursor)      body.start_cursor = cursor;
+    var res  = notionQuery(cfg, dbId, body);
+    if (res.results) results = results.concat(res.results);
+    cursor   = res.has_more ? res.next_cursor : null;
+    if (cursor) Utilities.sleep(350);
+  } while (cursor);
+  return results;
 }
 
 function notionPost(cfg, path, body) {
-  const res = UrlFetchApp.fetch(NOTION_API + path, {
-    method: 'post',
-    headers: notionHeaders(cfg),
-    payload: JSON.stringify(body),
-    muteHttpExceptions: true,
+  var res = UrlFetchApp.fetch(NOTION_API + path, {
+    method: 'post', headers: notionHeaders(cfg),
+    payload: JSON.stringify(body), muteHttpExceptions: true,
   });
-  return JSON.parse(res.getContentText());
+  var data = JSON.parse(res.getContentText());
+  if (res.getResponseCode() >= 300) throw new Error('Notion ' + res.getResponseCode() + ': ' + (data.message || data.code || path));
+  return data;
 }
 
 function notionPatch(cfg, path, body) {
-  const res = UrlFetchApp.fetch(NOTION_API + path, {
-    method: 'patch',
-    headers: notionHeaders(cfg),
-    payload: JSON.stringify(body),
-    muteHttpExceptions: true,
+  var res = UrlFetchApp.fetch(NOTION_API + path, {
+    method: 'patch', headers: notionHeaders(cfg),
+    payload: JSON.stringify(body), muteHttpExceptions: true,
   });
-  return JSON.parse(res.getContentText());
+  var data = JSON.parse(res.getContentText());
+  if (res.getResponseCode() >= 300) throw new Error('Notion ' + res.getResponseCode() + ': ' + (data.message || data.code || path));
+  return data;
 }
 
 /* ============================================================
-   ユーティリティ
+   ユーティリティ（出力系）
    ============================================================ */
-
-function getConfig(env) {
-  const props = PropertiesService.getScriptProperties().getProperties();
-  const e = env || props.ENV || 'production';
-  if (e === 'staging' && props.STAGING_CUSTOMER_DB_ID) {
-    return Object.assign({}, props, {
-      CUSTOMER_DB_ID:        props.STAGING_CUSTOMER_DB_ID,
-      KARTE_DB_ID:           props.STAGING_KARTE_DB_ID,
-      LEDGER_SPREADSHEET_ID: props.STAGING_LEDGER_SPREADSHEET_ID || '',
-      _env: 'staging',
-    });
-  }
-  return Object.assign({}, props, { _env: 'production' });
-}
-
-function resolveEnv(requested) {
-  if (requested !== 'staging') return null;
-  const props = PropertiesService.getScriptProperties().getProperties();
-  return props.STAGING_CUSTOMER_DB_ID ? 'staging' : null;
-}
 
 function jsonRes(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
@@ -1055,192 +1636,312 @@ function richText(content) {
 }
 
 function getTextProp(props, key) {
-  const p = props[key];
+  var p = props[key];
   if (!p) return '';
   if (p.rich_text) return (p.rich_text[0] && p.rich_text[0].plain_text) || '';
   if (p.title)     return (p.title[0]     && p.title[0].plain_text)     || '';
   return '';
 }
 
-function todayStr() {
-  return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
-}
-
-function fmtDate(d) {
-  return d.getFullYear() + '-'
-    + String(d.getMonth() + 1).padStart(2, '0') + '-'
-    + String(d.getDate()).padStart(2, '0');
-}
-
 /* ============================================================
-   テスト — 全データ書き込み確認（GASエディタから手動実行）
+   テスト・セットアップ関数
    ============================================================ */
 
-function testSubmitAll() {
-  // テスト用PNG（10x10 赤色）
-  var tiny1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAFUlEQVR4nGP8z8BQTwMJDIViIAYABzYABWtIJfEAAAAASUVORK5CYII=';
-
-  var testData = {
-    action:            'submitAll',
-    visitType:         'first',
-    name:              'テスト太郎',
-    furigana:          'テストタロウ',
-    phone:             '090-1234-5678',
-    email:             '',
-    dob:               '1990-04-01',
-    lang:              'ja',
-    howFound:          'google',
-    courseId:          'total',
-    hasChanges:        'yes',
-    // 症状
-    mainSymptom:       'lower_back',
-    symptomDuration:   'over_month',
-    painLevel:         7,
-    // 安全確認
-    safetyCheck:       ['hospital'],
-    safetyNote:        '高血圧',
-    safetyDetail:      { hospital: '四日市市民病院' },
-    // 希望
-    treatmentGoal:     'pain_relief',
-    treatmentStrength: 'normal',
-    dislikedTreatment: ['joint_adjustment'],
-    // 撮影同意
-    photoConsent:      'yes',
-    facePreference:    'face_ok',
-    // 同意
-    consentAgreed:     true,
-    consentDate:       '2026-07-26',
-    // 画像（テスト用ダミー）
-    bodyImage:         tiny1x1,
-    signatureImage:    tiny1x1,
-  };
-
-  var result = handleSubmitAll(testData);
-  Logger.log('=== テスト結果 ===');
-  Logger.log(JSON.stringify(result, null, 2));
-  if (result._bodyDebug)  Logger.log('人体図: ' + result._bodyDebug);
-  if (result._sigDebug)   Logger.log('署名:   ' + result._sigDebug);
-  if (result.success) {
-    Logger.log('✅ 成功！ Notionのカルテ「テスト太郎」を確認してください');
-  } else {
-    Logger.log('❌ エラー: ' + result.error);
+// Step 1-2: normalizePhone の動作確認
+function testNormalizePhone() {
+  var cases = [
+    ['090-1234-5678',   '09012345678'],
+    ['０９０１２３４５６７８', '09012345678'],
+    ['+81 90 1234 5678', '09012345678'],
+    ['(090) 1234-5678',  '09012345678'],
+    ['09012345678',      '09012345678'],
+    ['0752345678',       '0752345678'],
+  ];
+  var ok = true;
+  for (var i = 0; i < cases.length; i++) {
+    var input  = cases[i][0];
+    var expect = cases[i][1];
+    var got    = normalizePhone(input);
+    var pass   = got === expect;
+    Logger.log((pass ? '✅' : '❌') + ' normalizePhone("' + input + '") = "' + got + '" (expect: "' + expect + '")');
+    if (!pass) ok = false;
   }
+  Logger.log(ok ? '全テスト PASS' : '❌ テスト FAIL あり');
 }
 
-/* ============================================================
-   セットアップ — Notionフィールド追加（一度だけ実行）
-   ============================================================ */
-
-function addNotionFields() {
-  var cfg = getConfig();
-  var h   = notionHeaders(cfg);
-
-  var customerRes = UrlFetchApp.fetch(NOTION_API + '/databases/' + cfg.CUSTOMER_DB_ID, {
-    method: 'patch', headers: h, muteHttpExceptions: true,
-    payload: JSON.stringify({
-      properties: {
-        'クレジット残高': { number: { format: 'yen' } },
-        'クレジット詳細': { rich_text: {} },
-      }
-    }),
-  });
-  Logger.log('カスタマーDB: ' + customerRes.getResponseCode() + ' ' + customerRes.getContentText().substring(0, 200));
-
-  var karteRes = UrlFetchApp.fetch(NOTION_API + '/databases/' + cfg.KARTE_DB_ID, {
-    method: 'patch', headers: h, muteHttpExceptions: true,
-    payload: JSON.stringify({
-      properties: {
-        '紹介者名':       { rich_text: {} },
-        'クレジット使用額': { number: { format: 'yen' } },
-        '紹介割引適用':   { checkbox: {} },
-      }
-    }),
-  });
-  Logger.log('カルテDB: ' + karteRes.getResponseCode() + ' ' + karteRes.getContentText().substring(0, 200));
-
-  Logger.log('完了！ログを確認してください。');
-}
-
-/* ============================================================
-   Step 0.5 セットアップ — ステージング環境を一括構築（一度だけ実行）
-   ============================================================ */
-
+// Step 0.5 セットアップ（再実行可）
 function setupStaging() {
   var props = PropertiesService.getScriptProperties();
-
-  // ── 1. 台帳スプレッドシート作成 ──
-  var ss = SpreadsheetApp.create('LBC台帳 [STAGING]');
-  var ssId = ss.getId();
+  var ss    = SpreadsheetApp.create('LBC台帳 [STAGING]');
+  var ssId  = ss.getId();
   Logger.log('台帳スプレッドシートID: ' + ssId);
   Logger.log('台帳URL: ' + ss.getUrl());
 
-  // デフォルトシートをリネーム
   ss.getSheets()[0].setName('顧客マスタ');
-
-  // 追加タブ
   ss.insertSheet('施術台帳');
   ss.insertSheet('問診台帳');
   ss.insertSheet('クレジット台帳');
   ss.insertSheet('アクセスログ');
   ss.insertSheet('_sync');
 
-  // ── 2. ヘッダー設定 ──
-  ss.getSheetByName('顧客マスタ').getRange(1, 1, 1, 15).setValues([[
-    'customer_id', '名前', 'フリガナ', '電話番号', 'email',
-    '生年月日', '初回訪問日', '言語', '来院のきっかけ', '住所',
-    'ステータス', 'notion_page_id', 'created_at', 'updated_at', 'synced_at'
-  ]]);
-
-  ss.getSheetByName('施術台帳').getRange(1, 1, 1, 18).setValues([[
-    'entry_id', '種別', 'target_entry_id', '施術日', 'customer_id',
-    'コース', '売上金額', '支払い方法', '施術メモ', '問診票提出',
-    'クレジット使用額', '紹介者customer_id', '集計対象', 'notion_page_id',
-    'created_at', 'updated_at', 'synced_at', 'sync_error_count'
-  ]]);
-
-  ss.getSheetByName('問診台帳').getRange(1, 1, 1, 23).setValues([[
-    'entry_id', '施術日', 'customer_id', 'visit_type', 'has_changes',
-    '主症状', '症状期間', '痛みレベル', '安全確認', '安全確認メモ',
-    '施術目的', '強さ希望', '苦手な施術', '撮影同意', '顔出し希望',
-    '同意済み', '同意日時', '人体図URL', '署名URL', 'notion_karte_page_id',
-    'created_at', 'synced_at', 'sync_error_count'
-  ]]);
-
-  ss.getSheetByName('クレジット台帳').getRange(1, 1, 1, 10).setValues([[
-    'entry_id', '日付', 'customer_id', '種別', '金額',
-    '有効期限', '関連entry_id', 'created_at', 'synced_at', 'sync_error_count'
-  ]]);
-
-  ss.getSheetByName('アクセスログ').getRange(1, 1, 1, 7).setValues([[
-    'timestamp', 'action', 'request_id', '結果', 'エラー概要', '処理時間ms', 'customer_id_hint'
-  ]]);
-
-  // _sync カウンタ初期化
+  applySheetHeaders(ss);
   ss.getSheetByName('_sync').getRange('A1').setValue(0);
-  ss.getSheetByName('_sync').getRange('A1').setNote('未同期件数カウンタ。直接編集禁止。');
 
-  // ── 3. ヘッダー行を固定・太字 ──
-  ['顧客マスタ', '施術台帳', '問診台帳', 'クレジット台帳', 'アクセスログ'].forEach(function(name) {
-    var sh = ss.getSheetByName(name);
-    sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#e8f0fe');
-  });
-
-  // ── 4. スクリプトプロパティ設定 ──
   props.setProperties({
     'ENV':                           'staging',
     'NOTIFY_EMAIL':                  'kakimorilucas@gmail.com',
     'STAGING_CUSTOMER_DB_ID':        '3af88446-d062-812c-998a-ef68015d5ea5',
     'STAGING_KARTE_DB_ID':           '3af88446-d062-81e9-80bc-cbd8d9bc39b9',
     'STAGING_LEDGER_SPREADSHEET_ID': ssId,
-  }, true); // merge=true で既存プロパティ（NOTION_TOKEN等）を保持
+  }, true);
+
+  Logger.log('✅ ステージング環境セットアップ完了！ ID: ' + ssId);
+}
+
+// GASエディタから手動実行: installTriggers の動作確認
+function setupTriggers() {
+  installTriggers();
+}
+
+/* ============================================================
+   シートヘッダー定義（カラム名・色分け）
+   ============================================================ */
+
+var SHEET_DEFS = {
+  '顧客マスタ': {
+    headers: ['診察番号','氏名','フリガナ','電話番号','メールアドレス','生年月日','初回来院日','言語','来院のきっかけ','住所','ステータス','[Notion ID]','[登録日時]','[更新日時]','[同期日時]'],
+    systemFrom: 11, // index 11以降がシステム列
+  },
+  '施術台帳': {
+    headers: ['記録ID','種別','対象記録ID','施術日','診察番号','コース','売上金額','支払方法','施術メモ','問診票あり','クレジット使用額','紹介者診察番号','集計対象','[Notion ID]','[登録日時]','[更新日時]','[同期日時]','[エラー回数]'],
+    systemFrom: 13,
+  },
+  '問診台帳': {
+    headers: ['問診ID','施術日','診察番号','来院区分','前回から変化あり','主症状','症状期間','痛みレベル','安全確認','安全確認メモ','施術目的','強さ希望','苦手な施術','撮影同意','顔出し希望','同意済み','同意日時','人体図URL','署名URL','[Notion ID]','[登録日時]','[同期日時]','[エラー回数]','[問診JSON]'],
+    systemFrom: 19,
+  },
+  'クレジット台帳': {
+    headers: ['記録ID','日付','診察番号','種別','金額','有効期限','関連記録ID','[登録日時]','[同期日時]','[エラー回数]'],
+    systemFrom: 7,
+  },
+  'アクセスログ': {
+    headers: ['日時','操作','リクエストID','結果','エラー概要','処理時間(ms)','診察番号(参考)'],
+    systemFrom: 0, // 全列システム
+  },
+};
+
+// ヘッダー設定 + 色分けを指定シートに適用
+function applySheetHeaders(ss) {
+  Object.keys(SHEET_DEFS).forEach(function(name) {
+    var sh  = ss.getSheetByName(name);
+    if (!sh) return;
+    var def = SHEET_DEFS[name];
+    var len = def.headers.length;
+    sh.getRange(1, 1, 1, len).setValues([def.headers]);
+    sh.setFrozenRows(1);
+    // ユーザー列：青
+    if (def.systemFrom > 0) {
+      sh.getRange(1, 1, 1, def.systemFrom)
+        .setFontWeight('bold').setBackground('#e8f0fe').setFontColor('#1a1a1a');
+    }
+    // システム列：グレー
+    var sysLen = len - def.systemFrom;
+    if (sysLen > 0) {
+      sh.getRange(1, def.systemFrom + 1, 1, sysLen)
+        .setFontWeight('bold').setBackground('#eeeeee').setFontColor('#888888');
+    }
+    // 顧客マスタの電話番号列をテキスト形式に（先頭0を保護）
+    if (name === '顧客マスタ') {
+      sh.getRange(2, CM.phone + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
+    }
+  });
+}
+
+// 既存台帳にヘッダーと色分けを適用（手動実行用）
+function reformatSheets() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+  applySheetHeaders(ss);
+  Logger.log('✅ シートヘッダー更新完了');
+}
+
+// ステージング用 Drive フォルダを作成して DRIVE_FOLDER_ID を設定
+function setupDriveFolder() {
+  var folder = DriveApp.createFolder('LBC 人体図 [STAGING]');
+  var folderId = folder.getId();
+  PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', folderId);
+  Logger.log('✅ DRIVE_FOLDER_ID 設定完了: ' + folderId);
+  Logger.log('フォルダURL: ' + folder.getUrl());
+}
+
+// ステージング環境の一括セットアップ（Drive フォルダ作成 → リセット → 同期）
+function setupAll() {
+  var props = PropertiesService.getScriptProperties().getProperties();
+
+  // 1. Drive フォルダ作成（未設定の場合のみ）
+  if (!props.DRIVE_FOLDER_ID) {
+    var folder = DriveApp.createFolder('LBC 人体図 [STAGING]');
+    PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', folder.getId());
+    Logger.log('✅ Drive フォルダ作成: ' + folder.getId());
+    Logger.log('   URL: ' + folder.getUrl());
+  } else {
+    Logger.log('✅ Drive フォルダ設定済み: ' + props.DRIVE_FOLDER_ID);
+  }
+
+  // 2. 詰まっている行をリセット（notion_page_id なし & synced_at 有 or error_count > 0）
+  resetOrphanedSyncedAt();
+
+  // 3. 同期実行
+  syncToNotion();
 
   Logger.log('');
-  Logger.log('✅ ステージング環境セットアップ完了！');
-  Logger.log('台帳スプレッドシートID: ' + ssId);
-  Logger.log('ENV: ' + props.getProperty('ENV'));
-  Logger.log('STAGING_CUSTOMER_DB_ID: ' + props.getProperty('STAGING_CUSTOMER_DB_ID'));
-  Logger.log('STAGING_KARTE_DB_ID: ' + props.getProperty('STAGING_KARTE_DB_ID'));
-  Logger.log('');
-  Logger.log('次のステップ: GASエディタで「プロジェクト設定 → スクリプトプロパティ」を開き、設定値を確認してください。');
+  Logger.log('=== setupAll 完了 ===');
+  Logger.log('次のステップ: 以下URLで問診票を再送信して画像付きの動作を確認');
+  Logger.log('https://nicolas2028-data.github.io/lbc-form/questionnaire.html?env=staging');
+}
+
+// notion_page_id が空なのに synced_at が入っている行を再同期対象にリセット
+function resetOrphanedSyncedAt() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+  var fixed = 0;
+
+  // 顧客マスタ
+  var cmSheet = ss.getSheetByName('顧客マスタ');
+  if (cmSheet.getLastRow() > 1) {
+    var cmRows = cmSheet.getRange(2, 1, cmSheet.getLastRow() - 1, 15).getValues();
+    cmRows.forEach(function(r, i) {
+      if (!r[CM.notion_page_id] && r[CM.synced_at]) {
+        cmSheet.getRange(i + 2, CM.synced_at + 1).setValue('');
+        fixed++;
+        Logger.log('CM reset row ' + (i+2) + ': ' + r[CM.customer_id]);
+      }
+    });
+  }
+
+  // 問診台帳
+  var quSheet = ss.getSheetByName('問診台帳');
+  if (quSheet.getLastRow() > 1) {
+    var quRows = quSheet.getRange(2, 1, quSheet.getLastRow() - 1, 24).getValues();
+    quRows.forEach(function(r, i) {
+      if (!r[QU.notion_page_id]) {
+        quSheet.getRange(i + 2, QU.synced_at + 1).setValue('');
+        quSheet.getRange(i + 2, QU.error_count + 1).setValue(0);
+        fixed++;
+        Logger.log('QU reset row ' + (i+2) + ': ' + r[QU.entry_id]);
+      }
+    });
+  }
+
+  // 施術台帳
+  var trSheet = ss.getSheetByName('施術台帳');
+  if (trSheet.getLastRow() > 1) {
+    var trRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+    trRows.forEach(function(r, i) {
+      if (!r[TR.notion_page_id]) {
+        trSheet.getRange(i + 2, TR.synced_at + 1).setValue('');
+        trSheet.getRange(i + 2, TR.error_count + 1).setValue(0);
+        fixed++;
+        Logger.log('TR reset row ' + (i+2) + ': ' + r[TR.entry_id]);
+      }
+    });
+  }
+
+  if (fixed > 0) incSyncCounter(ss, fixed);
+  if (fixed > 0) incSyncCounter(ss, fixed);
+  Logger.log('resetOrphanedSyncedAt: ' + fixed + ' 行をリセットしました');
+}
+
+// 顧客マスタ1行目だけ同期テスト（詳細ログ付き）
+function debugSyncOneCustomer() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+  var sheet = ss.getSheetByName('顧客マスタ');
+  if (sheet.getLastRow() < 2) { Logger.log('データなし'); return; }
+  var r = sheet.getRange(2, 1, 1, 15).getValues()[0];
+  Logger.log('row: ' + JSON.stringify(r));
+
+  var langMap = { ja: 'ja', es: 'es', pt: 'pt' };
+  var props = {
+    '名前':          { title: [{ text: { content: String(r[CM.name]) } }] },
+    'フリガナ':       richText(String(r[CM.furigana])),
+    '電話番号':       { phone_number: String(r[CM.phone]) || null },
+    'メールアドレス': { email: String(r[CM.email]) || null },
+    '診察番号':       richText(String(r[CM.customer_id])),
+    '言語':           { select: langMap[String(r[CM.lang])] ? { name: String(r[CM.lang]) } : null },
+  };
+  Logger.log('props: ' + JSON.stringify(props));
+
+  var res = UrlFetchApp.fetch(NOTION_API + '/pages', {
+    method: 'post',
+    headers: {
+      'Authorization': 'Bearer ' + cfg.NOTION_TOKEN,
+      'Notion-Version': NOTION_VER,
+      'Content-Type': 'application/json',
+    },
+    payload: JSON.stringify({ parent: { database_id: cfg.CUSTOMER_DB_ID }, properties: props }),
+    muteHttpExceptions: true,
+  });
+  Logger.log('status: ' + res.getResponseCode());
+  Logger.log('response: ' + res.getContentText().slice(0, 800));
+}
+
+// Notion API疎通確認 + シート状態確認
+function debugSync() {
+  var cfg = getConfig();
+  Logger.log('ENV: ' + cfg._env);
+  Logger.log('LEDGER_SPREADSHEET_ID: ' + cfg.LEDGER_SPREADSHEET_ID);
+  Logger.log('CUSTOMER_DB_ID: ' + cfg.CUSTOMER_DB_ID);
+  Logger.log('KARTE_DB_ID: ' + cfg.KARTE_DB_ID);
+
+  var ss = getLedger(cfg);
+
+  // 顧客マスタの行内容を確認
+  var cmSheet = ss.getSheetByName('顧客マスタ');
+  var cmLast = cmSheet.getLastRow();
+  Logger.log('顧客マスタ lastRow: ' + cmLast);
+  if (cmLast > 1) {
+    var cmRows = cmSheet.getRange(2, 1, cmLast - 1, 15).getValues();
+    cmRows.forEach(function(r, i) {
+      Logger.log('CM row' + (i+2) + ': customer_id=' + r[CM.customer_id]
+        + ', updated_at=' + r[CM.updated_at]
+        + ', synced_at=[' + r[CM.synced_at] + ']'
+        + ', notion_page_id=[' + r[CM.notion_page_id] + ']');
+    });
+  }
+
+  // 問診台帳の行内容を確認
+  var quSheet = ss.getSheetByName('問診台帳');
+  var quLast = quSheet.getLastRow();
+  Logger.log('問診台帳 lastRow: ' + quLast);
+  if (quLast > 1) {
+    var quRows = quSheet.getRange(2, 1, quLast - 1, 24).getValues();
+    quRows.forEach(function(r, i) {
+      Logger.log('QU row' + (i+2) + ': entry_id=' + r[QU.entry_id]
+        + ', synced_at=[' + r[QU.synced_at] + ']'
+        + ', notion_page_id=[' + r[QU.notion_page_id] + ']');
+    });
+  }
+
+  // Notion API テスト: 顧客DBにページ作成テスト
+  Logger.log('--- Notion page create test ---');
+  try {
+    var testProps = {
+      '名前': { title: [{ text: { content: 'debugTest' } }] },
+    };
+    var res = UrlFetchApp.fetch(NOTION_API + '/pages', {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + cfg.NOTION_TOKEN,
+        'Notion-Version': NOTION_VER,
+        'Content-Type': 'application/json',
+      },
+      payload: JSON.stringify({ parent: { database_id: cfg.CUSTOMER_DB_ID }, properties: testProps }),
+      muteHttpExceptions: true,
+    });
+    Logger.log('create status: ' + res.getResponseCode());
+    Logger.log('create response: ' + res.getContentText().slice(0, 400));
+  } catch(e) {
+    Logger.log('create error: ' + e.message);
+  }
 }

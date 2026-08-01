@@ -781,6 +781,14 @@ function handleSubmitTreatmentRecord(data, cfg) {
   var entryId    = genUUID();
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
 
+  // クレジット残高チェック（書き込み前に行う）
+  if (data.creditUsed && Number(data.creditUsed) > 0) {
+    var balance = computeCreditBalance(ss, customerId);
+    if (Number(data.creditUsed) > balance) {
+      return { success: false, error: 'クレジット残高不足（残高: ¥' + balance + '）' };
+    }
+  }
+
   var trRow = makeRow(18, {
     [TR.entry_id]:             entryId,
     [TR.type]:                 'record',
@@ -792,7 +800,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
                                  ? Number(data.salesAmount) : '',
     [TR.payment]:              data.paymentMethod || '',
     [TR.memo]:                 data.treatmentMemo || '',
-    [TR.has_questionnaire]:    'FALSE', // 施術記録は問診なし（問診台帳は別途）
+    [TR.has_questionnaire]:    'FALSE',
     [TR.credit_used]:          Number(data.creditUsed) || 0,
     [TR.referrer_customer_id]: data.referrerId || '',
     [TR.count_eligible]:       'TRUE',
@@ -805,12 +813,8 @@ function handleSubmitTreatmentRecord(data, cfg) {
   ss.getSheetByName('施術台帳').appendRow(trRow);
   incSyncCounter(ss);
 
-  // クレジット消費
+  // クレジット消費台帳に記録
   if (data.creditUsed && Number(data.creditUsed) > 0) {
-    var balance = computeCreditBalance(ss, customerId);
-    if (Number(data.creditUsed) > balance) {
-      return { success: false, error: 'クレジット残高不足（残高: ¥' + balance + '）' };
-    }
     appendCreditEntry(ss, customerId, 'use', -Number(data.creditUsed), '', entryId);
   }
 
@@ -825,7 +829,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
   }
 
   logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
-  return { success: true, patientNum: customerId };
+  return { success: true, patientNum: customerId, entryId: entryId };
 }
 
 /* ============================================================

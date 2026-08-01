@@ -104,6 +104,16 @@ function doGet(e) {
       fixExistingPhones(cfg);
       return jsonRes({ done: true });
     }
+    if (p.action === 'devCheckTriggers' && cfg._env === 'staging') {
+      var triggers = ScriptApp.getProjectTriggers().map(function(t) {
+        return { fn: t.getHandlerFunction(), type: t.getEventType() + '' };
+      });
+      return jsonRes({ triggers: triggers });
+    }
+    if (p.action === 'devInstallTriggers' && cfg._env === 'staging') {
+      installTriggers();
+      return jsonRes({ done: true });
+    }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
     if (p.action === 'getPatientList') {
       var authL = verifyStaffPassword(p.pw, cfg);
@@ -1303,12 +1313,25 @@ function sendDailySummary() {
     var creditRows = getSheetData(ss, 'クレジット台帳');
     var logRows    = getSheetData(ss, 'アクセスログ');
 
+    // 取消エントリのtarget IDを収集
+    var voidedIds = {};
+    for (var v = 0; v < treatRows.length; v++) {
+      if (String(treatRows[v][TR.date]) === yesterday && String(treatRows[v][TR.type]) === 'void') {
+        var tgt = String(treatRows[v][TR.target_entry_id] || '');
+        if (tgt) voidedIds[tgt] = true;
+      }
+    }
+
     var visits = 0, sales = 0, creditMoves = 0, syncErrors = 0, authFails = 0;
     for (var i = 0; i < treatRows.length; i++) {
       var r = treatRows[i];
-      if (String(r[TR.date]) === yesterday && String(r[TR.type]) === 'record' && String(r[TR.count_eligible]) !== 'FALSE') {
-        visits++;
-        sales += Number(r[TR.sales]) || 0;
+      var rDate = String(r[TR.date]);
+      var rType = String(r[TR.type]);
+      if (rDate === yesterday && rType === 'record' && String(r[TR.count_eligible]) !== 'FALSE') {
+        if (!voidedIds[String(r[TR.entry_id])]) {
+          visits++;
+          sales += Number(r[TR.sales]) || 0;
+        }
       }
       if (Number(r[TR.error_count]) >= 5) syncErrors++;
     }

@@ -488,6 +488,43 @@
     .autocomplete-item-num  { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
     .no-results { padding: 14px; font-size: 0.88rem; color: var(--text-muted); text-align: center; }
 
+    /* ─── 本日の記録（取消） ─── */
+    .today-records-section {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 16px;
+      background: var(--danger-light);
+      border: 1.5px solid #ef9a9a;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      animation: fadeIn 0.22s ease;
+    }
+    .today-records-section.visible { display: flex; }
+    .today-records-title {
+      font-size: 0.82rem; font-weight: 700;
+      color: var(--danger); display: flex; align-items: center; gap: 6px;
+    }
+    .today-record-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: white;
+      border: 1px solid #ef9a9a;
+      border-radius: var(--radius-sm);
+    }
+    .today-record-info { flex: 1; font-size: 0.88rem; }
+    .today-record-course { font-weight: 700; }
+    .today-record-detail { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+    .btn-void {
+      background: none; border: 1.5px solid var(--danger);
+      color: var(--danger); border-radius: 6px;
+      font-size: 0.75rem; font-weight: 700;
+      padding: 5px 10px; cursor: pointer; flex-shrink: 0;
+      transition: background 0.12s, color 0.12s;
+    }
+    .btn-void:hover { background: var(--danger); color: white; }
+    .btn-void:disabled { opacity: 0.5; pointer-events: none; }
+
     /* ─── パスワードゲート ─── */
     #passwordGate { max-width: 400px; margin: 60px auto 0; padding: 0 14px; }
     .pw-icon  { font-size: 3rem; text-align: center; margin-bottom: 16px; }
@@ -602,6 +639,12 @@
             <button type="button" onclick="changeCredit(1)"  id="creditPlus">＋</button>
           </div>
         </div>
+      </div>
+
+      <!-- 本日の記録（取消） -->
+      <div class="today-records-section" id="todayRecordsSection">
+        <div class="today-records-title">📋 本日の記録</div>
+        <div id="todayRecordsList"></div>
       </div>
 
       <!-- 紹介者セクション（初回のみ表示） -->
@@ -978,6 +1021,10 @@ function showPhase2(customerId, patientNum, patientName, details) {
     creditSec.classList.remove('visible');
   }
 
+  // 本日の記録セクション
+  var todayRecs = (details && details.todayRecords) ? details.todayRecords : [];
+  renderTodayRecords(todayRecs);
+
   // 紹介者セクション（初回のみ）
   document.getElementById('referralSection').classList.toggle('visible', S.isFirstVisit);
   document.getElementById('referrerSearch').value = '';
@@ -1216,6 +1263,59 @@ function showSuccess(courseId, amount) {
   document.getElementById('successDetail').innerHTML = details.join('<br>');
   document.getElementById('successScreen').classList.add('visible');
   window.scrollTo({ top: 0 });
+}
+
+/* ── 本日の記録 / 取消 ───────────────────────────── */
+function renderTodayRecords(recs) {
+  var sec  = document.getElementById('todayRecordsSection');
+  var list = document.getElementById('todayRecordsList');
+  if (!recs || !recs.length) { sec.classList.remove('visible'); list.innerHTML = ''; return; }
+  list.innerHTML = recs.map(function(rec) {
+    var detail = rec.paymentMethod + '  ¥' + rec.salesAmount.toLocaleString();
+    if (rec.creditUsed > 0) detail += '（クレジット ¥' + rec.creditUsed.toLocaleString() + '使用）';
+    return '<div class="today-record-row" id="tr_' + escHtml(rec.entryId) + '">'
+      + '<div class="today-record-info">'
+      + '<div class="today-record-course">' + escHtml(rec.course) + '</div>'
+      + '<div class="today-record-detail">' + escHtml(detail) + '</div>'
+      + '</div>'
+      + '<button class="btn-void" id="vbtn_' + escHtml(rec.entryId) + '" '
+      + 'onclick="voidRecord(\'' + escHtml(rec.entryId) + '\',\'' + escHtml(rec.course) + '\',' + rec.salesAmount + ')">'
+      + '取消</button>'
+      + '</div>';
+  }).join('');
+  sec.classList.add('visible');
+}
+
+async function voidRecord(entryId, courseLabel, amount) {
+  if (!confirm('【' + courseLabel + ' ¥' + amount.toLocaleString() + '】の記録を取り消しますか？\n\nこの操作は取り消せません。')) return;
+  var btn = document.getElementById('vbtn_' + entryId);
+  if (btn) { btn.disabled = true; btn.textContent = '処理中...'; }
+  try {
+    var res = await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'submitVoidRecord', targetEntryId: entryId, customerId: S.customerId, password: _authPw, env: CONFIG.ENV_PARAM }),
+    });
+    var data = await res.json();
+    if (data.success) {
+      var row = document.getElementById('tr_' + entryId);
+      if (row) row.remove();
+      var list = document.getElementById('todayRecordsList');
+      if (!list || !list.children.length) {
+        document.getElementById('todayRecordsSection').classList.remove('visible');
+      }
+      toast('記録を取り消しました', 'success');
+    } else {
+      var msg = data.error === 'past_date_void_not_allowed' ? '当日の記録のみ取り消し可能です'
+              : data.error === 'already_voided'             ? 'この記録はすでに取り消されています'
+              : data.error === 'record_not_found'           ? '記録が見つかりません'
+              : (data.error || 'エラーが発生しました');
+      toast(msg, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '取消'; }
+    }
+  } catch {
+    toast('通信エラーが発生しました', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '取消'; }
+  }
 }
 
 /* ── UI ヘルパー ─────────────────────────────────── */

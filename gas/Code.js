@@ -76,6 +76,11 @@ function doPost(e) {
       if (!authDP.ok) return jsonRes({ success: false, error: authDP.error, remainingSec: authDP.remainingSec });
       return jsonRes(handleGetPatientDetails(data.customerId, cfg));
     }
+    if (action === 'submitVoidRecord') {
+      var authVR = verifyStaffPassword(data.password, cfg);
+      if (!authVR.ok) return jsonRes({ success: false, error: authVR.error, remainingSec: authVR.remainingSec });
+      return jsonRes(handleSubmitVoidRecord(data, cfg));
+    }
     return jsonRes({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     Logger.log('doPost error [' + action + ']: ' + err.message + '\n' + err.stack);
@@ -647,13 +652,37 @@ function handleGetPatientDetails(customerId, cfg) {
   // 来院履歴（施術台帳から）
   var treatRows  = getSheetData(ss, '施術台帳');
   var today      = todayStr();
-  var visitDates = [];
+
+  // 取消済みエントリIDを収集
+  var voidedIds = {};
+  for (var v = 0; v < treatRows.length; v++) {
+    var vr = treatRows[v];
+    if (String(vr[TR.customer_id]) !== customerId) continue;
+    if (String(vr[TR.type]) !== 'void') continue;
+    if (vr[TR.target_entry_id]) voidedIds[String(vr[TR.target_entry_id])] = true;
+  }
+
+  var visitDates   = [];
+  var todayRecords = [];
   for (var i = 0; i < treatRows.length; i++) {
     var r = treatRows[i];
     if (String(r[TR.customer_id]) !== customerId) continue;
     if (String(r[TR.type]) !== 'record') continue;
-    if (String(r[TR.count_eligible]) === 'FALSE') continue;
-    visitDates.push(String(r[TR.date]));
+    var eid      = String(r[TR.entry_id]);
+    var isVoided = !!voidedIds[eid];
+    if (!isVoided && String(r[TR.count_eligible]) !== 'FALSE') {
+      visitDates.push(String(r[TR.date]));
+    }
+    if (String(r[TR.date]) === today && !isVoided) {
+      todayRecords.push({
+        entryId:       eid,
+        course:        String(r[TR.course] || ''),
+        salesAmount:   Number(r[TR.sales]) || 0,
+        paymentMethod: String(r[TR.payment] || ''),
+        creditUsed:    Number(r[TR.credit_used]) || 0,
+        memo:          String(r[TR.memo] || ''),
+      });
+    }
   }
   visitDates.sort().reverse();
 
@@ -676,6 +705,7 @@ function handleGetPatientDetails(customerId, cfg) {
     visitNum:        visitNum,
     prevVisitDate:   prevVisit,
     isFirstVisit:    isFirstVisit,
+    todayRecords:    todayRecords,
   };
 }
 
@@ -748,6 +778,64 @@ function handleSubmitTreatmentRecord(data, cfg) {
 
   logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
   return { success: true, patientNum: customerId };
+}
+
+/* ============================================================
+   ハンドラ: 施術記録取消（当日分のみ）
+   ============================================================ */
+
+function handleSubmitVoidRecord(data, cfg) {
+  cfg = cfg || getConfig();
+  var ss         = getLedger(cfg);
+  var sheet      = ss.getSheetByName('施術台帳');
+  var rows       = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+  var today      = todayStr();
+  var targetId   = String(data.targetEntryId || '');
+  var customerId = String(data.customerId || '');
+
+  if (!targetId || !customerId) return { success: false, error: 'targetEntryId required' };
+
+  var origRow = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][TR.entry_id]) === targetId) { origRow = rows[i]; break; }
+  }
+  if (!origRow)                                       return { success: false, error: 'record_not_found' };
+  if (String(origRow[TR.customer_id]) !== customerId) return { success: false, error: 'record_not_found' };
+  if (String(origRow[TR.type]) !== 'record')          return { success: false, error: 'already_voided' };
+  if (String(origRow[TR.date]) !== today)             return { success: false, error: 'past_date_void_not_allowed' };
+
+  var now    = nowISO();
+  var voidId = genUUID();
+  var voidRow = makeRow(18, {
+    [TR.entry_id]:             voidId,
+    [TR.type]:                 'void',
+    [TR.target_entry_id]:      targetId,
+    [TR.date]:                 today,
+    [TR.customer_id]:          customerId,
+    [TR.course]:               String(origRow[TR.course] || ''),
+    [TR.sales]:                -(Number(origRow[TR.sales]) || 0),
+    [TR.payment]:              String(origRow[TR.payment] || ''),
+    [TR.memo]:                 '【取消】' + String(origRow[TR.memo] || ''),
+    [TR.has_questionnaire]:    'FALSE',
+    [TR.credit_used]:          -(Number(origRow[TR.credit_used]) || 0),
+    [TR.referrer_customer_id]: '',
+    [TR.count_eligible]:       'FALSE',
+    [TR.notion_page_id]:       '',
+    [TR.created_at]:           now,
+    [TR.updated_at]:           now,
+    [TR.synced_at]:            now,
+    [TR.error_count]:          0,
+  });
+  sheet.appendRow(voidRow);
+  incSyncCounter(ss);
+
+  if (Number(origRow[TR.credit_used]) > 0) {
+    appendCreditEntry(ss, customerId, 'refund', Number(origRow[TR.credit_used]), targetId, '');
+  }
+
+  logAccess(ss, 'voidTreatmentRecord', data.requestId || '', 'ok', '', 0, customerId);
+  return { success: true };
 }
 
 /* ============================================================

@@ -1876,6 +1876,8 @@ function fixExistingPhones(cfg) {
   var ss    = getLedger(cfg);
   var sheet = ss.getSheetByName('顧客マスタ');
   if (sheet.getLastRow() < 2) { Logger.log('データなし'); return; }
+  // まず電話番号列をテキスト形式に設定（先頭0保護）
+  sheet.getRange(2, CM.phone + 1, sheet.getMaxRows() - 1, 1).setNumberFormat('@');
   var rows  = sheet.getRange(2, 1, sheet.getLastRow() - 1, 15).getValues();
   var fixed = 0;
   rows.forEach(function(r, i) {

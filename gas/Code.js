@@ -885,6 +885,15 @@ function handleSubmitVoidRecord(data, cfg) {
     [TR.error_count]:          0,
   });
   sheet.appendRow(voidRow);
+
+  // 元 record の updated_at を更新 → 次の同期サイクルで Notion ステータスを「取消」に変更
+  for (var j = 0; j < rows.length; j++) {
+    if (String(rows[j][TR.entry_id]) === targetId) {
+      sheet.getRange(j + 2, TR.updated_at + 1).setValue(now);
+      break;
+    }
+  }
+
   incSyncCounter(ss);
 
   if (Number(origRow[TR.credit_used]) > 0) {
@@ -1186,6 +1195,14 @@ function syncTreatment(ss, cfg) {
   var quRows = getSheetData(ss, '問診台帳');
   var synced = 0;
 
+  // 赤伝畳み込み: void された record の entry_id を収集
+  var voidedSet = {};
+  for (var v = 0; v < rows.length; v++) {
+    if (String(rows[v][TR.type]) === 'void' && rows[v][TR.target_entry_id]) {
+      voidedSet[String(rows[v][TR.target_entry_id])] = true;
+    }
+  }
+
   for (var i = 0; i < rows.length; i++) {
     var r        = rows[i];
     var updatedAt = String(r[TR.updated_at]);
@@ -1233,7 +1250,8 @@ function syncTreatment(ss, cfg) {
         Utilities.sleep(350);
       }
 
-      var props = { 'ステータス': { status: { name: '完了' } } };
+      var isVoided = !!voidedSet[String(r[TR.entry_id])];
+      var props = { 'ステータス': { status: { name: isVoided ? '取消' : '完了' } } };
       if (r[TR.course] && VALID_COURSES.indexOf(String(r[TR.course])) >= 0) {
         props['コース'] = { select: { name: String(r[TR.course]) } };
       }

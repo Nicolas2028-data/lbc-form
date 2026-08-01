@@ -96,7 +96,7 @@ function doGet(e) {
       return jsonRes({ cleared: true });
     }
     if (p.action === 'devFixPhones' && cfg._env === 'staging') {
-      fixExistingPhones();
+      fixExistingPhones(cfg);
       return jsonRes({ done: true });
     }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
@@ -1871,8 +1871,8 @@ function reformatSheets() {
 }
 
 // 顧客マスタの電話番号先頭0を一括補完して再同期対象にする（一回だけ手動実行）
-function fixExistingPhones() {
-  var cfg   = getConfig();
+function fixExistingPhones(cfg) {
+  cfg       = cfg || getConfig();
   var ss    = getLedger(cfg);
   var sheet = ss.getSheetByName('顧客マスタ');
   if (sheet.getLastRow() < 2) { Logger.log('データなし'); return; }

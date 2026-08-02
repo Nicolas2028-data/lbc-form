@@ -2557,6 +2557,34 @@ function debugSync() {
 }
 
 // ============================================================
+// diagSheets: 各タブの行数とcustomer_idの種類を一覧表示（デバッグ用）
+// ============================================================
+function diagSheets() {
+  var ss = getLedger(getConfig());
+  var TABS = [
+    ['顧客マスタ',    CM.customer_id],
+    ['施術台帳',      TR.customer_id],
+    ['問診台帳',      QU.customer_id],
+    ['クレジット台帳', CR.customer_id],
+  ];
+  TABS.forEach(function(pair) {
+    var tabName = pair[0], colIdx = pair[1];
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) { Logger.log(tabName + ': シートなし'); return; }
+    var lastRow = sheet.getLastRow();
+    Logger.log(tabName + ': lastRow=' + lastRow);
+    if (lastRow < 2) return;
+    var data = sheet.getRange(2, 1, lastRow - 1, Math.max(colIdx + 1, 3)).getValues();
+    var ids = {};
+    data.forEach(function(row) {
+      var id = String(row[colIdx]).trim();
+      ids[id] = (ids[id] || 0) + 1;
+    });
+    Logger.log(tabName + ' IDs: ' + JSON.stringify(ids));
+  });
+}
+
+// ============================================================
 // deleteTestRows: P001〜P007 以外の行を全タブから削除する
 // GAS エディタから手動実行（一回限り）
 // ============================================================

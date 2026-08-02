@@ -2562,7 +2562,7 @@ function debugSync() {
 // ============================================================
 function deleteTestRows() {
   var REAL_IDS = ['P001', 'P002', 'P003', 'P004', 'P005', 'P006', 'P007'];
-  var ss = getLedgerSS();
+  var ss = getLedger(getConfig());
 
   // [タブ名, customer_id列インデックス(0始まり)]
   var TABS = [

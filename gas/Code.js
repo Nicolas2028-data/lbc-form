@@ -2555,3 +2555,46 @@ function debugSync() {
     Logger.log('create error: ' + e.message);
   }
 }
+
+// ============================================================
+// deleteTestRows: P001〜P007 以外の行を全タブから削除する
+// GAS エディタから手動実行（一回限り）
+// ============================================================
+function deleteTestRows() {
+  var REAL_IDS = ['P001', 'P002', 'P003', 'P004', 'P005', 'P006', 'P007'];
+  var ss = getLedgerSS();
+
+  // [タブ名, customer_id列インデックス(0始まり)]
+  var TABS = [
+    ['顧客マスタ',  CM.customer_id],
+    ['施術台帳',    TR.customer_id],
+    ['問診台帳',    QU.customer_id],
+    ['クレジット台帳', CR.customer_id],
+  ];
+
+  TABS.forEach(function(pair) {
+    var tabName = pair[0];
+    var colIdx  = pair[1];
+    var sheet   = ss.getSheetByName(tabName);
+    if (!sheet) { Logger.log(tabName + ': シートなし'); return; }
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) { Logger.log(tabName + ': データなし'); return; }
+
+    var data = sheet.getRange(2, colIdx + 1, lastRow - 1, 1).getValues();
+    var toDelete = [];
+    for (var i = data.length - 1; i >= 0; i--) {
+      var id = String(data[i][0]).trim();
+      if (id && REAL_IDS.indexOf(id) === -1) {
+        toDelete.push(i + 2); // 1始まり行番号
+      }
+    }
+
+    Logger.log(tabName + ': ' + toDelete.length + ' 行削除');
+    toDelete.forEach(function(rowNum) {
+      sheet.deleteRow(rowNum);
+    });
+  });
+
+  Logger.log('=== deleteTestRows 完了 ===');
+}

@@ -564,7 +564,39 @@
   <!-- ════ PHASE 1: 電話照合 ════ -->
   <div id="phase1">
     <div class="card">
-      <div class="card-title"><span class="icon">📞</span><span id="t_namePhone">電話番号で確認</span></div>
+      <div class="card-title"><span class="icon">📋</span><span id="t_namePhone">お名前・電話番号</span></div>
+
+      <div class="form-group" id="p1NameGroup">
+        <div class="field-label"><span id="lbl_nameGroup_p1">お名前</span><span class="badge-req">必須</span></div>
+        <div class="name-row">
+          <div class="name-col">
+            <div class="field-sub-label" id="lbl_sei_p1">姓</div>
+            <input type="text" id="sei_p1" autocomplete="family-name">
+            <div class="field-error" id="e_sei_p1"></div>
+          </div>
+          <div class="name-col">
+            <div class="field-sub-label" id="lbl_mei_p1">名</div>
+            <input type="text" id="mei_p1" autocomplete="given-name">
+            <div class="field-error" id="e_mei_p1"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" id="p1KanaGroup">
+        <div class="field-label"><span id="lbl_furiganaGroup_p1">フリガナ</span><span class="badge-req" id="p1KanaBadge">必須</span></div>
+        <div class="name-row">
+          <div class="name-col">
+            <div class="field-sub-label" id="lbl_seiKana_p1">姓</div>
+            <input type="text" id="seiKana_p1" autocomplete="off">
+            <div class="field-error" id="e_seiKana_p1"></div>
+          </div>
+          <div class="name-col">
+            <div class="field-sub-label" id="lbl_meiKana_p1">名</div>
+            <input type="text" id="meiKana_p1" autocomplete="off">
+            <div class="field-error" id="e_meiKana_p1"></div>
+          </div>
+        </div>
+      </div>
 
       <div class="form-group" style="margin-bottom:0">
         <div class="field-label"><span id="lbl_phone">電話番号</span><span class="badge-req">必須</span></div>
@@ -892,6 +924,7 @@
             </label>
           </div>
         </div>
+        <div class="field-error" id="e_photoConsent"></div>
         <div id="facePreferenceSection" style="margin-top:12px; opacity:0.35; pointer-events:none">
           <div class="field-label" style="margin-bottom:8px"><span id="lbl_face_q">顔出しについて</span></div>
           <div class="radio-list">
@@ -904,6 +937,7 @@
               <span id="lbl_face_no">顔は映さないでほしい</span>
             </label>
           </div>
+          <div class="field-error" id="e_facePreference"></div>
         </div>
       </div>
     </div>
@@ -1043,6 +1077,15 @@ function applyTexts() {
   set('t_selectPatient', l.t_selectPatient);
   set('lbl_nameGroup', l.lbl_nameGroup); set('lbl_sei', l.lbl_sei); set('lbl_mei', l.lbl_mei);
   set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_seiKana', l.lbl_seiKana); set('lbl_meiKana', l.lbl_meiKana);
+  set('lbl_nameGroup_p1', l.lbl_nameGroup);
+  set('lbl_sei_p1', l.lbl_sei);
+  set('lbl_mei_p1', l.lbl_mei);
+  set('lbl_furiganaGroup_p1', l.lbl_furiganaGroup);
+  set('lbl_seiKana_p1', l.lbl_seiKana);
+  set('lbl_meiKana_p1', l.lbl_meiKana);
+  // フリガナグループ: 日本語のみ表示
+  const kanaGrp = document.getElementById('p1KanaGroup');
+  if (kanaGrp) kanaGrp.style.display = Q.lang === 'ja' ? '' : 'none';
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
   const _dp = document.getElementById('detail_pregnant_text');     if (_dp)  _dp.placeholder  = l.ph_detail_pregnant  || '';
@@ -1289,6 +1332,21 @@ function onPhoneBlur() {
   }
 }
 
+function validateP1Name() {
+  let ok = true;
+  const sei = normName(document.getElementById('sei_p1').value);
+  const mei = normName(document.getElementById('mei_p1').value);
+  if (!sei) { showErr('e_sei_p1', L('e_sei'), 'sei_p1'); ok = false; } else clearErr('e_sei_p1', 'sei_p1');
+  if (!mei) { showErr('e_mei_p1', L('e_mei'), 'mei_p1'); ok = false; } else clearErr('e_mei_p1', 'mei_p1');
+  if (Q.lang === 'ja') {
+    const sk = toKatakana(normName(document.getElementById('seiKana_p1').value));
+    const mk = toKatakana(normName(document.getElementById('meiKana_p1').value));
+    if (!sk) { showErr('e_seiKana_p1', L('e_seiKana'), 'seiKana_p1'); ok = false; } else clearErr('e_seiKana_p1', 'seiKana_p1');
+    if (!mk) { showErr('e_meiKana_p1', L('e_meiKana'), 'meiKana_p1'); ok = false; } else clearErr('e_meiKana_p1', 'meiKana_p1');
+  }
+  return ok;
+}
+
 async function lookupPatient() {
   const phone    = normPhone(document.getElementById('phone').value);
   const rawPhone = document.getElementById('phone').value.trim()
@@ -1318,6 +1376,7 @@ async function lookupPatient() {
     } else if (demoType === 'return') {
       showPhase2('return', 'demo-id', 'P001', '田中 太郎');
     } else {
+      if (!validateP1Name()) return;
       showPhase2('first', null, null, '');
     }
     return;
@@ -1340,6 +1399,7 @@ async function lookupPatient() {
         showPatientSelection(matches);
       }
     } else {
+      if (!validateP1Name()) return;
       showPhase2('first', null, null, '');
     }
   } catch {
@@ -1381,9 +1441,9 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
     document.getElementById('qSection').style.display      = 'block';
     document.getElementById('photoSection').style.display   = 'block';
     document.getElementById('consentSection').style.display = 'block';
-    // Name/furigana fields are shown (they are inside basicCard)
-    document.getElementById('nameGroupWrap').style.display   = '';
-    document.getElementById('furiganaGroupWrap').style.display = '';
+    // Name/furigana fields are hidden in phase2 (entered in phase1 instead)
+    document.getElementById('nameGroupWrap').style.display   = 'none';
+    document.getElementById('furiganaGroupWrap').style.display = 'none';
     const hint = document.getElementById('firstWelcomeName');
     if (hint) hint.textContent = '';
   } else {
@@ -1656,18 +1716,18 @@ function validate() {
   }
 
   if (Q.visitType === 'first') {
-    const sei = normName(document.getElementById('sei_p2').value);
-    const mei = normName(document.getElementById('mei_p2').value);
-    if (!sei) { showErr('e_sei', L('e_sei'), 'sei_p2'); ok = false; } else clearErr('e_sei', 'sei_p2');
-    if (!mei) { showErr('e_mei', L('e_mei'), 'mei_p2'); ok = false; } else clearErr('e_mei', 'mei_p2');
+    const sei = normName(document.getElementById('sei_p1').value);
+    const mei = normName(document.getElementById('mei_p1').value);
+    if (!sei) { showErr('e_sei_p1', L('e_sei'), 'sei_p1'); ok = false; } else clearErr('e_sei_p1', 'sei_p1');
+    if (!mei) { showErr('e_mei_p1', L('e_mei'), 'mei_p1'); ok = false; } else clearErr('e_mei_p1', 'mei_p1');
     if (Q.lang === 'ja') {
-      const seiKana = toKatakana(normName(document.getElementById('seiKana_p2').value));
-      const meiKana = toKatakana(normName(document.getElementById('meiKana_p2').value));
-      if (!seiKana) { showErr('e_seiKana', L('e_seiKana'), 'seiKana_p2'); ok = false; } else clearErr('e_seiKana', 'seiKana_p2');
-      if (!meiKana) { showErr('e_meiKana', L('e_meiKana'), 'meiKana_p2'); ok = false; } else clearErr('e_meiKana', 'meiKana_p2');
+      const seiKana = toKatakana(normName(document.getElementById('seiKana_p1').value));
+      const meiKana = toKatakana(normName(document.getElementById('meiKana_p1').value));
+      if (!seiKana) { showErr('e_seiKana_p1', L('e_seiKana'), 'seiKana_p1'); ok = false; } else clearErr('e_seiKana_p1', 'seiKana_p1');
+      if (!meiKana) { showErr('e_meiKana_p1', L('e_meiKana'), 'meiKana_p1'); ok = false; } else clearErr('e_meiKana_p1', 'meiKana_p1');
     } else {
-      clearErr('e_seiKana', 'seiKana_p2');
-      clearErr('e_meiKana', 'meiKana_p2');
+      clearErr('e_seiKana_p1', 'seiKana_p1');
+      clearErr('e_meiKana_p1', 'meiKana_p1');
     }
     const y = parseInt(document.getElementById('dob_y').value);
     const m = parseInt(document.getElementById('dob_m').value);
@@ -1704,6 +1764,25 @@ function validate() {
     if (!document.querySelectorAll('input[name="disliked"]:checked').length) {
       showErr('e_disliked', L('e_disliked')); ok = false;
     } else clearErr('e_disliked');
+  }
+
+  const photoVisible = document.getElementById('photoSection').style.display !== 'none';
+  if (photoVisible) {
+    const photoConsentVal = document.querySelector('input[name="photoConsent"]:checked')?.value;
+    if (!photoConsentVal) {
+      showErr('e_photoConsent', L('e_photoConsent')); ok = false;
+    } else {
+      clearErr('e_photoConsent');
+      if (photoConsentVal === 'yes') {
+        if (!document.querySelector('input[name="facePreference"]:checked')) {
+          showErr('e_facePreference', L('e_facePreference')); ok = false;
+        } else {
+          clearErr('e_facePreference');
+        }
+      } else {
+        clearErr('e_facePreference');
+      }
+    }
   }
 
   const consentVisible = document.getElementById('consentSection').style.display !== 'none';
@@ -1765,10 +1844,10 @@ async function submitQuestionnaire() {
     : '';
 
   const today = new Date().toISOString().split('T')[0];
-  const _sei     = Q.visitType === 'first' ? normName(document.getElementById('sei_p2').value) : '';
-  const _mei     = Q.visitType === 'first' ? normName(document.getElementById('mei_p2').value) : '';
-  const _seiKana = Q.visitType === 'first' ? toKatakana(normName(document.getElementById('seiKana_p2').value)) : '';
-  const _meiKana = Q.visitType === 'first' ? toKatakana(normName(document.getElementById('meiKana_p2').value)) : '';
+  const _sei     = Q.visitType === 'first' ? normName(document.getElementById('sei_p1').value) : '';
+  const _mei     = Q.visitType === 'first' ? normName(document.getElementById('mei_p1').value) : '';
+  const _seiKana = Q.visitType === 'first' ? toKatakana(normName(document.getElementById('seiKana_p1').value)) : '';
+  const _meiKana = Q.visitType === 'first' ? toKatakana(normName(document.getElementById('meiKana_p1').value)) : '';
 
   const payload = {
     action:     'submitAll',

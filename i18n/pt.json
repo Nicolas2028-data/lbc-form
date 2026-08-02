@@ -1,7 +1,7 @@
 {
   "pageTitle": "LBC Care – Questionário",
   "heroTitle": "Questionário médico",
-  "t_namePhone": "Verificação por telefone",
+  "t_namePhone": "Nome e Telefone",
   "t_selectPatient": "Selecione seu nome",
   "lbl_nameGroup": "Nome completo",
   "lbl_sei": "Nome",
@@ -147,5 +147,7 @@
   "s_back": "Voltar ao início",
   "err_net": "Erro de conexão. Tente novamente.",
   "err_srv": "Erro no servidor.",
-  "err_lookup": "Erro ao verificar. Tente novamente."
+  "err_lookup": "Erro ao verificar. Tente novamente.",
+  "e_photoConsent": "Selecione sua preferência de foto",
+  "e_facePreference": "Selecione sua preferência de rosto"
 }

@@ -1962,6 +1962,184 @@ function cleanupKarteTitles() {
   Logger.log('cleanupKarteTitles 完了: ' + renamed + ' 件リネーム');
 }
 
+// テストデータ削除 + 患者番号振り直し（GASエディタから1回だけ手動実行）
+function cleanAndRenumber() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+  var now = nowISO();
+  Logger.log('=== cleanAndRenumber 開始 ===');
+
+  // ── 削除対象: Notion 顧客マスタ ページID ──
+  var DEL_CUST = [
+    '39b88446-d062-81b2-bb91-c06606ae5225', // 田中 太郎 (旧P001)
+    '39b88446-d062-8179-b6c3-e9ae4c58de78', // 鈴木 一郎 (旧P002)
+    '39b88446-d062-81a3-b6ea-c83e41478520', // Lucas Silva (旧P003)
+    '39b88446-d062-81a9-9b73-d047a81ce68d', // Ana Santos (旧P004)
+    '39b88446-d062-8199-872e-d816f13faa6a', // ベントゥーラ ニコラス (旧P005)
+    '39b88446-d062-8161-ad1e-d393d683e3dd', // Leonardo Nicolas (旧P006)
+    '39b88446-d062-8159-afdd-ffbf2108cff6', // 杉本 ジョエル (旧P007)
+    '39b88446-d062-81ce-a1ec-ef6a0f87b813', // レオナルド デカプリオ (旧P008)
+    '3af88446-d062-8175-be80-ccfc1e6674b1', // Leonardo Nicolas (テストP001)
+    '3af88446-d062-81f7-b3c1-e54f5702a979', // Leonardo Nicolas (テストP002)
+    '3af88446-d062-8126-b1e3-f797278a896e', // テスト 花子 (P003)
+    '3a988446-d062-81c1-be33-e27d7a1e6b2a', // テスト太郎 (P009)
+    '3a988446-d062-816b-bdd0-c9796e13ea5a', // ベントゥーラ ニコラス (P010)
+    '3a988446-d062-816d-91ae-d0540c54cdc6', // ベントゥーラニコラス マリカ (P011)
+    '3a988446-d062-81c7-be9f-efd8aae0b390', // PedroforoivaJosair Foroiva (P012)
+  ];
+  // ── 削除対象: Notion 施術カルテ ページID ──
+  var DEL_KARTE = [
+    '39b88446-d062-810a-beda-dfd2cf34f531', '39b88446-d062-8117-a3ca-d362cc35d0d6',
+    '39b88446-d062-8128-b43a-db3aede3f4a2', '39b88446-d062-818e-9d6d-caa6ac67cf65',
+    '39b88446-d062-8195-9a22-d69cf0310038', '39b88446-d062-81e0-bdda-f44ad3ed75be',
+    '39b88446-d062-81e1-b933-f9c05aeec916', '39b88446-d062-81ee-938d-e73cb193fa3e',
+    '3a988446-d062-810d-bbad-c13fed4b309f', '3a988446-d062-811e-947a-e10b7ecacc2b',
+    '3a988446-d062-8136-bc7e-d640bea7ebb2', '3a988446-d062-813a-addd-c446dffd31fd',
+    '3a988446-d062-8150-a90c-ce9b8dffff94', '3a988446-d062-8155-b7d8-d6fb9e8d76c0',
+    '3a988446-d062-8167-83ec-c804f48dbd0b', '3a988446-d062-8171-896e-f1abddc31a01',
+    '3a988446-d062-817d-97b7-cb3add6a75cc', '3a988446-d062-8191-9e47-cc79440a3172',
+    '3a988446-d062-81ae-9bdd-edc6d9db0311', '3af88446-d062-8123-bfcd-ff854b7c815e',
+    '3af88446-d062-8125-9cf4-ff61ec25624a', '3af88446-d062-812c-a57b-c0940e6e38cd',
+    '3af88446-d062-814f-8359-c467dc185a0b', '3af88446-d062-81ca-8cc2-cd6a38556d99',
+  ];
+  // ── 振り直しマップ (旧ID → 新ID) ──
+  var RENUMBER = {
+    'P013': 'P001', // Yuji Mesquita
+    'P014': 'P002', // Amanda Tiemy Hattori
+    'P015': 'P003', // Douglas Silveira
+    'P016': 'P004', // Kawano Rosas Layla Ketlen
+    'P017': 'P005', // José Enrique Vertiz Salazar
+  };
+  // P004(Dilson) / P005(Alfredo) は同番号に別人がいるため Notion ID で識別
+  var DILSON_NID  = '3b088446-d062-81bf-89cd-e3cf2df4e757';
+  var ALFREDO_NID = '3b088446-d062-818c-9004-e6025cff22a8';
+
+  // Step 1: Notion ページをアーカイブ
+  Logger.log('Step 1: Notion アーカイブ中 (' + (DEL_CUST.length + DEL_KARTE.length) + ' 件)...');
+  DEL_CUST.concat(DEL_KARTE).forEach(function(id) {
+    try {
+      UrlFetchApp.fetch(NOTION_API + '/pages/' + id.replace(/-/g, ''), {
+        method: 'patch', headers: notionHeaders(cfg),
+        payload: JSON.stringify({ archived: true }), muteHttpExceptions: true,
+      });
+      Utilities.sleep(200);
+    } catch(e) { Logger.log('archive err ' + id + ': ' + e.message); }
+  });
+
+  // Step 2: シート行削除ヘルパー (Notion ID マッチ)
+  function deleteByNotionId(sheet, col, idSet) {
+    if (sheet.getLastRow() < 2) return 0;
+    var vals = sheet.getRange(2, col + 1, sheet.getLastRow() - 1, 1).getValues();
+    var delRows = [];
+    for (var i = vals.length - 1; i >= 0; i--) {
+      if (idSet[String(vals[i][0])]) delRows.push(i + 2);
+    }
+    delRows.forEach(function(r) { sheet.deleteRow(r); });
+    return delRows.length;
+  }
+
+  var custIdSet   = {};  DEL_CUST.forEach(function(id)   { custIdSet[id] = true; });
+  var karteIdSet  = {};  DEL_KARTE.forEach(function(id)  { karteIdSet[id] = true; });
+
+  // 顧客マスタ: notion_page_id で削除
+  var custSheet = ss.getSheetByName('顧客マスタ');
+  Logger.log('Step 2a: 顧客マスタ削除 ' + deleteByNotionId(custSheet, CM.notion_page_id, custIdSet) + ' 件');
+
+  // 施術台帳・問診台帳: notion_page_id はカルテ共通
+  var trSheet = ss.getSheetByName('施術台帳');
+  Logger.log('Step 2b: 施術台帳削除 ' + deleteByNotionId(trSheet, TR.notion_page_id, karteIdSet) + ' 件');
+  var quSheet = ss.getSheetByName('問診台帳');
+  Logger.log('Step 2c: 問診台帳削除 ' + deleteByNotionId(quSheet, QU.notion_page_id, karteIdSet) + ' 件');
+
+  // クレジット台帳: notion_page_idなし → customer_id で削除
+  // 削除確定な顧客ID (P004/P005 は実患者が残るため除外)
+  var delCustIds = { P006:1,P007:1,P008:1,P009:1,P010:1,P011:1,P012:1 };
+  // P001-P005 はシートの顧客マスタ Notion ID で実患者か判定
+  // → クレジット台帳は実患者のクレジットが未付与のため今は空のはず
+  var crSheet = ss.getSheetByName('クレジット台帳');
+  if (crSheet && crSheet.getLastRow() > 1) {
+    var crVals = crSheet.getRange(2, CR.customer_id + 1, crSheet.getLastRow() - 1, 1).getValues();
+    var crDel  = [];
+    for (var ci = crVals.length - 1; ci >= 0; ci--) {
+      if (delCustIds[String(crVals[ci][0])]) crDel.push(ci + 2);
+    }
+    crDel.forEach(function(r) { crSheet.deleteRow(r); });
+    Logger.log('Step 2d: クレジット台帳削除 ' + crDel.length + ' 件');
+  }
+
+  // Step 3: 顧客番号振り直し (全シート)
+  Logger.log('Step 3: 番号振り直し中...');
+
+  function renumberSheet(sheet, idCol, notionIdCol) {
+    if (sheet.getLastRow() < 2) return;
+    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var oldId   = String(rows[i][idCol]);
+      var notionId = notionIdCol !== null ? String(rows[i][notionIdCol]) : '';
+      var newId   = RENUMBER[oldId] || null;
+      if (!newId) {
+        if (notionId === DILSON_NID  || (oldId === 'P004' && !newId)) newId = 'P006';
+        if (notionId === ALFREDO_NID || (oldId === 'P005' && !newId)) newId = 'P007';
+      }
+      if (newId) {
+        sheet.getRange(i + 2, idCol + 1).setValue(newId);
+        // updated_at / synced_at リセット（シートごとに列が違う）
+        try { sheet.getRange(i + 2, CM.updated_at + 1).setValue(now); } catch(e) {}
+        try { sheet.getRange(i + 2, CM.synced_at + 1).setValue(''); } catch(e) {}
+      }
+    }
+  }
+
+  renumberSheet(custSheet, CM.customer_id, CM.notion_page_id);
+
+  // 施術台帳
+  if (trSheet && trSheet.getLastRow() > 1) {
+    var trRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+    for (var ti = 0; ti < trRows.length; ti++) {
+      var oldCid = String(trRows[ti][TR.customer_id]);
+      var newCid = RENUMBER[oldCid]
+        || (oldCid === 'P004' ? 'P006' : null)
+        || (oldCid === 'P005' ? 'P007' : null);
+      if (newCid) {
+        trSheet.getRange(ti + 2, TR.customer_id + 1).setValue(newCid);
+        trSheet.getRange(ti + 2, TR.updated_at + 1).setValue(now);
+        trSheet.getRange(ti + 2, TR.synced_at + 1).setValue('');
+      }
+    }
+  }
+
+  // 問診台帳
+  if (quSheet && quSheet.getLastRow() > 1) {
+    var quRows = quSheet.getRange(2, 1, quSheet.getLastRow() - 1, 24).getValues();
+    for (var qi = 0; qi < quRows.length; qi++) {
+      var oldQid = String(quRows[qi][QU.customer_id]);
+      var newQid = RENUMBER[oldQid]
+        || (oldQid === 'P004' ? 'P006' : null)
+        || (oldQid === 'P005' ? 'P007' : null);
+      if (newQid) {
+        quSheet.getRange(qi + 2, QU.customer_id + 1).setValue(newQid);
+        quSheet.getRange(qi + 2, QU.synced_at + 1).setValue('');
+      }
+    }
+  }
+
+  // クレジット台帳
+  if (crSheet && crSheet.getLastRow() > 1) {
+    var crRows2 = crSheet.getRange(2, 1, crSheet.getLastRow() - 1, 10).getValues();
+    for (var ri = 0; ri < crRows2.length; ri++) {
+      var oldRid = String(crRows2[ri][CR.customer_id]);
+      var newRid = RENUMBER[oldRid]
+        || (oldRid === 'P004' ? 'P006' : null)
+        || (oldRid === 'P005' ? 'P007' : null);
+      if (newRid) crSheet.getRange(ri + 2, CR.customer_id + 1).setValue(newRid);
+    }
+  }
+
+  // Step 4: 同期カウンタを増やして次回同期を促す
+  incSyncCounter(ss, 20);
+  Logger.log('=== cleanAndRenumber 完了。次回の同期トリガーで Notion に反映されます ===');
+}
+
 // Step 1-2: normalizePhone の動作確認
 function testNormalizePhone() {
   var cases = [

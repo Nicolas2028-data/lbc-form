@@ -1131,7 +1131,7 @@ function syncQuestionnaire(ss, cfg) {
       if (!pageId) {
         // Notion カルテページ新規作成
         var dateLabel = toDateStr(r[QU.date]).replace(/-/g, '/');
-        var title     = String(r[QU.customer_id]) + (custData ? ' ' + String(custData.row[CM.name]) : '') + ' (' + dateLabel + ')';
+        var title     = (custData ? String(custData.row[CM.name]) : String(r[QU.customer_id])) + ' (' + dateLabel + ')';
         var langMap2  = { ja: '日本語', es: 'Español', pt: 'Português' };
         var lang      = custData ? String(custData.row[CM.lang]) : 'ja';
         var karteProps = {
@@ -1234,7 +1234,7 @@ function syncTreatment(ss, cfg) {
       if (!pageId) {
         // 問診なし来院 → カルテページを新規作成
         var dateLabel2 = String(r[TR.date]).replace(/-/g, '/');
-        var title2 = custId + (custData ? ' ' + String(custData.row[CM.name]) : '') + ' (' + dateLabel2 + ')';
+        var title2 = (custData ? String(custData.row[CM.name]) : custId) + ' (' + dateLabel2 + ')';
         var langMap3 = { ja: '日本語', es: 'Español', pt: 'Português' };
         var lang2 = custData ? String(custData.row[CM.lang]) : 'ja';
         var newKarteProps = {
@@ -1927,6 +1927,40 @@ function getTextProp(props, key) {
 /* ============================================================
    テスト・セットアップ関数
    ============================================================ */
+
+// 既存 Notion カルテページのタイトルから P番号プレフィックスを除去する
+// 例: "P013 Douglas Silveira (2026/07/31)" → "Douglas Silveira (2026/07/31)"
+// GAS エディタから手動で1回実行する
+function cleanupKarteTitles() {
+  var cfg  = getConfig();
+  var url  = NOTION_API + '/databases/' + cfg.KARTE_DB_ID + '/query';
+  var renamed = 0;
+  var cursor;
+  do {
+    var body = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    var res = notionPost(cfg, '/databases/' + cfg.KARTE_DB_ID + '/query', body);
+    var pages = res.results || [];
+    for (var i = 0; i < pages.length; i++) {
+      var page  = pages[i];
+      var props = page.properties || {};
+      var titleArr = (props['名前'] && props['名前'].title) || [];
+      var current = titleArr.length ? titleArr[0].plain_text : '';
+      // P番号プレフィックス "Pnnn " または "Pnnn　" を除去
+      var fixed = current.replace(/^P\d{3,4}\s+/, '');
+      if (fixed !== current) {
+        notionPatch(cfg, '/pages/' + page.id, {
+          properties: { '名前': { title: [{ text: { content: fixed } }] } },
+        });
+        Logger.log('renamed: "' + current + '" → "' + fixed + '"');
+        renamed++;
+        Utilities.sleep(350);
+      }
+    }
+    cursor = res.next_cursor;
+  } while (cursor);
+  Logger.log('cleanupKarteTitles 完了: ' + renamed + ' 件リネーム');
+}
 
 // Step 1-2: normalizePhone の動作確認
 function testNormalizePhone() {

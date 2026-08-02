@@ -1259,7 +1259,7 @@ function latinToKatakana(str, lang) {
   return result;
 }
 function normName(str) {
-  return str.replace(/[\s　]+/g, '');
+  return str.trim().replace(/[\s　]+/g, ' ');
 }
 function normPhone(str) {
   return str

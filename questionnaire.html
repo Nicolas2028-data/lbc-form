@@ -976,7 +976,7 @@
           </div>
         </div>
         <div class="field-error" id="e_photoConsent"></div>
-        <div id="facePreferenceSection" style="margin-top:12px; opacity:0.35; pointer-events:none">
+        <div id="facePreferenceSection" style="display:none; margin-top:12px">
           <div class="field-label" style="margin-bottom:8px"><span id="lbl_face_q">顔出しについて</span></div>
           <div class="radio-list">
             <label class="radio-item">
@@ -1814,12 +1814,10 @@ function onPhotoConsentChange() {
   var sec = document.getElementById('facePreferenceSection');
   var inputs = sec.querySelectorAll('input[name="facePreference"]');
   if (val === 'yes') {
-    sec.style.opacity = '1';
-    sec.style.pointerEvents = 'auto';
+    sec.style.display = 'block';
     inputs.forEach(function(r) { r.disabled = false; });
   } else {
-    sec.style.opacity = '0.35';
-    sec.style.pointerEvents = 'none';
+    sec.style.display = 'none';
     inputs.forEach(function(r) { r.disabled = true; r.checked = false; });
   }
 }

@@ -448,8 +448,22 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Success ── */
-    #successScreen { display: none; text-align: center; padding: 60px 20px; }
-    #successScreen.visible { display: block; }
+    #successScreen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg);
+      z-index: 9999;
+      text-align: center;
+      overflow-y: auto;
+    }
+    #successScreen.visible {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
     .success-anim {
       width: 72px; height: 72px;
       background: var(--primary);
@@ -566,33 +580,33 @@
     <div class="card">
       <div class="card-title"><span class="icon">📋</span><span id="t_namePhone">お名前・電話番号</span></div>
 
-      <div class="form-group" id="p1NameGroup">
+      <div class="form-group" id="p1NameGroup" style="display:none">
         <div class="field-label"><span id="lbl_nameGroup_p1">お名前</span><span class="badge-req">必須</span></div>
         <div class="name-row">
           <div class="name-col">
             <div class="field-sub-label" id="lbl_sei_p1">姓</div>
-            <input type="text" id="sei_p1" autocomplete="family-name">
+            <input type="text" id="sei_p1" autocomplete="family-name" maxlength="30">
             <div class="field-error" id="e_sei_p1"></div>
           </div>
           <div class="name-col">
             <div class="field-sub-label" id="lbl_mei_p1">名</div>
-            <input type="text" id="mei_p1" autocomplete="given-name">
+            <input type="text" id="mei_p1" autocomplete="given-name" maxlength="30">
             <div class="field-error" id="e_mei_p1"></div>
           </div>
         </div>
       </div>
 
-      <div class="form-group" id="p1KanaGroup">
+      <div class="form-group" id="p1KanaGroup" style="display:none">
         <div class="field-label"><span id="lbl_furiganaGroup_p1">フリガナ</span><span class="badge-req" id="p1KanaBadge">必須</span></div>
         <div class="name-row">
           <div class="name-col">
             <div class="field-sub-label" id="lbl_seiKana_p1">姓</div>
-            <input type="text" id="seiKana_p1" autocomplete="off">
+            <input type="text" id="seiKana_p1" autocomplete="off" maxlength="30">
             <div class="field-error" id="e_seiKana_p1"></div>
           </div>
           <div class="name-col">
             <div class="field-sub-label" id="lbl_meiKana_p1">名</div>
-            <input type="text" id="meiKana_p1" autocomplete="off">
+            <input type="text" id="meiKana_p1" autocomplete="off" maxlength="30">
             <div class="field-error" id="e_meiKana_p1"></div>
           </div>
         </div>
@@ -606,13 +620,50 @@
       </div>
     </div>
 
-    <!-- 複数患者セレクション -->
-    <div id="patientSelectCard" style="display:none" class="card">
-      <div class="card-title"><span class="icon">👥</span><span id="t_selectPatient">お客様を選択してください</span></div>
-      <div id="patientSelectList"></div>
+    <!-- 登録情報確認カード -->
+    <div id="patientInfoCard" style="display:none" class="card">
+      <div class="card-title"><span class="icon">✅</span><span id="t_confirmInfo">ご登録情報の確認</span></div>
+      <div id="patientInfoDisplay" style="margin-bottom:16px;line-height:1.8"></div>
+      <p style="margin:0 0 12px;font-size:0.9rem;opacity:0.8"><span id="t_confirmInfoQ">登録情報に変更はありますか？</span></p>
+      <div style="display:flex;gap:8px">
+        <button class="btn-submit" id="infoNoChangeBtn" onclick="onInfoNoChange()" style="flex:1">
+          <span id="t_infoNoChange">変更なし、このまま続ける</span>
+        </button>
+        <button class="btn-submit" id="infoChangeBtn" onclick="onInfoChange()" style="flex:1;background:var(--white);color:var(--primary-dark);border:1.5px solid var(--primary);box-shadow:none">
+          <span id="t_infoHasChange">変更する</span>
+        </button>
+      </div>
     </div>
 
-    <div class="card">
+    <!-- 情報変更フォーム -->
+    <div id="patientEditCard" style="display:none" class="card">
+      <div class="card-title"><span class="icon">✏️</span><span id="t_editInfo">情報の変更</span></div>
+      <div class="form-group">
+        <div class="field-label"><span id="lbl_editName">お名前</span><span class="badge-opt">任意</span></div>
+        <input type="text" id="edit_name" autocomplete="name" maxlength="60" style="width:100%">
+      </div>
+      <div class="form-group" id="editKanaGroup">
+        <div class="field-label"><span id="lbl_editKana">フリガナ</span><span class="badge-opt">任意</span></div>
+        <input type="text" id="edit_kana" autocomplete="off" maxlength="60" style="width:100%">
+      </div>
+      <div class="form-group">
+        <div class="field-label"><span id="lbl_editPhone">電話番号</span><span class="badge-opt">任意</span></div>
+        <input type="tel" id="edit_phone" inputmode="numeric" maxlength="20" style="width:100%">
+        <div class="field-error" id="e_edit_phone"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <div class="field-label"><span id="lbl_editEmail">メールアドレス</span><span class="badge-opt">任意</span></div>
+        <input type="email" id="edit_email" maxlength="100" style="width:100%">
+      </div>
+      <div class="loading-row" id="editLoading" style="display:none;margin-top:12px">
+        <span class="spinner"></span><span id="t_updating">更新中...</span>
+      </div>
+      <button class="btn-submit" id="editSaveBtn" onclick="onInfoEditSave()" style="margin-top:16px">
+        <span id="t_editSave">更新して続ける</span>
+      </button>
+    </div>
+
+    <div class="card" id="lookupBtnCard">
       <div class="loading-row" id="lookupLoading">
         <span class="spinner"></span><span id="t_lookingUp">確認中...</span>
       </div>
@@ -733,7 +784,7 @@
       <!-- メールアドレス -->
       <div class="form-group">
         <div class="field-label"><span id="lbl_email">メールアドレス</span><span class="badge-opt">任意</span></div>
-        <input type="email" id="email" autocomplete="email">
+        <input type="email" id="email" autocomplete="email" maxlength="100">
       </div>
 
       <!-- 来院のきっかけ -->
@@ -747,10 +798,10 @@
           <label class="radio-item"><input type="radio" name="howFound" value="other" onchange="toggleHowFoundExtra()"><span id="how_other_found">その他</span></label>
         </div>
         <div id="referrer_wrap" style="display:none;margin-top:8px">
-          <input type="text" id="referrerName">
+          <input type="text" id="referrerName" maxlength="60">
         </div>
         <div id="howFound_other_wrap" style="display:none;margin-top:8px">
-          <input type="text" id="howFoundOther">
+          <input type="text" id="howFoundOther" maxlength="100">
         </div>
         <div class="field-error" id="e_howFound"></div>
       </div>
@@ -793,7 +844,7 @@
             <label class="check-item"><input type="checkbox" name="mainSymptom" value="other" onchange="toggleMainSymptomOther()"><span id="sym_other">その他</span></label>
           </div>
           <div class="other-text" id="mainSymptom_other_wrap">
-            <input type="text" id="mainSymptom_other_text">
+            <input type="text" id="mainSymptom_other_text" maxlength="100">
           </div>
           <div class="field-error" id="e_mainSymptom"></div>
         </div>
@@ -1035,9 +1086,11 @@ const Q = {
   canvasDrawn: false,
   sigDrawn: false,
   visitType: null,
+  foundPatient: null,   // { customerId, patientNum, name, furigana, email }
+  nameFieldsVisible: false,
   customerId: null,
   patientNum: null,
-  lookupCandidates: [], // multiple matches for phone
+  lookupCandidates: [],
 };
 
 /* ============================================================
@@ -1048,7 +1101,7 @@ function setLang(lang) {
   // ja = family-first (left=姓); es/pt = given-first (left=Nombre/Nome)
   // Swap field values when crossing the ja ↔ foreign boundary
   if ((prevLang === 'ja') !== (lang === 'ja')) {
-    ['sei_p2','mei_p2','seiKana_p2','meiKana_p2'].reduce((_, __, i, arr) => {
+    ['sei_p1','mei_p1','seiKana_p1','meiKana_p1'].reduce((_, __, i, arr) => {
       if (i % 2 === 0) {
         const a = document.getElementById(arr[i]), b = document.getElementById(arr[i+1]);
         if (a && b) { const t = a.value; a.value = b.value; b.value = t; }
@@ -1083,9 +1136,11 @@ function applyTexts() {
   set('lbl_furiganaGroup_p1', l.lbl_furiganaGroup);
   set('lbl_seiKana_p1', l.lbl_seiKana);
   set('lbl_meiKana_p1', l.lbl_meiKana);
-  // フリガナグループ: 日本語のみ表示
+  // 名前・フリガナグループ: 照合失敗後のみ表示
+  const nameGrp = document.getElementById('p1NameGroup');
+  if (nameGrp) nameGrp.style.display = Q.nameFieldsVisible ? '' : 'none';
   const kanaGrp = document.getElementById('p1KanaGroup');
-  if (kanaGrp) kanaGrp.style.display = Q.lang === 'ja' ? '' : 'none';
+  if (kanaGrp) kanaGrp.style.display = (Q.nameFieldsVisible && Q.lang === 'ja') ? '' : 'none';
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
   const _dp = document.getElementById('detail_pregnant_text');     if (_dp)  _dp.placeholder  = l.ph_detail_pregnant  || '';
@@ -1096,12 +1151,23 @@ function applyTexts() {
   const _fb = document.getElementById('furiganaBadge');
   if (_fb) { _fb.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb.textContent = Q.lang === 'ja' ? l.req : l.opt; }
   set('lbl_phone', l.lbl_phone);
-  const _sei = document.getElementById('sei_p2'); if (_sei) _sei.placeholder = l.ph_sei || '';
-  const _mei = document.getElementById('mei_p2'); if (_mei) _mei.placeholder = l.ph_mei || '';
-  const _seiK = document.getElementById('seiKana_p2'); if (_seiK) _seiK.placeholder = l.ph_seiKana || '';
-  const _meiK = document.getElementById('meiKana_p2'); if (_meiK) _meiK.placeholder = l.ph_meiKana || '';
+  const _sei = document.getElementById('sei_p1'); if (_sei) _sei.placeholder = l.ph_sei || '';
+  const _mei = document.getElementById('mei_p1'); if (_mei) _mei.placeholder = l.ph_mei || '';
+  const _seiK = document.getElementById('seiKana_p1'); if (_seiK) _seiK.placeholder = l.ph_seiKana || '';
+  const _meiK = document.getElementById('meiKana_p1'); if (_meiK) _meiK.placeholder = l.ph_meiKana || '';
+  const _sei2 = document.getElementById('sei_p2'); if (_sei2) _sei2.placeholder = l.ph_sei || '';
+  const _mei2 = document.getElementById('mei_p2'); if (_mei2) _mei2.placeholder = l.ph_mei || '';
+  const _seiK2 = document.getElementById('seiKana_p2'); if (_seiK2) _seiK2.placeholder = l.ph_seiKana || '';
+  const _meiK2 = document.getElementById('meiKana_p2'); if (_meiK2) _meiK2.placeholder = l.ph_meiKana || '';
   const _ph = document.getElementById('phone'); if (_ph) _ph.placeholder = l.ph_phone || '';
   set('l_lookup', l.l_lookup); set('t_lookingUp', l.t_lookingUp);
+  set('t_confirmInfo', l.t_confirmInfo); set('t_confirmInfoQ', l.t_confirmInfoQ);
+  set('t_infoNoChange', l.t_infoNoChange); set('t_infoHasChange', l.t_infoHasChange);
+  set('t_editInfo', l.t_editInfo); set('t_editSave', l.t_editSave); set('t_updating', l.t_updating);
+  set('lbl_editName', l.lbl_editName); set('lbl_editKana', l.lbl_editKana);
+  set('lbl_editPhone', l.lbl_editPhone); set('lbl_editEmail', l.lbl_editEmail);
+  const editKanaGrp = document.getElementById('editKanaGroup');
+  if (editKanaGrp) editKanaGrp.style.display = Q.lang === 'ja' ? '' : 'none';
   set('t_firstBanner', l.t_firstBanner);
   set('t_welcomeBack', l.t_welcomeBack); set('t_welcomeSub', l.t_welcomeSub);
   set('t_course', l.t_course);
@@ -1214,7 +1280,7 @@ function toggleDurOther() {
 }
 
 function setupFuriganaAutoFill() {
-  [['sei_p2','seiKana_p2'],['mei_p2','meiKana_p2']].forEach(([nameId, kanaId]) => {
+  [['sei_p1','seiKana_p1'],['mei_p1','meiKana_p1']].forEach(([nameId, kanaId]) => {
     const nameEl = document.getElementById(nameId);
     const kanaEl = document.getElementById(kanaId);
     let kana = '';
@@ -1348,6 +1414,19 @@ function validateP1Name() {
 }
 
 async function lookupPatient() {
+  // 名前フィールドが表示済み = 照合失敗後の初回フロー確定ステップ
+  if (Q.nameFieldsVisible) {
+    if (!validateP1Name()) return;
+    showPhase2('first', null, null, '');
+    return;
+  }
+
+  // 前回の照合結果をリセット
+  Q.foundPatient = null;
+  document.getElementById('patientInfoCard').style.display = 'none';
+  document.getElementById('patientEditCard').style.display = 'none';
+  document.getElementById('lookupBtnCard').style.display = 'block';
+
   const phone    = normPhone(document.getElementById('phone').value);
   const rawPhone = document.getElementById('phone').value.trim()
     .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
@@ -1364,20 +1443,16 @@ async function lookupPatient() {
   const btn = document.getElementById('lookupBtn');
   btn.disabled = true;
   document.getElementById('lookupLoading').style.display = 'block';
-  document.getElementById('patientSelectCard').style.display = 'none';
 
   if (CONFIG.GAS_URL.includes('YOUR_DEPLOYMENT_ID')) {
     await new Promise(r => setTimeout(r, 700));
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
     const demoType = new URLSearchParams(window.location.search).get('demo');
-    if (demoType === 'multi') {
-      showPatientSelection([{ customerId: 'demo-1', patientNum: 'P001', name: '田中 太郎' }, { customerId: 'demo-2', patientNum: 'P002', name: '田中 花子' }]);
-    } else if (demoType === 'return') {
-      showPhase2('return', 'demo-id', 'P001', '田中 太郎');
+    if (demoType === 'return') {
+      showPatientInfo({ customerId: 'demo-id', patientNum: 'P001', name: '田中 太郎', furigana: 'タナカ タロウ', email: 'tanaka@example.com' });
     } else {
-      if (!validateP1Name()) return;
-      showPhase2('first', null, null, '');
+      revealNameFields();
     }
     return;
   }
@@ -1386,21 +1461,11 @@ async function lookupPatient() {
     const data = await gasPost(CONFIG.GAS_URL, { action: 'lookupPatient', phone, lang: Q.lang, env: CONFIG.ENV_PARAM }, 20000);
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
-    if (!data.success) {
-      toast(L('err_lookup'), 'error');
-      return;
-    }
+    if (!data.success) { toast(L('err_lookup'), 'error'); return; }
     if (data.found) {
-      // Support both single result (data.name/customerId) and array (data.matches)
-      const matches = data.matches || [{ customerId: data.customerId, patientNum: data.patientNum, name: data.name }];
-      if (matches.length === 1) {
-        showPhase2('return', matches[0].customerId, matches[0].patientNum, matches[0].name);
-      } else {
-        showPatientSelection(matches);
-      }
+      showPatientInfo(data);
     } else {
-      if (!validateP1Name()) return;
-      showPhase2('first', null, null, '');
+      revealNameFields();
     }
   } catch {
     document.getElementById('lookupLoading').style.display = 'none';
@@ -1409,22 +1474,84 @@ async function lookupPatient() {
   }
 }
 
-function showPatientSelection(matches) {
-  Q.lookupCandidates = matches;
-  const card = document.getElementById('patientSelectCard');
-  const list = document.getElementById('patientSelectList');
-  list.innerHTML = '';
-  matches.forEach((m, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn-submit';
-    btn.style.cssText = 'margin-bottom:8px;background:var(--white);color:var(--primary-dark);border:1.5px solid var(--primary);box-shadow:none;font-size:0.95rem;';
-    btn.textContent = m.name;
-    btn.onclick = () => showPhase2('return', m.customerId, m.patientNum, m.name);
-    list.appendChild(btn);
-  });
-  card.style.display = 'block';
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function showPatientInfo(data) {
+  Q.foundPatient = data;
+  const disp = document.getElementById('patientInfoDisplay');
+  const phone = document.getElementById('phone').value.trim();
+  const rows = [
+    ['名前', data.name || '—'],
+    ['電話', phone || '—'],
+  ];
+  if (data.email) rows.push(['メール', data.email]);
+  disp.innerHTML = rows.map(([k, v]) =>
+    '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:6px 0">' +
+    '<span style="opacity:0.6;min-width:56px;font-size:0.85rem">' + k + '</span>' +
+    '<span style="font-weight:600">' + v + '</span></div>'
+  ).join('');
+  document.getElementById('patientInfoCard').style.display = 'block';
+  document.getElementById('lookupBtnCard').style.display = 'none';
+  document.getElementById('patientInfoCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function onInfoNoChange() {
+  const p = Q.foundPatient;
+  showPhase2('return', p.customerId, p.patientNum, p.name);
+}
+
+function onInfoChange() {
+  const p = Q.foundPatient;
+  document.getElementById('edit_name').value  = p.name || '';
+  document.getElementById('edit_kana').value  = p.furigana || '';
+  document.getElementById('edit_phone').value = document.getElementById('phone').value.trim();
+  document.getElementById('edit_email').value = p.email || '';
+  document.getElementById('patientInfoCard').style.display = 'none';
+  document.getElementById('patientEditCard').style.display = 'block';
+  document.getElementById('patientEditCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function onInfoEditSave() {
+  const name  = document.getElementById('edit_name').value.trim();
+  const kana  = document.getElementById('edit_kana').value.trim();
+  const phone = normPhone(document.getElementById('edit_phone').value);
+  const email = document.getElementById('edit_email').value.trim();
+
+  if (document.getElementById('edit_phone').value.trim() && !phone) {
+    showErr('e_edit_phone', L('e_phone'), 'edit_phone'); return;
+  }
+  clearErr('e_edit_phone', 'edit_phone');
+
+  const saveBtn = document.getElementById('editSaveBtn');
+  saveBtn.disabled = true;
+  document.getElementById('editLoading').style.display = 'flex';
+
+  try {
+    const payload = { action: 'updateCustomerInfo', customerId: Q.foundPatient.customerId, lang: Q.lang, env: CONFIG.ENV_PARAM, email };
+    if (name)  payload.name     = name;
+    if (kana)  payload.furigana = kana;
+    if (phone) payload.phone    = phone;
+
+    const res = await gasPost(CONFIG.GAS_URL, payload, 15000);
+    document.getElementById('editLoading').style.display = 'none';
+    if (!res.success) { toast(res.error || L('err_srv'), 'error'); saveBtn.disabled = false; return; }
+
+    if (name)  Q.foundPatient.name     = name;
+    if (kana)  Q.foundPatient.furigana = kana;
+    if (phone) Q.foundPatient.phone    = phone;
+    Q.foundPatient.email = email;
+
+    showPhase2('return', Q.foundPatient.customerId, Q.foundPatient.patientNum, Q.foundPatient.name);
+  } catch {
+    document.getElementById('editLoading').style.display = 'none';
+    saveBtn.disabled = false;
+    toast(L('err_net'), 'error');
+  }
+}
+
+function revealNameFields() {
+  Q.nameFieldsVisible = true;
+  document.getElementById('p1NameGroup').style.display = '';
+  if (Q.lang === 'ja') document.getElementById('p1KanaGroup').style.display = '';
+  document.getElementById('p1NameGroup').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function showPhase2(visitType, customerId, patientNum, patientName) {
@@ -1733,7 +1860,10 @@ function validate() {
     const m = parseInt(document.getElementById('dob_m').value);
     const d = parseInt(document.getElementById('dob_d').value);
     const thisYear = new Date().getFullYear();
-    const dobOk = y >= 1930 && y <= thisYear && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+    const _maxDays = [0,31,28,31,30,31,30,31,31,30,31,30,31];
+    const _isLeap  = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0));
+    const _dayMax  = (m === 2 && _isLeap) ? 29 : _maxDays[m] || 31;
+    const dobOk = y >= 1930 && y <= thisYear && m >= 1 && m <= 12 && d >= 1 && d <= _dayMax;
     if (!dobOk) { showErr('e_dob', L('e_dob')); ok = false; } else clearErr('e_dob');
     if (!document.querySelector('input[name="howFound"]:checked')) {
       showErr('e_howFound', L('e_howFound')); ok = false;
@@ -1867,7 +1997,7 @@ async function submitQuestionnaire() {
     howFound:   document.querySelector('input[name="howFound"]:checked')?.value || '',
     referrerName:    document.getElementById('referrerName').value.trim(),
     howFoundOther:   document.getElementById('howFoundOther').value.trim(),
-    bodyImage: (() => { try { return showQ ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { return ''; } })(),
+    bodyImage: (() => { try { return showQ ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { if (showQ) toast(L('err_canvas') || '人体図の保存に失敗しました', 'error'); return ''; } })(),
     mainSymptom:      showQ ? [...document.querySelectorAll('input[name="mainSymptom"]:checked')].map(c => c.value) : [],
     mainSymptomOther: showQ ? document.getElementById('mainSymptom_other_text').value.trim() : '',
     symptomDuration:  showQ ? (() => { const v = document.querySelector('input[name="symptomDuration"]:checked')?.value || ''; return v === 'other' ? 'other: ' + (document.getElementById('dur_other_text').value.trim() || 'その他') : v; })() : '',
@@ -1885,7 +2015,7 @@ async function submitQuestionnaire() {
     treatmentStrength: showQ ? (document.querySelector('input[name="treatmentStrength"]:checked')?.value || '') : '',
     dislikedTreatment: showQ ? [...document.querySelectorAll('input[name="disliked"]:checked')].map(c => c.value) : [],
     consentAgreed:  consentVisible ? document.getElementById('consentCheck').checked : true,
-    signatureImage: consentVisible ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { return ''; } })() : '',
+    signatureImage: consentVisible ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { toast(L('err_canvas') || '署名の保存に失敗しました', 'error'); return ''; } })() : '',
     consentDate:    today,
     photoConsent:   document.querySelector('input[name="photoConsent"]:checked')?.value || '',
     facePreference: document.querySelector('input[name="facePreference"]:checked')?.value || '',
@@ -1921,9 +2051,7 @@ async function submitQuestionnaire() {
 function showSuccess() {
   localStorage.removeItem('lbc_form_state');
   localStorage.removeItem('lbc_request_id');
-  document.getElementById('mainForm').style.display = 'none';
   document.getElementById('successScreen').classList.add('visible');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 /* ============================================================
@@ -1935,10 +2063,10 @@ function saveFormState() {
   try {
     const state = {
       phone: document.getElementById('phone')?.value || '',
-      sei_p2: document.getElementById('sei_p2')?.value || '',
-      mei_p2: document.getElementById('mei_p2')?.value || '',
-      seiKana_p2: document.getElementById('seiKana_p2')?.value || '',
-      meiKana_p2: document.getElementById('meiKana_p2')?.value || '',
+      sei_p1: document.getElementById('sei_p1')?.value || '',
+      mei_p1: document.getElementById('mei_p1')?.value || '',
+      seiKana_p1: document.getElementById('seiKana_p1')?.value || '',
+      meiKana_p1: document.getElementById('meiKana_p1')?.value || '',
       dob_y: document.getElementById('dob_y')?.value || '',
       dob_m: document.getElementById('dob_m')?.value || '',
       dob_d: document.getElementById('dob_d')?.value || '',
@@ -1975,14 +2103,14 @@ function restoreFormState() {
     const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
     const setRadio = (name, v) => {
       if (!v) return;
-      const el = document.querySelector('input[name="' + name + '"][value="' + v + '"]');
+      const el = document.querySelector('input[name="' + name + '"][value="' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"]');
       if (el) el.checked = true;
     };
     setVal('phone', s.phone);
-    setVal('sei_p2', s.sei_p2);
-    setVal('mei_p2', s.mei_p2);
-    setVal('seiKana_p2', s.seiKana_p2);
-    setVal('meiKana_p2', s.meiKana_p2);
+    setVal('sei_p1', s.sei_p1);
+    setVal('mei_p1', s.mei_p1);
+    setVal('seiKana_p1', s.seiKana_p1);
+    setVal('meiKana_p1', s.meiKana_p1);
     setVal('dob_y', s.dob_y); setVal('dob_m', s.dob_m); setVal('dob_d', s.dob_d);
     setVal('email', s.email);
     setRadio('howFound', s.howFound); if (s.howFound) toggleHowFoundExtra();

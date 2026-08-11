@@ -62,6 +62,7 @@ function doPost(e) {
     action     = data.action || '?';
     var cfg    = getConfig(resolveEnv(data.env));
     if (action === 'lookupPatient')         return jsonRes(handleLookupPatient(data, cfg));
+    if (action === 'updateCustomerInfo')    return jsonRes(handleUpdateCustomerInfo(data, cfg));
     if (action === 'submitAll')             return jsonRes(handleSubmitAll(data, cfg));
     if (action === 'submitQuestionnaire')   return jsonRes(handleSubmitQuestionnaire(data, cfg));
     if (action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data, cfg));
@@ -410,23 +411,39 @@ function handleLookupPatient(data, cfg) {
       patientNum: String(r[CM.customer_id]),
       name:       String(r[CM.name]),
       furigana:   String(r[CM.furigana]),
+      email:      String(r[CM.email] || ''),
     };
   }
 
-  // 複数ヒット（家族共用番号等）→ 候補リストを返す
-  return {
-    success:  true,
-    found:    true,
-    multiple: true,
-    matches:  matches.map(function(m) {
-      return {
-        customerId: String(m.row[CM.customer_id]),
-        patientNum: String(m.row[CM.customer_id]),
-        name:       String(m.row[CM.name]),
-        furigana:   String(m.row[CM.furigana]),
-      };
-    }),
-  };
+  // 複数ヒット → 特定不可のため未発見扱いにして初回フローへ誘導
+  return { success: true, found: false };
+}
+
+function handleUpdateCustomerInfo(data, cfg) {
+  var customerId = String(data.customerId || '');
+  if (!customerId) return { success: false, error: 'customerId required' };
+
+  var ss = getLedger(cfg);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var found = findCustomerById(ss, customerId);
+    if (!found) return { success: false, error: 'Customer not found' };
+
+    var fields = {};
+    if (data.name)     fields[CM.name]     = String(data.name);
+    if (data.furigana) fields[CM.furigana]  = String(data.furigana);
+    if (data.phone)    fields[CM.phone]     = normalizePhone(String(data.phone));
+    if (typeof data.email !== 'undefined') fields[CM.email] = String(data.email);
+
+    if (Object.keys(fields).length === 0) return { success: true }; // 変更なし
+
+    updateCustomerRow(ss, found.rowIndex, fields);
+    incSyncCounter(ss);
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ============================================================
@@ -653,7 +670,7 @@ function handleGetPatientList(cfg) {
   var todayByCustomer = {}; // customerId → { hasSales: bool }
   for (var i = 0; i < treatRows.length; i++) {
     var r = treatRows[i];
-    if (String(r[TR.date]) !== today) continue;
+    if (toDateStr(r[TR.date]) !== today) continue;
     if (String(r[TR.type]) !== 'record') continue;
     var cid = String(r[TR.customer_id]);
     var hasSales = r[TR.sales] !== '' && r[TR.sales] !== null;
@@ -745,15 +762,31 @@ function handleGetPatientDetails(customerId, cfg) {
   var isFirstVisit   = visitCount === 0 || (visitCount === 1 && todayIncluded);
   var visitNum       = isFirstVisit ? 1 : (todayIncluded ? visitCount : visitCount + 1);
 
+  // 月2回コース2回目の未使用チェック（今月内）
+  var curMonth = todayStr().slice(0, 7); // "YYYY-MM"
+  var m2First = 0, m2Second = 0;
+  for (var m = 0; m < treatRows.length; m++) {
+    var mr = treatRows[m];
+    if (String(mr[TR.customer_id]) !== customerId) continue;
+    if (String(mr[TR.type]) !== 'record') continue;
+    if (voidedIds[String(mr[TR.entry_id])]) continue;
+    if (toDateStr(mr[TR.date]).slice(0, 7) !== curMonth) continue;
+    if (String(mr[TR.course]) === '月2回コース') {
+      if (Number(mr[TR.sales]) > 0) m2First++;
+      else m2Second++;
+    }
+  }
+
   return {
-    success:         true,
-    creditBalance:   creditBalance,
-    expiringCredits: expiringCredits,
-    visitCount:      visitCount,
-    visitNum:        visitNum,
-    prevVisitDate:   prevVisit,
-    isFirstVisit:    isFirstVisit,
-    todayRecords:    todayRecords,
+    success:          true,
+    creditBalance:    creditBalance,
+    expiringCredits:  expiringCredits,
+    visitCount:       visitCount,
+    visitNum:         visitNum,
+    prevVisitDate:    prevVisit,
+    isFirstVisit:     isFirstVisit,
+    todayRecords:     todayRecords,
+    monthly2Available: m2First > m2Second,
   };
 }
 
@@ -776,6 +809,23 @@ function handleSubmitTreatmentRecord(data, cfg) {
   }
 
   var ss         = getLedger(cfg);
+
+  // 冪等性チェック: 同一 requestId が既に成功済みなら即返す
+  if (data.requestId) {
+    var logSheet = ss.getSheetByName('アクセスログ');
+    if (logSheet) {
+      var logVals = logSheet.getDataRange().getValues();
+      var start   = Math.max(1, logVals.length - 500); // 直近500行のみ走査
+      for (var li = logVals.length - 1; li >= start; li--) {
+        if (String(logVals[li][AL.request_id]) === String(data.requestId) &&
+            String(logVals[li][AL.action])     === 'submitTreatmentRecord' &&
+            String(logVals[li][AL.result])     === 'ok') {
+          return { success: true, duplicate: true };
+        }
+      }
+    }
+  }
+
   var customerId = String(data.customerId || '');
   var now        = nowISO();
   var entryId    = genUUID();
@@ -1292,8 +1342,25 @@ function syncCredit(ss, cfg) {
       var notionId = String(custData.row[CM.notion_page_id]);
       if (!notionId) continue;
       var balance = computeCreditBalance(ss, custId);
+
+      // 最も近い未来の有効期限を取得（残高>0 の場合のみ）
+      var earliestExpiry = null;
+      if (balance > 0) {
+        var today = todayStr();
+        for (var k = 0; k < rows.length; k++) {
+          if (String(rows[k][CR.customer_id]) !== custId) continue;
+          if (String(rows[k][CR.type]) !== 'grant') continue;
+          var expVal = toDateStr(rows[k][CR.expiry]);
+          if (!expVal || expVal < today) continue;
+          if (!earliestExpiry || expVal < earliestExpiry) earliestExpiry = expVal;
+        }
+      }
+
       notionPatch(cfg, '/pages/' + notionId, {
-        properties: { 'クレジット残高': { number: balance } },
+        properties: {
+          'クレジット残高':   { number: balance },
+          'クレジット有効期限': earliestExpiry ? { date: { start: earliestExpiry } } : { date: null },
+        },
       });
       Utilities.sleep(350);
       // 対象顧客の全クレジット行に synced_at を書く
@@ -2625,4 +2692,99 @@ function deleteTestRows() {
   });
 
   Logger.log('=== deleteTestRows 完了 ===');
+}
+
+/* ============================================================
+   テスト: 月2回プラン2回目検出ロジック
+   ============================================================ */
+function testMonthly2Detection() {
+  var curMonth = todayStr().slice(0, 7);
+  var custId   = 'TEST_C001';
+
+  // makeRow でテスト行を作成するヘルパー
+  function makeTestRow(overrides) {
+    var row = new Array(18).fill('');
+    for (var k in overrides) row[k] = overrides[k];
+    return row;
+  }
+
+  // 共通フィールド
+  var base = {
+    [TR.customer_id]: custId,
+    [TR.type]:        'record',
+    [TR.course]:      '月2回コース',
+    [TR.date]:        curMonth + '-01',
+    [TR.entry_id]:    'E001',
+  };
+
+  function detectM2(treatRows) {
+    var voidedIds = {};
+    var m2First = 0, m2Second = 0;
+    for (var m = 0; m < treatRows.length; m++) {
+      var mr = treatRows[m];
+      if (String(mr[TR.customer_id]) !== custId) continue;
+      if (String(mr[TR.type]) !== 'record') continue;
+      if (voidedIds[String(mr[TR.entry_id])]) continue;
+      if (toDateStr(mr[TR.date]).slice(0, 7) !== curMonth) continue;
+      if (String(mr[TR.course]) === '月2回コース') {
+        if (Number(mr[TR.sales]) > 0) m2First++;
+        else m2Second++;
+      }
+    }
+    return { m2First: m2First, m2Second: m2Second, monthly2Available: m2First > m2Second };
+  }
+
+  // シナリオ1: 当月に月2回コース記録なし → false
+  var s1 = detectM2([]);
+  Logger.log('[S1] 記録なし → monthly2Available=' + s1.monthly2Available + ' (期待: false)');
+
+  // シナリオ2: 当月に1回目(sales=10000)のみ → true
+  var row1 = makeTestRow(Object.assign({}, base, { [TR.sales]: 10000, [TR.entry_id]: 'E001' }));
+  var s2 = detectM2([row1]);
+  Logger.log('[S2] 1回目のみ → monthly2Available=' + s2.monthly2Available + ' m2First=' + s2.m2First + ' (期待: true)');
+
+  // シナリオ3: 当月に1回目+2回目(sales=0)の両方 → false（2回目済み）
+  var row2 = makeTestRow(Object.assign({}, base, { [TR.sales]: 0, [TR.entry_id]: 'E002' }));
+  var s3 = detectM2([row1, row2]);
+  Logger.log('[S3] 1回目+2回目済み → monthly2Available=' + s3.monthly2Available + ' (期待: false)');
+
+  // シナリオ4: 先月の1回目+当月なし → false（月をまたぐ）
+  var rowPrev = makeTestRow(Object.assign({}, base, {
+    [TR.sales]:   10000,
+    [TR.date]:    '2026-07-01',
+    [TR.entry_id]: 'E003',
+  }));
+  var s4 = detectM2([rowPrev]);
+  Logger.log('[S4] 先月の1回目のみ → monthly2Available=' + s4.monthly2Available + ' (期待: false)');
+
+  // シナリオ5: 1回目がvoid済み → false（取消されている）
+  var voidedBase = {};
+  voidedBase[TR.customer_id] = custId;
+  voidedBase[TR.type] = 'void';
+  voidedBase[TR.entry_id] = 'V001';
+  voidedBase[TR.date] = curMonth + '-01';
+  var rowVoid = makeTestRow(voidedBase);
+
+  // void処理込みで再確認（voidedIds付き）
+  function detectM2WithVoid(treatRows, voidTargetId) {
+    var voidedIds = {};
+    voidedIds[voidTargetId] = true;
+    var m2First = 0, m2Second = 0;
+    for (var m = 0; m < treatRows.length; m++) {
+      var mr = treatRows[m];
+      if (String(mr[TR.customer_id]) !== custId) continue;
+      if (String(mr[TR.type]) !== 'record') continue;
+      if (voidedIds[String(mr[TR.entry_id])]) continue;
+      if (toDateStr(mr[TR.date]).slice(0, 7) !== curMonth) continue;
+      if (String(mr[TR.course]) === '月2回コース') {
+        if (Number(mr[TR.sales]) > 0) m2First++;
+        else m2Second++;
+      }
+    }
+    return { m2First: m2First, m2Second: m2Second, monthly2Available: m2First > m2Second };
+  }
+  var s5 = detectM2WithVoid([row1], 'E001');
+  Logger.log('[S5] 1回目がvoid済み → monthly2Available=' + s5.monthly2Available + ' (期待: false)');
+
+  Logger.log('=== testMonthly2Detection 完了 ===');
 }

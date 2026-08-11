@@ -1392,6 +1392,11 @@ function formatPhone(input) {
 function onPhoneBlur() {
   const rawPhone = document.getElementById('phone').value.trim();
   if (!rawPhone) return;
+  // 電話番号が変わったら名前フィールド表示状態をリセット
+  if (Q.nameFieldsVisible) {
+    Q.nameFieldsVisible = false;
+    applyTexts();
+  }
   const phone = normPhone(rawPhone);
   if (phone.length >= 7) {
     lookupPatient();
@@ -1479,10 +1484,10 @@ function showPatientInfo(data) {
   const disp = document.getElementById('patientInfoDisplay');
   const phone = document.getElementById('phone').value.trim();
   const rows = [
-    ['名前', data.name || '—'],
-    ['電話', phone || '—'],
+    [L('lbl_nameGroup') || '名前', data.name || '—'],
+    [L('lbl_phone')     || '電話', phone || '—'],
   ];
-  if (data.email) rows.push(['メール', data.email]);
+  if (data.email) rows.push([L('lbl_email') || 'メール', data.email]);
   disp.innerHTML = rows.map(([k, v]) =>
     '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:6px 0">' +
     '<span style="opacity:0.6;min-width:56px;font-size:0.85rem">' + k + '</span>' +
@@ -1522,7 +1527,7 @@ async function onInfoEditSave() {
 
   const saveBtn = document.getElementById('editSaveBtn');
   saveBtn.disabled = true;
-  document.getElementById('editLoading').style.display = 'flex';
+  document.getElementById('editLoading').style.display = 'block';
 
   try {
     const payload = { action: 'updateCustomerInfo', customerId: Q.foundPatient.customerId, lang: Q.lang, env: CONFIG.ENV_PARAM, email };

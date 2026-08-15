@@ -612,7 +612,7 @@
         </div>
       </div>
 
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group" id="phoneGroup" style="margin-bottom:0">
         <div class="field-label"><span id="lbl_phone">電話番号</span><span class="badge-req">必須</span></div>
         <input type="tel" id="phone" autocomplete="tel" inputmode="numeric" oninput="formatPhone(this)" onblur="onPhoneBlur()">
         <div class="hint" id="phone_hint">数字のみ入力（ハイフン自動入力）</div>
@@ -633,6 +633,7 @@
           <span id="t_infoHasChange">変更する</span>
         </button>
       </div>
+      <button class="btn-back" id="btn_back_to_phone_info" onclick="backToPhoneInput()" style="margin-top:12px;width:100%">← 電話番号入力に戻る</button>
     </div>
 
     <!-- 情報変更フォーム -->
@@ -661,6 +662,7 @@
       <button class="btn-submit" id="editSaveBtn" onclick="onInfoEditSave()" style="margin-top:16px">
         <span id="t_editSave">更新して続ける</span>
       </button>
+      <button class="btn-back" id="btn_back_to_confirm_edit" onclick="backToPatientInfo()" style="margin-top:10px;width:100%">← 確認画面に戻る</button>
     </div>
 
     <div class="card" id="lookupBtnCard">
@@ -681,6 +683,8 @@
 
   <!-- ════ PHASE 2: フォーム本体 ════ -->
   <div id="phase2" style="display:none">
+
+    <button class="btn-back" id="btn_back_to_phone_p2" onclick="backToPhase1()" style="margin-bottom:12px;width:100%">← 電話番号入力に戻る</button>
 
     <!-- 初回バナー -->
     <div id="firstBanner" class="banner first" style="display:none">
@@ -1141,6 +1145,8 @@ function applyTexts() {
   if (nameGrp) nameGrp.style.display = Q.nameFieldsVisible ? '' : 'none';
   const kanaGrp = document.getElementById('p1KanaGroup');
   if (kanaGrp) kanaGrp.style.display = (Q.nameFieldsVisible && Q.lang === 'ja') ? '' : 'none';
+  const phoneGrp = document.getElementById('phoneGroup');
+  if (phoneGrp) phoneGrp.style.display = Q.nameFieldsVisible ? 'none' : '';
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
   const _dp = document.getElementById('detail_pregnant_text');     if (_dp)  _dp.placeholder  = l.ph_detail_pregnant  || '';
@@ -1163,7 +1169,10 @@ function applyTexts() {
   set('l_lookup', l.l_lookup); set('t_lookingUp', l.t_lookingUp);
   set('t_confirmInfo', l.t_confirmInfo); set('t_confirmInfoQ', l.t_confirmInfoQ);
   set('t_infoNoChange', l.t_infoNoChange); set('t_infoHasChange', l.t_infoHasChange);
+  set('btn_back_to_phone_info', l.btn_back_to_phone);
+  set('btn_back_to_phone_p2', l.btn_back_to_phone);
   set('t_editInfo', l.t_editInfo); set('t_editSave', l.t_editSave); set('t_updating', l.t_updating);
+  set('btn_back_to_confirm_edit', l.btn_back_to_confirm);
   set('lbl_editName', l.lbl_editName); set('lbl_editKana', l.lbl_editKana);
   set('lbl_editPhone', l.lbl_editPhone); set('lbl_editEmail', l.lbl_editEmail);
   const editKanaGrp = document.getElementById('editKanaGroup');
@@ -1552,8 +1561,34 @@ async function onInfoEditSave() {
   }
 }
 
+function backToPatientInfo() {
+  document.getElementById('patientEditCard').style.display = 'none';
+  document.getElementById('patientInfoCard').style.display = 'block';
+  document.getElementById('patientInfoCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function backToPhoneInput() {
+  document.getElementById('patientInfoCard').style.display = 'none';
+  document.getElementById('patientEditCard').style.display = 'none';
+  document.getElementById('lookupBtnCard').style.display = 'block';
+}
+
+function backToPhase1() {
+  document.getElementById('phase2').style.display = 'none';
+  document.getElementById('phase1').style.display = 'block';
+  document.getElementById('patientInfoCard').style.display = 'none';
+  document.getElementById('patientEditCard').style.display = 'none';
+  document.getElementById('lookupBtnCard').style.display = 'block';
+  document.getElementById('phoneGroup').style.display = '';
+  document.getElementById('p1NameGroup').style.display = 'none';
+  document.getElementById('p1KanaGroup').style.display = 'none';
+  Q.nameFieldsVisible = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function revealNameFields() {
   Q.nameFieldsVisible = true;
+  document.getElementById('phoneGroup').style.display = 'none';
   document.getElementById('p1NameGroup').style.display = '';
   if (Q.lang === 'ja') document.getElementById('p1KanaGroup').style.display = '';
   document.getElementById('p1NameGroup').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1566,6 +1601,15 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
 
   document.getElementById('phase1').style.display  = 'none';
   document.getElementById('phase2').style.display  = 'block';
+
+  // 前回フローの残留状態をリセット
+  document.getElementById('firstBanner').style.display    = 'none';
+  document.getElementById('returnBanner').style.display   = 'none';
+  document.getElementById('basicCard').style.display      = 'none';
+  document.getElementById('changesCard').style.display    = 'none';
+  document.getElementById('qSection').style.display       = 'none';
+  document.getElementById('photoSection').style.display   = 'none';
+  document.getElementById('consentSection').style.display = 'none';
 
   if (visitType === 'first') {
     document.getElementById('firstBanner').style.display   = 'flex';

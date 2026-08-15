@@ -157,6 +157,8 @@
   "s_title": "¡Cuestionario recibido!",
   "s_msg": "Gracias. Por favor avise al personal.",
   "s_back": "Volver al inicio",
+  "btn_back_to_phone": "← Volver al teléfono",
+  "btn_back_to_confirm": "← Volver a la confirmación",
   "err_net": "Error de conexión. Intente nuevamente.",
   "err_srv": "Error del servidor.",
   "err_lookup": "Error al verificar. Intente nuevamente.",

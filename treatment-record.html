@@ -400,11 +400,21 @@
 
     /* ─── 成功画面 ─── */
     #successScreen {
-      display: none; text-align: center;
-      padding: 60px 24px 40px;
-      max-width: 480px; margin: 0 auto;
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg);
+      z-index: 9999;
+      text-align: center;
+      overflow-y: auto;
     }
-    #successScreen.visible { display: block; }
+    #successScreen.visible {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
     .success-anim {
       width: 72px; height: 72px;
       background: var(--primary); border-radius: 50%;
@@ -435,6 +445,23 @@
     .toast.show { opacity: 1; }
     .toast.is-error   { background: var(--danger); }
     .toast.is-success { background: var(--primary); }
+
+    /* ─── 月2回2回目バナー ─── */
+    .monthly2-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 16px;
+      background: var(--accent-light);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--warning);
+      animation: fadeIn 0.22s ease;
+    }
+    .monthly2-banner.visible { display: flex; }
 
     /* ─── 今日の未記録 ─── */
     .pending-section { margin-bottom: 18px; }
@@ -560,7 +587,7 @@
       <input type="password" id="pwInput" placeholder="パスワード"
         onkeydown="if(event.key==='Enter')verifyPassword()"
         autocomplete="current-password">
-      <button class="pw-toggle" type="button" onclick="togglePwVisibility()" id="pwToggle">👁</button>
+      <button class="pw-toggle" type="button" onclick="togglePwVisibility()" id="pwToggle" aria-label="パスワードを表示">👁</button>
     </div>
     <div class="field-error" id="e_pw" style="margin-bottom:12px"></div>
     <button class="btn-submit" onclick="verifyPassword()">ログイン</button>
@@ -662,6 +689,11 @@
           <span>✓ <span id="referralAppliedName"></span> さんの紹介 — ¥1,000引き適用</span>
           <button class="referral-clear" onclick="clearReferrer()">取消</button>
         </div>
+      </div>
+
+      <!-- 月2回プラン2回目バナー -->
+      <div id="monthly2Banner" class="monthly2-banner">
+        🎫 今月の月2回プラン1回目が記録済です — 2回目（前払済）を自動選択しました
       </div>
 
       <!-- コース選択 -->
@@ -796,7 +828,11 @@ window.addEventListener('DOMContentLoaded', function() {
 /* ── パスワード認証 ────────────────────────────── */
 function togglePwVisibility() {
   const inp = document.getElementById('pwInput');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
+  const btn = document.getElementById('pwToggle');
+  const showing = inp.type === 'text';
+  inp.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁' : '🙈';
+  btn.setAttribute('aria-label', showing ? 'パスワードを表示' : 'パスワードを非表示');
 }
 
 async function verifyPassword() {
@@ -1008,7 +1044,11 @@ function showPhase2(customerId, patientNum, patientName, details) {
     const warnText = document.getElementById('creditWarningText');
     if (details && details.expiringCredits && details.expiringCredits.length > 0) {
       const exp = details.expiringCredits[0];
-      warnText.innerHTML = `<strong>⚠️ クレジット期限まであと ${exp.daysLeft} 日</strong>¥${exp.amount.toLocaleString()} が ${exp.expiryDate} に期限切れになります`;
+      warnText.textContent = '';
+      const _ws = document.createElement('strong');
+      _ws.textContent = '⚠️ クレジット期限まであと ' + exp.daysLeft + ' 日';
+      warnText.appendChild(_ws);
+      warnText.appendChild(document.createTextNode('  ¥' + exp.amount.toLocaleString() + ' が ' + exp.expiryDate + ' に期限切れになります'));
       warnEl.style.display = 'flex';
     } else {
       warnEl.style.display = 'none';
@@ -1027,6 +1067,16 @@ function showPhase2(customerId, patientNum, patientName, details) {
   // 本日の記録セクション
   var todayRecs = (details && details.todayRecords) ? details.todayRecords : [];
   renderTodayRecords(todayRecs);
+
+  // 月2回プラン2回目の自動検出
+  var m2banner = document.getElementById('monthly2Banner');
+  if (details && details.monthly2Available) {
+    m2banner.classList.add('visible');
+    var m2radio = document.querySelector('input[name="course"][value="monthly2_2nd"]');
+    if (m2radio) { m2radio.checked = true; onCourseChange(); }
+  } else {
+    m2banner.classList.remove('visible');
+  }
 
   // 紹介者セクション（初回のみ）
   document.getElementById('referralSection').classList.toggle('visible', S.isFirstVisit);
@@ -1077,9 +1127,13 @@ function selectReferrer(idx) {
   if (!p) return;
   document.getElementById('referrerDropdown').classList.remove('open');
   document.getElementById('referrerSearch').value = p.name;
-  S.referrerId   = p.customerId;
-  S.referrerName = p.name;
+  S.referrerId      = p.customerId;
+  S.referrerName    = p.name;
   S.referralApplied = true;
+  S.creditUsed      = 0;
+  document.getElementById('creditUsedDisplay').textContent = '¥0';
+  document.getElementById('creditMinus').disabled = true;
+  document.getElementById('creditPlus').disabled  = S.creditBalance <= 0;
 
   document.getElementById('referralAppliedName').textContent = p.name;
   document.getElementById('referralApplied').classList.add('visible');
@@ -1256,7 +1310,6 @@ async function submitRecord() {
 
 function showSuccess(courseId, amount) {
   const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : courseId;
-  document.getElementById('mainForm').style.display = 'none';
   const details = [
     '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）',
     courseName + '　¥' + amount.toLocaleString(),
@@ -1290,7 +1343,11 @@ function renderTodayRecords(recs) {
 }
 
 async function voidRecord(entryId, courseLabel, amount) {
-  if (!confirm('【' + courseLabel + ' ¥' + amount.toLocaleString() + '】の記録を取り消しますか？\n\nこの操作は取り消せません。')) return;
+  var _confirmMsg = '患者: ' + S.patientName + '\n'
+    + 'コース: ' + courseLabel + '\n'
+    + '金額: ¥' + amount.toLocaleString() + '\n\n'
+    + 'この記録を取り消しますか？\nこの操作は取り消せません。';
+  if (!confirm(_confirmMsg)) return;
   var btn = document.getElementById('vbtn_' + entryId);
   if (btn) { btn.disabled = true; btn.textContent = '処理中...'; }
   try {

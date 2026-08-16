@@ -2788,3 +2788,156 @@ function testMonthly2Detection() {
 
   Logger.log('=== testMonthly2Detection 完了 ===');
 }
+
+/* ============================================================
+   ダッシュボード（Googleスプレッドシートグラフ）
+   GASエディタから手動実行: createDashboard()
+   ============================================================ */
+function createDashboard() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+
+  // ── データ読み込み ──────────────────────────────────
+  var trRows = getSheetData(ss, '施術台帳');
+  var cmRows = getSheetData(ss, '顧客マスタ');
+
+  // 顧客ID → 初回来院月(YYYY-MM) マップ
+  var firstVisitMonthMap = {};
+  cmRows.forEach(function(row) {
+    var cid = String(row[CM.customer_id] || '').trim();
+    var fv  = toDateStr(row[CM.first_visit]);
+    if (cid && fv) firstVisitMonthMap[cid] = fv.slice(0, 7);
+  });
+
+  // ── 月別集計 ────────────────────────────────────────
+  // visits: { 'YYYY-MM': { newKeys: Set, retKeys: Set } }
+  // sales:  { 'YYYY-MM': number }
+  var visits = {};
+  var sales  = {};
+
+  trRows.forEach(function(row) {
+    var dateStr = toDateStr(row[TR.date]);
+    var cid     = String(row[TR.customer_id] || '').trim();
+    var amount  = parseFloat(row[TR.sales]) || 0;
+    var eligible = row[TR.count_eligible];
+    if (!dateStr || !cid) return;
+
+    var ym = dateStr.slice(0, 7); // YYYY-MM
+
+    // 月別売上: voidの負数が自動相殺されるため全行対象
+    sales[ym] = (sales[ym] || 0) + amount;
+
+    // 月別来院数: 集計対象=TRUE の行のみ
+    var isEligible = (eligible === true || String(eligible).toUpperCase() === 'TRUE');
+    if (!isEligible) return;
+
+    if (!visits[ym]) visits[ym] = { newKeys: {}, retKeys: {} };
+    var key = dateStr + '_' + cid;
+    var isNew = (firstVisitMonthMap[cid] === ym);
+    if (isNew) visits[ym].newKeys[key] = 1;
+    else       visits[ym].retKeys[key] = 1;
+  });
+
+  // 全月を昇順ソート
+  var allYm = Object.keys(Object.assign({}, visits, sales)).sort();
+  if (allYm.length === 0) {
+    Logger.log('データがありません。施術台帳を確認してください。');
+    return;
+  }
+
+  // ── 集計シート作成/更新 ─────────────────────────────
+  var dashSheet = ss.getSheetByName('集計');
+  if (!dashSheet) dashSheet = ss.insertSheet('集計');
+  dashSheet.clearContents();
+  dashSheet.clearFormats();
+  dashSheet.getCharts().forEach(function(c) { dashSheet.removeChart(c); });
+
+  // 来院データ (A列〜D列): 年月 / 新規 / 既存 / 合計
+  var visitHeader = [['年月', '新規', '既存', '来院数合計']];
+  var visitRows = allYm.map(function(ym) {
+    var v   = visits[ym] || { newKeys: {}, retKeys: {} };
+    var nw  = Object.keys(v.newKeys).length;
+    var ret = Object.keys(v.retKeys).length;
+    return [ym, nw, ret, nw + ret];
+  });
+
+  // 売上データ (F列〜G列): 年月 / 売上
+  var salesHeader = [['年月', '売上（円）']];
+  var salesRows = allYm.map(function(ym) {
+    return [ym, Math.round(sales[ym] || 0)];
+  });
+
+  var n = allYm.length;
+  dashSheet.getRange(1, 1, 1, 4).setValues(visitHeader);
+  dashSheet.getRange(2, 1, n, 4).setValues(visitRows);
+  dashSheet.getRange(1, 6, 1, 2).setValues(salesHeader);
+  dashSheet.getRange(2, 6, n, 2).setValues(salesRows);
+
+  // ヘッダー装飾
+  var headerBg = '#0B2B26', headerFg = '#ffffff';
+  dashSheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground(headerBg).setFontColor(headerFg);
+  dashSheet.getRange(1, 6, 1, 2).setFontWeight('bold').setBackground(headerBg).setFontColor(headerFg);
+  dashSheet.autoResizeColumns(1, 7);
+
+  // ── グラフ作成 ──────────────────────────────────────
+  var ssId = ss.getId();
+
+  // グラフ①: 月別来院数（棒グラフ）
+  var chart1 = dashSheet.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(dashSheet.getRange(1, 1, n + 1, 1))
+    .addRange(dashSheet.getRange(1, 4, n + 1, 1))
+    .setOption('title', '月別来院数')
+    .setOption('hAxis.title', '年月')
+    .setOption('vAxis.title', '来院数')
+    .setOption('vAxis.minValue', 0)
+    .setOption('colors', ['#2C7A5C'])
+    .setOption('legend.position', 'none')
+    .setPosition(1, 9, 10, 10)
+    .build();
+  dashSheet.insertChart(chart1);
+
+  // グラフ②: 月別売上（棒グラフ）
+  var chart2 = dashSheet.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(dashSheet.getRange(1, 6, n + 1, 2))
+    .setOption('title', '月別売上（円）')
+    .setOption('hAxis.title', '年月')
+    .setOption('vAxis.title', '売上（円）')
+    .setOption('vAxis.minValue', 0)
+    .setOption('colors', ['#163832'])
+    .setOption('legend.position', 'none')
+    .setPosition(22, 9, 10, 10)
+    .build();
+  dashSheet.insertChart(chart2);
+
+  // グラフ③: 新規・既存内訳（積み上げ棒グラフ）
+  var chart3 = dashSheet.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(dashSheet.getRange(1, 1, n + 1, 1))
+    .addRange(dashSheet.getRange(1, 2, n + 1, 2))
+    .setOption('title', '新規・既存内訳')
+    .setOption('hAxis.title', '年月')
+    .setOption('vAxis.title', '来院数')
+    .setOption('vAxis.minValue', 0)
+    .setOption('isStacked', true)
+    .setOption('colors', ['#2C7A5C', '#8BC4A8'])
+    .setPosition(43, 9, 10, 10)
+    .build();
+  dashSheet.insertChart(chart3);
+
+  // ── 埋め込みURL出力 ─────────────────────────────────
+  var charts = dashSheet.getCharts();
+  Logger.log('=== ダッシュボード作成完了 ===');
+  Logger.log('集計シートURL: https://docs.google.com/spreadsheets/d/' + ssId + '/edit#gid=' + dashSheet.getSheetId());
+  Logger.log('');
+  Logger.log('【Notion埋め込み用URL】');
+  Logger.log('※ スプレッドシートを「ウェブに公開」してから使用してください');
+  charts.forEach(function(c, i) {
+    var labels = ['月別来院数', '月別売上', '新規・既存内訳'];
+    Logger.log((labels[i] || 'グラフ' + (i+1)) + ': https://docs.google.com/spreadsheets/d/' + ssId + '/pubchart?oid=' + c.getChartId() + '&format=interactive');
+  });
+  Logger.log('');
+  Logger.log('【ウェブ公開手順】');
+  Logger.log('スプレッドシート → ファイル → ウェブに公開 → シート「集計」を選択 → 公開');
+}

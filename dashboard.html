@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LBC Care — ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:          #0D1F1C;
+      --card:        #132821;
+      --border:      #1e3d35;
+      --primary:     #2C7A5C;
+      --primary-lt:  #8BC4A8;
+      --accent:      #E8A838;
+      --text:        #e8f0ec;
+      --text-sub:    #8aada0;
+      --white:       #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+      min-height: 100vh;
+    }
+    header {
+      background: #051F20;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 1.1rem; font-weight: 800; color: var(--white); }
+    .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.7; display: block; }
+    .updated { font-size: 0.75rem; color: var(--text-sub); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .kpi-label { font-size: 0.78rem; color: var(--text-sub); margin-bottom: 6px; }
+    .kpi-value { font-size: 2rem; font-weight: 800; color: var(--white); }
+    .kpi-value span { font-size: 0.9rem; font-weight: 400; color: var(--text-sub); margin-left: 4px; }
+    .kpi.accent .kpi-value { color: var(--accent); }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+    .chart-wrap { position: relative; height: 240px; }
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 200px; color: var(--text-sub); font-size: 0.9rem;
+    }
+    .error-msg {
+      color: #e05c5c; text-align: center; padding: 40px 20px; font-size: 0.9rem;
+    }
+    @media (max-width: 640px) {
+      .summary-row { grid-template-columns: 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-card.wide { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LBC Care<small>Lucas Body Care</small></div>
+  <div class="updated" id="updatedAt">読み込み中...</div>
+</header>
+
+<div class="container">
+  <div id="loading" class="loading">データを取得中...</div>
+  <div id="errorMsg" class="error-msg" style="display:none"></div>
+
+  <div id="content" style="display:none">
+    <div class="summary-row">
+      <div class="kpi">
+        <div class="kpi-label">当月来院数</div>
+        <div class="kpi-value" id="kpiVisits">—<span>人</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">当月新規</div>
+        <div class="kpi-value" id="kpiNew">—<span>人</span></div>
+      </div>
+      <div class="kpi accent">
+        <div class="kpi-label">当月売上</div>
+        <div class="kpi-value" id="kpiSales">—<span>円</span></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">月別来院数</div>
+        <div class="chart-wrap"><canvas id="chartVisits"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">月別売上（円）</div>
+        <div class="chart-wrap"><canvas id="chartSales"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <div class="chart-title">新規・既存内訳</div>
+        <div class="chart-wrap"><canvas id="chartBreakdown"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec';
+
+const COLORS = {
+  primary:   '#2C7A5C',
+  primaryLt: '#8BC4A8',
+  dark:      '#163832',
+  accent:    '#E8A838',
+  grid:      'rgba(255,255,255,0.06)',
+  text:      '#8aada0',
+};
+
+Chart.defaults.color = COLORS.text;
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif";
+
+function fmtYen(n) {
+  return n >= 10000
+    ? (n / 10000).toFixed(n % 10000 === 0 ? 0 : 1) + '万'
+    : n.toLocaleString();
+}
+
+function baseOptions(yLabel) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: COLORS.grid }, ticks: { maxRotation: 45 } },
+      y: {
+        grid: { color: COLORS.grid },
+        beginAtZero: true,
+        ticks: { callback: yLabel }
+      }
+    }
+  };
+}
+
+async function loadData() {
+  try {
+    const res  = await fetch(GAS_URL + '?action=getDashboardData');
+    const data = await res.json();
+
+    document.getElementById('loading').style.display  = 'none';
+    document.getElementById('content').style.display  = 'block';
+
+    const { months, newVisits, retVisits, sales, updatedAt } = data;
+    const totalVisits = months.map((_, i) => (newVisits[i] || 0) + (retVisits[i] || 0));
+
+    // KPI（最新月）
+    const last = months.length - 1;
+    document.getElementById('kpiVisits').innerHTML = `${totalVisits[last] || 0}<span>人</span>`;
+    document.getElementById('kpiNew').innerHTML    = `${newVisits[last] || 0}<span>人</span>`;
+    document.getElementById('kpiSales').innerHTML  = `${fmtYen(sales[last] || 0)}<span>円</span>`;
+    document.getElementById('updatedAt').textContent = '更新: ' + new Date(updatedAt).toLocaleString('ja-JP');
+
+    // グラフ共通設定
+    const sharedX = {
+      grid: { color: COLORS.grid },
+      ticks: { maxRotation: 45 }
+    };
+
+    // グラフ①: 月別来院数
+    new Chart(document.getElementById('chartVisits'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [{ label: '来院数', data: totalVisits, backgroundColor: COLORS.primary, borderRadius: 4 }]
+      },
+      options: baseOptions(v => v)
+    });
+
+    // グラフ②: 月別売上
+    new Chart(document.getElementById('chartSales'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [{ label: '売上', data: sales, backgroundColor: COLORS.dark, borderRadius: 4 }]
+      },
+      options: baseOptions(v => '¥' + v.toLocaleString())
+    });
+
+    // グラフ③: 新規・既存内訳（積み上げ）
+    new Chart(document.getElementById('chartBreakdown'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          { label: '新規', data: newVisits, backgroundColor: COLORS.primary, borderRadius: 4, stack: 'stack' },
+          { label: '既存', data: retVisits, backgroundColor: COLORS.primaryLt, borderRadius: 4, stack: 'stack' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' } },
+        scales: {
+          x: { grid: { color: COLORS.grid }, stacked: true },
+          y: { grid: { color: COLORS.grid }, stacked: true, beginAtZero: true }
+        }
+      }
+    });
+
+  } catch (err) {
+    document.getElementById('loading').style.display   = 'none';
+    document.getElementById('errorMsg').style.display  = 'block';
+    document.getElementById('errorMsg').textContent    = 'データの取得に失敗しました: ' + err.message;
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

@@ -161,6 +161,11 @@ function doGet(e) {
       return jsonRes(handleGetPatientDetails(p.customerId, cfg));
     }
 
+    // ダッシュボード集計データ（集計値のみ・PII なし）
+    if (p.action === 'getDashboardData') {
+      return handleGetDashboardData(cfg);
+    }
+
     // レガシー JSONP（index.html カレンダーのグレーアウト用。凍結）
     if (p.date && p.callback) {
       var booked = getBookedTimesForDate(p.date, cfg);
@@ -2787,6 +2792,59 @@ function testMonthly2Detection() {
   Logger.log('[S5] 1回目がvoid済み → monthly2Available=' + s5.monthly2Available + ' (期待: false)');
 
   Logger.log('=== testMonthly2Detection 完了 ===');
+}
+
+/* ============================================================
+   ダッシュボード集計APIハンドラー
+   ============================================================ */
+function handleGetDashboardData(cfg) {
+  var ss     = getLedger(cfg);
+  var trRows = getSheetData(ss, '施術台帳');
+  var cmRows = getSheetData(ss, '顧客マスタ');
+
+  // 顧客ID → 初回来院月(YYYY-MM)
+  var firstVisitMonthMap = {};
+  cmRows.forEach(function(row) {
+    var cid = String(row[CM.customer_id] || '').trim();
+    var fv  = toDateStr(row[CM.first_visit]);
+    if (cid && fv) firstVisitMonthMap[cid] = fv.slice(0, 7);
+  });
+
+  var visits = {};
+  var sales  = {};
+
+  trRows.forEach(function(row) {
+    var dateStr  = toDateStr(row[TR.date]);
+    var cid      = String(row[TR.customer_id] || '').trim();
+    var amount   = parseFloat(row[TR.sales]) || 0;
+    var eligible = row[TR.count_eligible];
+    if (!dateStr || !cid) return;
+
+    var ym = dateStr.slice(0, 7);
+    sales[ym] = (sales[ym] || 0) + amount;
+
+    var isEligible = (eligible === true || String(eligible).toUpperCase() === 'TRUE');
+    if (!isEligible) return;
+
+    if (!visits[ym]) visits[ym] = { newKeys: {}, retKeys: {} };
+    var key   = dateStr + '_' + cid;
+    var isNew = (firstVisitMonthMap[cid] === ym);
+    if (isNew) visits[ym].newKeys[key] = 1;
+    else       visits[ym].retKeys[key]  = 1;
+  });
+
+  var allYm = Object.keys(Object.assign({}, visits, sales)).sort();
+  var result = {
+    months:    allYm,
+    newVisits: allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].newKeys).length : 0; }),
+    retVisits: allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].retKeys).length : 0; }),
+    sales:     allYm.map(function(ym) { return Math.round(sales[ym] || 0); }),
+    updatedAt: new Date().toISOString()
+  };
+
+  var output = ContentService.createTextOutput(JSON.stringify(result));
+  output.setMimeType(ContentService.MimeType.JSON);
+  return output;
 }
 
 /* ============================================================

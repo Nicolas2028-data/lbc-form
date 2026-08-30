@@ -315,8 +315,8 @@ const C = {
   grid    : 'rgba(255,255,255,0.045)',
   text    : '#6e9b90',
 };
-const COURSE_COLORS  = ['#2C7A5C','#4A90D9','#9B59B6','#E8A838','#8BC4A8','#d97a36','#5a7e78'];
-const PAYMENT_COLORS = ['#2C7A5C','#4A90D9','#E8A838','#E05C5C','#8aada0'];
+const COURSE_COLORS  = ['#4A90D9','#E8A838','#9B59B6','#E05C5C','#2C7A5C','#d97a36','#5ac8a8'];
+const PAYMENT_COLORS = ['#2C7A5C','#4A90D9','#f5a623','#E05C5C','#9B59B6'];
 
 /* ── Chart.js グローバル設定 ── */
 Chart.defaults.color = C.text;
@@ -500,20 +500,25 @@ async function loadData() {
       }
     });
 
-    /* ── Chart②: 月別売上（グラデーション棒） ── */
-    const gSales = makeGrad('chartSales', 'rgba(232,168,56,0.85)', 'rgba(232,168,56,0.06)');
+    /* ── Chart②: 月別売上（折れ線＋エリア） ── */
+    const gSalesArea = makeGrad('chartSales', 'rgba(232,168,56,0.28)', 'rgba(232,168,56,0.01)');
     new Chart(document.getElementById('chartSales'), {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [{
           label: '売上',
           data: sales,
-          backgroundColor: gSales,
           borderColor: C.accent,
-          borderWidth: 1.5,
-          borderRadius: 7,
-          borderSkipped: false,
+          backgroundColor: gSalesArea,
+          fill: true,
+          tension: 0.42,
+          pointRadius: 6,
+          pointBackgroundColor: C.accent,
+          pointBorderColor: '#101e1b',
+          pointBorderWidth: 2.5,
+          pointHoverRadius: 9,
+          borderWidth: 2.5,
         }]
       },
       options: {
@@ -526,7 +531,7 @@ async function loadData() {
       }
     });
 
-    /* ── Chart③: 新規・既存積み上げ ── */
+    /* ── Chart③: 新規・既存内訳（横棒・積み上げ） ── */
     new Chart(document.getElementById('chartBreakdown'), {
       type: 'bar',
       data: {
@@ -535,20 +540,21 @@ async function loadData() {
           {
             label: '新規',
             data: newVisits,
-            backgroundColor: C.primary,
+            backgroundColor: C.blue,
             borderRadius: 5,
             stack: 'st',
           },
           {
             label: '既存',
             data: retVisits,
-            backgroundColor: C.priLt,
+            backgroundColor: C.primary,
             borderRadius: 5,
             stack: 'st',
           },
         ]
       },
       options: {
+        indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: {
@@ -564,17 +570,14 @@ async function loadData() {
           tooltip: {
             ...TT,
             callbacks: {
-              label: ctx => '  ' + ctx.dataset.label + ': ' + ctx.parsed.y + '人',
-              footer: items => {
-                const t = items.reduce((s, i) => s + i.parsed.y, 0);
-                return '合計 ' + t + '人';
-              }
+              label: ctx => '  ' + ctx.dataset.label + ': ' + ctx.parsed.x + '人',
+              footer: items => '合計 ' + items.reduce((s, i) => s + i.parsed.x, 0) + '人',
             }
           }
         },
         scales: {
-          x: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, ticks: { font: { size: 11 } } },
-          y: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, beginAtZero: true, stacked: true, ticks: { font: { size: 11 } } },
+          x: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, beginAtZero: true, ticks: { font: { size: 11 } } },
+          y: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, ticks: { font: { size: 12 } } },
         }
       }
     });
@@ -603,25 +606,50 @@ async function loadData() {
       noDataMsg('courseWrap', 'コースデータなし');
     }
 
-    /* ── Chart⑤: 支払い方法（ドーナツ） ── */
+    /* ── Chart⑤: 支払い方法（極座標） ── */
     const payKeys  = Object.keys(payments || {});
     const payVals  = payKeys.map(k => payments[k]);
     const payTotal = payVals.reduce((s, v) => s + v, 0);
     setS('payMeta', payTotal + '件');
     if (payTotal > 0) {
+      const payBg = payKeys.map((_, i) => PAYMENT_COLORS[i % PAYMENT_COLORS.length]);
       new Chart(document.getElementById('chartPayments'), {
-        type: 'doughnut',
+        type: 'polarArea',
         data: {
           labels: payKeys,
           datasets: [{
             data: payVals,
-            backgroundColor: payKeys.map((_, i) => PAYMENT_COLORS[i % PAYMENT_COLORS.length]),
-            borderColor: '#101e1b',
-            borderWidth: 2.5,
-            hoverOffset: 10,
+            backgroundColor: payBg.map(c => c + 'cc'),
+            borderColor: payBg,
+            borderWidth: 2,
           }]
         },
-        options: donutOpts(payTotal)
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 10, boxHeight: 10,
+                borderRadius: 3, useBorderRadius: true,
+                padding: 11, font: { size: 11 }, color: C.text,
+              }
+            },
+            tooltip: {
+              ...TT,
+              callbacks: {
+                label: ctx => '  ' + ctx.label + ': ' + ctx.raw + '件  (' + Math.round(ctx.raw / payTotal * 100) + '%)'
+              }
+            }
+          },
+          scales: {
+            r: {
+              ticks: { backdropColor: 'transparent', font: { size: 10 }, color: '#38625a', stepSize: 1 },
+              grid: { color: C.grid },
+              angleLines: { color: C.grid },
+            }
+          }
+        }
       });
     } else {
       noDataMsg('payWrap', '支払いデータなし');

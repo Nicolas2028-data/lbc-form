@@ -671,12 +671,22 @@ function handleGetPatientList(cfg) {
   var treatRows    = getSheetData(ss, '施術台帳');
   var today        = todayStr();
 
-  // 今日の施術台帳を集計
+  // 今日の void 済みエントリIDを先に収集
+  var voidedEntryIds = {};
+  for (var v = 0; v < treatRows.length; v++) {
+    if (toDateStr(treatRows[v][TR.date]) !== today) continue;
+    if (String(treatRows[v][TR.type]) !== 'void') continue;
+    var tgtId = String(treatRows[v][TR.target_entry_id] || '');
+    if (tgtId) voidedEntryIds[tgtId] = true;
+  }
+
+  // 今日の施術台帳を集計（void済みは除外）
   var todayByCustomer = {}; // customerId → { hasSales: bool }
   for (var i = 0; i < treatRows.length; i++) {
     var r = treatRows[i];
     if (toDateStr(r[TR.date]) !== today) continue;
     if (String(r[TR.type]) !== 'record') continue;
+    if (voidedEntryIds[String(r[TR.entry_id])]) continue;
     var cid = String(r[TR.customer_id]);
     var hasSales = r[TR.sales] !== '' && r[TR.sales] !== null;
     if (!todayByCustomer[cid]) {
@@ -1034,8 +1044,8 @@ function countReferralGrants(ss, referrerId) {
 function syncToNotion() {
   var cfg = getConfig();
 
-  // Drive フォルダ未設定なら自動設定（ステージング用フォルダID固定）
-  if (!cfg.DRIVE_FOLDER_ID) {
+  // Drive フォルダ未設定なら自動設定（ステージング専用。本番では絶対に上書きしない）
+  if (!cfg.DRIVE_FOLDER_ID && cfg._env === 'staging') {
     try {
       var stagingFolderId = '1F7nAzq-MAGUmrnXm__yyQjyVaV7xanuh';
       PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', stagingFolderId);
@@ -1124,9 +1134,6 @@ function syncCustomerMaster(ss, cfg) {
     var updatedAt = String(r[CM.updated_at]);
     var syncedAt  = String(r[CM.synced_at]);
     if (syncedAt && syncedAt >= updatedAt) continue; // 同期済み
-    var errCount  = Number(r[CM.error_count] || 0);
-    if (errCount >= 5) continue;
-
     try {
       var pageId = String(r[CM.notion_page_id]);
       var langMap = { ja: 'ja', es: 'es', pt: 'pt' };
@@ -1183,6 +1190,7 @@ function syncQuestionnaire(ss, cfg) {
       var custNotionId = custData ? String(custData.row[CM.notion_page_id]) : '';
 
       var pageId = String(r[QU.notion_page_id]);
+      var wasExistingPage = !!pageId;
       if (!pageId) {
         // Notion カルテページ新規作成
         var dateLabel = toDateStr(r[QU.date]).replace(/-/g, '/');
@@ -1204,8 +1212,22 @@ function syncQuestionnaire(ss, cfg) {
       }
 
       // 問診ブロック追記（raw_json から）
+      // 再試行時の重複防止: 既存ページにすでにブロックがあればスキップ
+      var skipBlocks = false;
+      if (wasExistingPage) {
+        try {
+          var chk = UrlFetchApp.fetch(NOTION_API + '/blocks/' + pageId + '/children?page_size=1', {
+            headers: notionHeaders(cfg), muteHttpExceptions: true,
+          });
+          var chkData = JSON.parse(chk.getContentText());
+          skipBlocks = !!(chkData.results && chkData.results.length > 0);
+          Utilities.sleep(200);
+        } catch(chkErr) {
+          Logger.log('syncQuestionnaire: block check failed, will attempt append: ' + chkErr.message);
+        }
+      }
       var rawJson = String(r[QU.raw_json]);
-      if (rawJson && pageId) {
+      if (!skipBlocks && rawJson && pageId) {
         var payload = JSON.parse(rawJson);
         payload.date = String(r[QU.date]);
         appendQuestionnaireBlocks(cfg, pageId, payload, String(r[QU.body_image_url]), String(r[QU.sig_url]));
@@ -1447,7 +1469,6 @@ function sendDailySummary() {
     var yesterday = fmtDate(new Date(Date.now() - 86400000));
 
     var treatRows  = getSheetData(ss, '施術台帳');
-    var creditRows = getSheetData(ss, 'クレジット台帳');
     var logRows    = getSheetData(ss, 'アクセスログ');
 
     // 取消エントリのtarget IDを収集
@@ -1459,7 +1480,7 @@ function sendDailySummary() {
       }
     }
 
-    var visits = 0, sales = 0, creditMoves = 0, syncErrors = 0, authFails = 0;
+    var visits = 0, sales = 0, syncErrors = 0, authFails = 0;
     for (var i = 0; i < treatRows.length; i++) {
       var r = treatRows[i];
       var rDate = toDateStr(r[TR.date]);
@@ -2522,7 +2543,6 @@ function resetOrphanedSyncedAt() {
   }
 
   if (fixed > 0) incSyncCounter(ss, fixed);
-  if (fixed > 0) incSyncCounter(ss, fixed);
   Logger.log('resetOrphanedSyncedAt: ' + fixed + ' 行をリセットしました');
 }
 
@@ -2798,39 +2818,43 @@ function testMonthly2Detection() {
    ダッシュボード集計APIハンドラー
    ============================================================ */
 function handleGetDashboardData(cfg) {
-  var ss     = getLedger(cfg);
-  var trRows = getSheetData(ss, '施術台帳');
-  var cmRows = getSheetData(ss, '顧客マスタ');
-
-  // 顧客ID → 初回来院月(YYYY-MM)
-  var firstVisitMonthMap = {};
-  cmRows.forEach(function(row) {
-    var cid = String(row[CM.customer_id] || '').trim();
-    var fv  = toDateStr(row[CM.first_visit]);
-    if (cid && fv) firstVisitMonthMap[cid] = fv.slice(0, 7);
+  // 顧客マスタ: pageId → 初回訪問月(YYYY-MM)
+  var custPages = notionQueryAll(cfg, cfg.CUSTOMER_DB_ID, null, null);
+  var firstVisitMap = {};
+  custPages.forEach(function(page) {
+    var d = page.properties['初回訪問日'];
+    var start = d && d.date && d.date.start;
+    if (start) firstVisitMap[page.id] = start.slice(0, 7);
   });
 
-  var visits = {};
-  var sales  = {};
+  // 施術カルテ: 全ページ取得して月別集計
+  var kartePages = notionQueryAll(cfg, cfg.KARTE_DB_ID, null, null);
 
-  trRows.forEach(function(row) {
-    var dateStr  = toDateStr(row[TR.date]);
-    var cid      = String(row[TR.customer_id] || '').trim();
-    var amount   = parseFloat(row[TR.sales]) || 0;
-    var eligible = row[TR.count_eligible];
-    if (!dateStr || !cid) return;
+  var visits = {}; // { 'YYYY-MM': { newKeys: {}, retKeys: {} } }
+  var sales  = {}; // { 'YYYY-MM': number }
 
+  kartePages.forEach(function(page) {
+    var props = page.properties;
+
+    var dateVal = props['日付'];
+    var dateStr = dateVal && dateVal.date && dateVal.date.start;
+    if (!dateStr) return;
     var ym = dateStr.slice(0, 7);
+
+    var salesVal = props['売上金額'];
+    var amount   = (salesVal && salesVal.number != null) ? salesVal.number : 0;
     sales[ym] = (sales[ym] || 0) + amount;
 
-    var isEligible = (eligible === true || String(eligible).toUpperCase() === 'TRUE');
-    if (!isEligible) return;
-
     if (!visits[ym]) visits[ym] = { newKeys: {}, retKeys: {} };
-    var key   = dateStr + '_' + cid;
-    var isNew = (firstVisitMonthMap[cid] === ym);
-    if (isNew) visits[ym].newKeys[key] = 1;
-    else       visits[ym].retKeys[key]  = 1;
+
+    var rel     = props['顧客マスタ'];
+    var relIds  = rel && rel.relation ? rel.relation.map(function(r) { return r.id; }) : [];
+    var custId  = relIds[0] || '';
+    var fvYm    = custId ? (firstVisitMap[custId] || '') : '';
+    var isNew   = fvYm && fvYm === ym;
+
+    if (isNew) visits[ym].newKeys[page.id] = 1;
+    else       visits[ym].retKeys[page.id]  = 1;
   });
 
   var allYm = Object.keys(Object.assign({}, visits, sales)).sort();

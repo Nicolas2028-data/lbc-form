@@ -7,236 +7,630 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg:          #0D1F1C;
-      --card:        #132821;
-      --border:      #1e3d35;
-      --primary:     #2C7A5C;
-      --primary-lt:  #8BC4A8;
-      --accent:      #E8A838;
-      --text:        #e8f0ec;
-      --text-sub:    #8aada0;
-      --white:       #ffffff;
+      --bg:       #08171a;
+      --bg2:      #0d1f1c;
+      --card:     #101e1b;
+      --border:   #18302b;
+      --primary:  #2C7A5C;
+      --pri-lt:   #8BC4A8;
+      --pri-dk:   #1a5441;
+      --accent:   #E8A838;
+      --acc-lt:   #f5cc70;
+      --blue:     #4A90D9;
+      --purple:   #9B59B6;
+      --red:      #E05C5C;
+      --text:     #cce5dc;
+      --sub:      #6e9b90;
+      --faint:    #38625a;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
       min-height: 100vh;
     }
+
+    /* ── Header ── */
     header {
-      background: #051F20;
-      padding: 16px 24px;
+      background: linear-gradient(135deg, #040f12 0%, #0b2020 100%);
+      padding: 14px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    .logo { font-size: 1.1rem; font-weight: 800; color: var(--white); }
-    .logo small { font-size: 0.7rem; font-weight: 400; opacity: 0.7; display: block; }
-    .updated { font-size: 0.75rem; color: var(--text-sub); }
-    .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
-    .summary-row {
+    .logo { display: flex; align-items: center; gap: 11px; }
+    .logo-mark {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--primary), var(--pri-dk));
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 0.78rem; color: #fff;
+      letter-spacing: -0.5px;
+      box-shadow: 0 2px 8px rgba(44,122,92,0.4);
+    }
+    .logo-text { font-size: 1rem; font-weight: 800; color: #fff; }
+    .logo-sub  { font-size: 0.62rem; color: var(--sub); display: block; margin-top: 2px; }
+    .header-right { text-align: right; }
+    .updated-label { font-size: 0.6rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
+    .updated-val   { font-size: 0.73rem; color: var(--sub); }
+
+    /* ── Layout ── */
+    .container { max-width: 1120px; margin: 0 auto; padding: 28px 20px 56px; }
+
+    .section-label {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin: 28px 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: 28px;
+      gap: 14px;
     }
     .kpi {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 24px;
+      border-radius: 14px;
+      padding: 18px 20px 15px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.15s;
     }
-    .kpi-label { font-size: 0.78rem; color: var(--text-sub); margin-bottom: 6px; }
-    .kpi-value { font-size: 2rem; font-weight: 800; color: var(--white); }
-    .kpi-value span { font-size: 0.9rem; font-weight: 400; color: var(--text-sub); margin-left: 4px; }
-    .kpi.accent .kpi-value { color: var(--accent); }
-    .charts-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+    .kpi:hover { border-color: #254f47; transform: translateY(-1px); }
+    .kpi::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 14px 14px 0 0;
     }
+    .kpi.accent::before { background: linear-gradient(90deg, var(--accent), var(--acc-lt)); }
+    .kpi.blue::before   { background: var(--blue); }
+    .kpi.red::before    { background: var(--red); }
+    .kpi-label { font-size: 0.68rem; color: var(--sub); margin-bottom: 8px; font-weight: 500; }
+    .kpi-val {
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-val .unit { font-size: 0.82rem; font-weight: 400; color: var(--sub); margin-left: 3px; }
+    .kpi.accent .kpi-val { color: var(--accent); }
+    .kpi.blue   .kpi-val { color: var(--blue); }
+    .kpi.red    .kpi-val { color: var(--red); }
+    .kpi-sub { font-size: 0.65rem; color: var(--faint); margin-top: 7px; line-height: 1.4; }
+    .kpi-sub .warn { color: #d97a36; }
+
+    /* ── Charts ── */
+    .charts-grid { display: grid; gap: 16px; }
+    .charts-grid.two   { grid-template-columns: 1fr 1fr; }
+    .charts-grid.one   { grid-template-columns: 1fr; }
+
     .chart-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 24px;
+      border-radius: 14px;
+      padding: 20px 22px 18px;
     }
-    .chart-card.wide { grid-column: 1 / -1; }
-    .chart-title {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .chart-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
       margin-bottom: 16px;
     }
-    .chart-wrap { position: relative; height: 240px; }
-    .loading {
+    .chart-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--sub);
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+    }
+    .chart-meta { font-size: 0.68rem; color: var(--faint); }
+    .chart-wrap          { position: relative; height: 228px; }
+    .chart-wrap.donut-h  { height: 210px; }
+    .chart-wrap.tall     { height: 260px; }
+    .no-data {
       display: flex; align-items: center; justify-content: center;
-      height: 200px; color: var(--text-sub); font-size: 0.9rem;
+      height: 100%; font-size: 0.78rem; color: var(--faint);
     }
-    .error-msg {
-      color: #e05c5c; text-align: center; padding: 40px 20px; font-size: 0.9rem;
+
+    /* ── Loading ── */
+    .loading {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 320px; gap: 18px;
     }
-    @media (max-width: 640px) {
-      .summary-row { grid-template-columns: 1fr; }
-      .charts-grid { grid-template-columns: 1fr; }
-      .chart-card.wide { grid-column: 1; }
+    .spinner {
+      width: 38px; height: 38px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 0.82rem; color: var(--sub); }
+    .error-wrap {
+      text-align: center; padding: 60px 20px;
+      color: var(--red); font-size: 0.9rem;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 720px) {
+      .kpi-grid          { grid-template-columns: 1fr 1fr; }
+      .charts-grid.two   { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 420px) {
+      .kpi-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">LBC Care<small>Lucas Body Care</small></div>
-  <div class="updated" id="updatedAt">読み込み中...</div>
+  <div class="logo">
+    <div class="logo-mark">LC</div>
+    <div>
+      <div class="logo-text">LBC Care</div>
+      <small class="logo-sub">施術ダッシュボード — Notion 連携</small>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="updated-label">最終更新</div>
+    <div class="updated-val" id="updatedAt">読み込み中...</div>
+  </div>
 </header>
 
 <div class="container">
-  <div id="loading" class="loading">データを取得中...</div>
-  <div id="errorMsg" class="error-msg" style="display:none"></div>
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Notion からデータを取得中...</div>
+  </div>
+  <div id="errorMsg" class="error-wrap" style="display:none"></div>
 
   <div id="content" style="display:none">
-    <div class="summary-row">
+
+    <!-- KPI -->
+    <div class="section-label">今月のサマリー</div>
+    <div class="kpi-grid">
       <div class="kpi">
         <div class="kpi-label">当月来院数</div>
-        <div class="kpi-value" id="kpiVisits">—<span>人</span></div>
+        <div class="kpi-val" id="kpiVisits"></div>
+        <div class="kpi-sub" id="kpiVisitsSub"></div>
       </div>
       <div class="kpi">
         <div class="kpi-label">当月新規</div>
-        <div class="kpi-value" id="kpiNew">—<span>人</span></div>
+        <div class="kpi-val" id="kpiNew"></div>
+        <div class="kpi-sub" id="kpiNewSub"></div>
       </div>
       <div class="kpi accent">
         <div class="kpi-label">当月売上</div>
-        <div class="kpi-value" id="kpiSales">—<span>円</span></div>
+        <div class="kpi-val" id="kpiSales"></div>
+        <div class="kpi-sub" id="kpiSalesSub"></div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">累計来院</div>
+        <div class="kpi-val" id="kpiTotal"></div>
+        <div class="kpi-sub" id="kpiTotalSub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">平均客単価</div>
+        <div class="kpi-val" id="kpiAvg"></div>
+        <div class="kpi-sub" id="kpiAvgSub"></div>
+      </div>
+      <div class="kpi accent">
+        <div class="kpi-label">累計売上</div>
+        <div class="kpi-val" id="kpiTotalSales"></div>
+        <div class="kpi-sub" id="kpiTotalSalesSub"></div>
       </div>
     </div>
 
-    <div class="charts-grid">
+    <!-- Monthly trends -->
+    <div class="section-label">月別推移</div>
+    <div class="charts-grid two">
       <div class="chart-card">
-        <div class="chart-title">月別来院数</div>
+        <div class="chart-head">
+          <div class="chart-title">月別来院数</div>
+          <div class="chart-meta" id="totalVisitsLabel"></div>
+        </div>
         <div class="chart-wrap"><canvas id="chartVisits"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">月別売上（円）</div>
+        <div class="chart-head">
+          <div class="chart-title">月別売上</div>
+          <div class="chart-meta" id="totalSalesLabel"></div>
+        </div>
         <div class="chart-wrap"><canvas id="chartSales"></canvas></div>
       </div>
-      <div class="chart-card wide">
-        <div class="chart-title">新規・既存内訳</div>
-        <div class="chart-wrap"><canvas id="chartBreakdown"></canvas></div>
+    </div>
+
+    <!-- New vs Returning -->
+    <div class="charts-grid one" style="margin-top:16px">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">新規 / 既存 内訳</div>
+          <div class="chart-meta" id="breakdownMeta"></div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chartBreakdown"></canvas></div>
       </div>
     </div>
-  </div>
-</div>
+
+    <!-- Breakdowns -->
+    <div class="section-label">施術内訳（記録済み）</div>
+    <div class="charts-grid two">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">コース内訳</div>
+          <div class="chart-meta" id="courseMeta"></div>
+        </div>
+        <div class="chart-wrap donut-h" id="courseWrap"><canvas id="chartCourses"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">支払い方法</div>
+          <div class="chart-meta" id="payMeta"></div>
+        </div>
+        <div class="chart-wrap donut-h" id="payWrap"><canvas id="chartPayments"></canvas></div>
+      </div>
+    </div>
+
+  </div><!-- #content -->
+</div><!-- .container -->
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxCBqtgbRKjKHwynwzb7NkZyjujoocCWRbHsMggiJg30myE9l6xIoQmc46xcw-QfX06PQ/exec';
 
-const COLORS = {
-  primary:   '#2C7A5C',
-  primaryLt: '#8BC4A8',
-  dark:      '#163832',
-  accent:    '#E8A838',
-  grid:      'rgba(255,255,255,0.06)',
-  text:      '#8aada0',
+/* ── パレット ── */
+const C = {
+  primary : '#2C7A5C',
+  priLt   : '#8BC4A8',
+  priDk   : '#1a5441',
+  accent  : '#E8A838',
+  accLt   : '#f5cc70',
+  blue    : '#4A90D9',
+  purple  : '#9B59B6',
+  red     : '#E05C5C',
+  grid    : 'rgba(255,255,255,0.045)',
+  text    : '#6e9b90',
 };
+const COURSE_COLORS  = ['#2C7A5C','#4A90D9','#9B59B6','#E8A838','#8BC4A8','#d97a36','#5a7e78'];
+const PAYMENT_COLORS = ['#2C7A5C','#4A90D9','#E8A838','#E05C5C','#8aada0'];
 
-Chart.defaults.color = COLORS.text;
+/* ── Chart.js グローバル設定 ── */
+Chart.defaults.color = C.text;
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif";
+Chart.defaults.animation.duration = 650;
+Chart.defaults.animation.easing   = 'easeInOutQuart';
 
+/* ── ユーティリティ ── */
 function fmtYen(n) {
-  return n >= 10000
-    ? (n / 10000).toFixed(n % 10000 === 0 ? 0 : 1) + '万'
-    : n.toLocaleString();
+  if (n >= 1000000) return (n / 10000).toFixed(0) + '万';
+  if (n >= 10000)   return (n / 10000).toFixed(n % 10000 === 0 ? 0 : 1) + '万';
+  return n.toLocaleString();
+}
+function fmtMonth(ym) {
+  const [y, m] = ym.split('-');
+  return parseInt(y) === new Date().getFullYear()
+    ? parseInt(m) + '月'
+    : y + '/' + parseInt(m);
+}
+function setV(id, val, unit) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = val + (unit ? '<span class="unit">' + unit + '</span>' : '');
+}
+function setS(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+function noDataMsg(wrapId, msg) {
+  const w = document.getElementById(wrapId);
+  if (!w) return;
+  w.innerHTML = '<div class="no-data">' + msg + '</div>';
 }
 
-function baseOptions(yLabel) {
+/* ── グラデーション生成 ── */
+function makeGrad(canvasId, c1, c2) {
+  const el = document.getElementById(canvasId);
+  const g  = el.getContext('2d').createLinearGradient(0, 0, 0, 240);
+  g.addColorStop(0, c1);
+  g.addColorStop(1, c2);
+  return g;
+}
+
+/* ── 共通スケール ── */
+function xy(yFmt) {
   return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { color: COLORS.grid }, ticks: { maxRotation: 45 } },
-      y: {
-        grid: { color: COLORS.grid },
-        beginAtZero: true,
-        ticks: { callback: yLabel }
+    x: {
+      grid: { color: C.grid, drawBorder: false },
+      border: { display: false },
+      ticks: { maxRotation: 0, font: { size: 11 } },
+    },
+    y: {
+      grid: { color: C.grid, drawBorder: false },
+      border: { display: false },
+      beginAtZero: true,
+      ticks: { callback: yFmt, font: { size: 11 } },
+    }
+  };
+}
+
+/* ── ツールチップ ── */
+const TT = {
+  backgroundColor : 'rgba(6,18,20,0.96)',
+  titleColor      : '#cce5dc',
+  bodyColor       : '#6e9b90',
+  footerColor     : '#38625a',
+  borderColor     : '#18302b',
+  borderWidth     : 1,
+  padding         : 11,
+  cornerRadius    : 9,
+  boxPadding      : 4,
+  titleFont       : { size: 12, weight: '600' },
+  bodyFont        : { size: 11 },
+};
+
+/* ── ドーナツ共通オプション ── */
+function donutOpts(total, unit) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '66%',
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          boxWidth: 10, boxHeight: 10,
+          borderRadius: 3, useBorderRadius: true,
+          padding: 11,
+          font: { size: 11 },
+          color: C.text,
+        }
+      },
+      tooltip: {
+        ...TT,
+        callbacks: {
+          label: ctx =>
+            '  ' + ctx.label + ': ' + ctx.raw + (unit || '件') +
+            '  (' + Math.round(ctx.raw / total * 100) + '%)'
+        }
       }
     }
   };
 }
 
+/* ── メイン ── */
 async function loadData() {
   try {
     const res  = await fetch(GAS_URL + '?action=getDashboardData');
     const data = await res.json();
 
-    document.getElementById('loading').style.display  = 'none';
-    document.getElementById('content').style.display  = 'block';
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
 
-    const { months, newVisits, retVisits, sales, updatedAt } = data;
-    const totalVisits = months.map((_, i) => (newVisits[i] || 0) + (retVisits[i] || 0));
+    const {
+      months, newVisits, retVisits, sales,
+      courses, payments,
+      totalSales, recordedCount, totalVisits,
+      updatedAt,
+    } = data;
 
-    // KPI（最新月）
-    const last = months.length - 1;
-    document.getElementById('kpiVisits').innerHTML = `${totalVisits[last] || 0}<span>人</span>`;
-    document.getElementById('kpiNew').innerHTML    = `${newVisits[last] || 0}<span>人</span>`;
-    document.getElementById('kpiSales').innerHTML  = `${fmtYen(sales[last] || 0)}<span>円</span>`;
-    document.getElementById('updatedAt').textContent = '更新: ' + new Date(updatedAt).toLocaleString('ja-JP');
+    const labels       = months.map(fmtMonth);
+    const totalByMonth = months.map((_, i) => (newVisits[i] || 0) + (retVisits[i] || 0));
+    const last         = months.length - 1;
+    const lastVisits   = totalByMonth[last] || 0;
+    const lastNew      = newVisits[last]    || 0;
+    const lastRet      = retVisits[last]    || 0;
+    const lastSales    = sales[last]        || 0;
+    const avg          = recordedCount > 0 ? Math.round(totalSales / recordedCount) : 0;
+    const unrecorded   = totalVisits - recordedCount;
+    const sumVisits    = totalByMonth.reduce((a, b) => a + b, 0);
 
-    // グラフ共通設定
-    const sharedX = {
-      grid: { color: COLORS.grid },
-      ticks: { maxRotation: 45 }
-    };
+    /* 更新時刻 */
+    document.getElementById('updatedAt').textContent =
+      new Date(updatedAt).toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
 
-    // グラフ①: 月別来院数
+    /* KPI */
+    setV('kpiVisits',     lastVisits, '人');
+    setV('kpiNew',        lastNew,    '人');
+    setV('kpiSales',      fmtYen(lastSales), '円');
+    setV('kpiTotal',      totalVisits, '件');
+    setV('kpiAvg',        fmtYen(avg), '円');
+    setV('kpiTotalSales', fmtYen(totalSales), '円');
+
+    setS('kpiVisitsSub', lastNew + '人新規 / ' + lastRet + '人既存');
+    setS('kpiNewSub', lastVisits > 0
+      ? '来院数の ' + Math.round(lastNew / lastVisits * 100) + '%'
+      : '—');
+    setS('kpiSalesSub', unrecorded > 0
+      ? '<span class="warn">⚠ 未記録 ' + unrecorded + '件あり</span>'
+      : '全件記録済み');
+    setS('kpiTotalSub', months.length + 'ヶ月間の合計');
+    setS('kpiAvgSub', '記録済み ' + recordedCount + '件の平均');
+    setS('kpiTotalSalesSub', recordedCount + '件の記録から集計');
+
+    /* サブラベル */
+    setS('totalVisitsLabel', '累計 ' + sumVisits + '件');
+    setS('totalSalesLabel',  '累計 ¥' + totalSales.toLocaleString());
+    setS('breakdownMeta', sumVisits + '件 / ' + months.length + 'ヶ月');
+
+    /* ── Chart①: 月別来院数（グラデーション棒） ── */
+    const gVisits = makeGrad('chartVisits', 'rgba(44,122,92,0.88)', 'rgba(44,122,92,0.07)');
     new Chart(document.getElementById('chartVisits'), {
       type: 'bar',
       data: {
-        labels: months,
-        datasets: [{ label: '来院数', data: totalVisits, backgroundColor: COLORS.primary, borderRadius: 4 }]
+        labels,
+        datasets: [{
+          label: '来院数',
+          data: totalByMonth,
+          backgroundColor: gVisits,
+          borderColor: C.primary,
+          borderWidth: 1.5,
+          borderRadius: 7,
+          borderSkipped: false,
+        }]
       },
-      options: baseOptions(v => v)
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...TT, callbacks: { label: ctx => '  ' + ctx.parsed.y + '人' } },
+        },
+        scales: xy(v => v + '人'),
+      }
     });
 
-    // グラフ②: 月別売上
+    /* ── Chart②: 月別売上（グラデーション棒） ── */
+    const gSales = makeGrad('chartSales', 'rgba(232,168,56,0.85)', 'rgba(232,168,56,0.06)');
     new Chart(document.getElementById('chartSales'), {
       type: 'bar',
       data: {
-        labels: months,
-        datasets: [{ label: '売上', data: sales, backgroundColor: COLORS.dark, borderRadius: 4 }]
+        labels,
+        datasets: [{
+          label: '売上',
+          data: sales,
+          backgroundColor: gSales,
+          borderColor: C.accent,
+          borderWidth: 1.5,
+          borderRadius: 7,
+          borderSkipped: false,
+        }]
       },
-      options: baseOptions(v => '¥' + v.toLocaleString())
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...TT, callbacks: { label: ctx => '  ¥' + ctx.parsed.y.toLocaleString() } },
+        },
+        scales: xy(v => '¥' + fmtYen(v)),
+      }
     });
 
-    // グラフ③: 新規・既存内訳（積み上げ）
+    /* ── Chart③: 新規・既存積み上げ ── */
     new Chart(document.getElementById('chartBreakdown'), {
       type: 'bar',
       data: {
-        labels: months,
+        labels,
         datasets: [
-          { label: '新規', data: newVisits, backgroundColor: COLORS.primary, borderRadius: 4, stack: 'stack' },
-          { label: '既存', data: retVisits, backgroundColor: COLORS.primaryLt, borderRadius: 4, stack: 'stack' }
+          {
+            label: '新規',
+            data: newVisits,
+            backgroundColor: C.primary,
+            borderRadius: 5,
+            stack: 'st',
+          },
+          {
+            label: '既存',
+            data: retVisits,
+            backgroundColor: C.priLt,
+            borderRadius: 5,
+            stack: 'st',
+          },
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: true, position: 'top' } },
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 10, boxHeight: 10,
+              borderRadius: 3, useBorderRadius: true,
+              padding: 14, font: { size: 11 },
+            }
+          },
+          tooltip: {
+            ...TT,
+            callbacks: {
+              label: ctx => '  ' + ctx.dataset.label + ': ' + ctx.parsed.y + '人',
+              footer: items => {
+                const t = items.reduce((s, i) => s + i.parsed.y, 0);
+                return '合計 ' + t + '人';
+              }
+            }
+          }
+        },
         scales: {
-          x: { grid: { color: COLORS.grid }, stacked: true },
-          y: { grid: { color: COLORS.grid }, stacked: true, beginAtZero: true }
+          x: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, ticks: { font: { size: 11 } } },
+          y: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, beginAtZero: true, stacked: true, ticks: { font: { size: 11 } } },
         }
       }
     });
 
+    /* ── Chart④: コース内訳（ドーナツ） ── */
+    const courseKeys = Object.keys(courses || {});
+    const courseVals = courseKeys.map(k => courses[k]);
+    const courseTotal = courseVals.reduce((s, v) => s + v, 0);
+    setS('courseMeta', courseTotal + '件');
+    if (courseTotal > 0) {
+      new Chart(document.getElementById('chartCourses'), {
+        type: 'doughnut',
+        data: {
+          labels: courseKeys,
+          datasets: [{
+            data: courseVals,
+            backgroundColor: courseKeys.map((_, i) => COURSE_COLORS[i % COURSE_COLORS.length]),
+            borderColor: '#101e1b',
+            borderWidth: 2.5,
+            hoverOffset: 10,
+          }]
+        },
+        options: donutOpts(courseTotal)
+      });
+    } else {
+      noDataMsg('courseWrap', 'コースデータなし');
+    }
+
+    /* ── Chart⑤: 支払い方法（ドーナツ） ── */
+    const payKeys  = Object.keys(payments || {});
+    const payVals  = payKeys.map(k => payments[k]);
+    const payTotal = payVals.reduce((s, v) => s + v, 0);
+    setS('payMeta', payTotal + '件');
+    if (payTotal > 0) {
+      new Chart(document.getElementById('chartPayments'), {
+        type: 'doughnut',
+        data: {
+          labels: payKeys,
+          datasets: [{
+            data: payVals,
+            backgroundColor: payKeys.map((_, i) => PAYMENT_COLORS[i % PAYMENT_COLORS.length]),
+            borderColor: '#101e1b',
+            borderWidth: 2.5,
+            hoverOffset: 10,
+          }]
+        },
+        options: donutOpts(payTotal)
+      });
+    } else {
+      noDataMsg('payWrap', '支払いデータなし');
+    }
+
   } catch (err) {
-    document.getElementById('loading').style.display   = 'none';
-    document.getElementById('errorMsg').style.display  = 'block';
-    document.getElementById('errorMsg').textContent    = 'データの取得に失敗しました: ' + err.message;
+    document.getElementById('loading').style.display  = 'none';
+    document.getElementById('errorMsg').style.display = 'block';
+    document.getElementById('errorMsg').textContent   = 'データ取得エラー: ' + err.message;
   }
 }
 

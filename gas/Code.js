@@ -2827,11 +2827,15 @@ function handleGetDashboardData(cfg) {
     if (start) firstVisitMap[page.id] = start.slice(0, 7);
   });
 
-  // 施術カルテ: 全ページ取得して月別集計
+  // 施術カルテ: 全ページ取得して集計
   var kartePages = notionQueryAll(cfg, cfg.KARTE_DB_ID, null, null);
 
-  var visits = {}; // { 'YYYY-MM': { newKeys: {}, retKeys: {} } }
-  var sales  = {}; // { 'YYYY-MM': number }
+  var visits        = {}; // { 'YYYY-MM': { newKeys:{}, retKeys:{} } }
+  var sales         = {}; // { 'YYYY-MM': number }
+  var courses       = {}; // { コース名: count }
+  var payments      = {}; // { 支払い方法: count }
+  var totalSalesSum = 0;
+  var recordedCount = 0;
 
   kartePages.forEach(function(page) {
     var props = page.properties;
@@ -2841,29 +2845,45 @@ function handleGetDashboardData(cfg) {
     if (!dateStr) return;
     var ym = dateStr.slice(0, 7);
 
-    var salesVal = props['売上金額'];
-    var amount   = (salesVal && salesVal.number != null) ? salesVal.number : 0;
-    sales[ym] = (sales[ym] || 0) + amount;
+    var salesProp = props['売上金額'];
+    var amount    = (salesProp && salesProp.number != null) ? salesProp.number : null;
+
+    if (amount != null) {
+      sales[ym]    = (sales[ym] || 0) + amount;
+      totalSalesSum += amount;
+      recordedCount++;
+
+      var cn = (props['コース'] && props['コース'].select) ? props['コース'].select.name : '未記入';
+      courses[cn] = (courses[cn] || 0) + 1;
+
+      var pn = (props['支払い方法'] && props['支払い方法'].select) ? props['支払い方法'].select.name : '未記入';
+      payments[pn] = (payments[pn] || 0) + 1;
+    } else {
+      if (!sales[ym]) sales[ym] = 0;
+    }
 
     if (!visits[ym]) visits[ym] = { newKeys: {}, retKeys: {} };
-
-    var rel     = props['顧客マスタ'];
-    var relIds  = rel && rel.relation ? rel.relation.map(function(r) { return r.id; }) : [];
-    var custId  = relIds[0] || '';
-    var fvYm    = custId ? (firstVisitMap[custId] || '') : '';
-    var isNew   = fvYm && fvYm === ym;
-
+    var rel    = props['顧客マスタ'];
+    var relIds = rel && rel.relation ? rel.relation.map(function(r) { return r.id; }) : [];
+    var custId = relIds[0] || '';
+    var fvYm   = custId ? (firstVisitMap[custId] || '') : '';
+    var isNew  = fvYm && fvYm === ym;
     if (isNew) visits[ym].newKeys[page.id] = 1;
     else       visits[ym].retKeys[page.id]  = 1;
   });
 
-  var allYm = Object.keys(Object.assign({}, visits, sales)).sort();
+  var allYm  = Object.keys(Object.assign({}, visits, sales)).sort();
   var result = {
-    months:    allYm,
-    newVisits: allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].newKeys).length : 0; }),
-    retVisits: allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].retKeys).length : 0; }),
-    sales:     allYm.map(function(ym) { return Math.round(sales[ym] || 0); }),
-    updatedAt: new Date().toISOString()
+    months:        allYm,
+    newVisits:     allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].newKeys).length : 0; }),
+    retVisits:     allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].retKeys).length : 0; }),
+    sales:         allYm.map(function(ym) { return Math.round(sales[ym] || 0); }),
+    courses:       courses,
+    payments:      payments,
+    totalSales:    Math.round(totalSalesSum),
+    recordedCount: recordedCount,
+    totalVisits:   kartePages.length,
+    updatedAt:     new Date().toISOString()
   };
 
   var output = ContentService.createTextOutput(JSON.stringify(result));

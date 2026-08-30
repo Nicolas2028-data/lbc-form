@@ -818,11 +818,7 @@ let _authPw     = '';
 /* ── 初期化 ──────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function() {
   renderCourses();
-  if (sessionStorage.getItem('lbc_auth') === '1') {
-    document.getElementById('passwordGate').style.display = 'none';
-    document.getElementById('mainForm').style.display = 'block';
-    loadPatients();
-  }
+  // パスワードはメモリ変数のみで保持。ページリロード時は再入力が必要（セキュリティ設計）
 });
 
 /* ── パスワード認証 ────────────────────────────── */
@@ -846,7 +842,6 @@ async function verifyPassword() {
     const data = await res.json();
     if (data.ok) {
       _authPw = pw;
-      sessionStorage.setItem('lbc_auth', '1');
       document.getElementById('passwordGate').style.display = 'none';
       document.getElementById('mainForm').style.display = 'block';
       loadPatients();

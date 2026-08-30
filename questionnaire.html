@@ -1120,6 +1120,9 @@ function setLang(lang) {
 }
 
 function L(key) { return I18N[Q.lang][key] || ''; }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function set(id, val) {
   const el = document.getElementById(id);
@@ -1499,8 +1502,8 @@ function showPatientInfo(data) {
   if (data.email) rows.push([L('lbl_email') || 'メール', data.email]);
   disp.innerHTML = rows.map(([k, v]) =>
     '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:6px 0">' +
-    '<span style="opacity:0.6;min-width:56px;font-size:0.85rem">' + k + '</span>' +
-    '<span style="font-weight:600">' + v + '</span></div>'
+    '<span style="opacity:0.6;min-width:56px;font-size:0.85rem">' + escHtml(k) + '</span>' +
+    '<span style="font-weight:600">' + escHtml(v) + '</span></div>'
   ).join('');
   document.getElementById('patientInfoCard').style.display = 'block';
   document.getElementById('lookupBtnCard').style.display = 'none';
@@ -1920,7 +1923,13 @@ function validate() {
   if (showQ) {
     if (!document.querySelectorAll('input[name="mainSymptom"]:checked').length) {
       showErr('e_mainSymptom', L('e_mainSymptom')); ok = false;
-    } else clearErr('e_mainSymptom');
+    } else {
+      const otherChecked = document.querySelector('input[name="mainSymptom"][value="other"]:checked');
+      const otherText = document.getElementById('mainSymptom_other_text');
+      if (otherChecked && otherText && !otherText.value.trim()) {
+        showErr('e_mainSymptom', L('e_mainSymptomOther') || 'その他の症状を入力してください'); ok = false;
+      } else clearErr('e_mainSymptom');
+    }
 
     if (!document.querySelector('input[name="symptomDuration"]:checked')) {
       showErr('e_symptomDuration', L('e_symptomDuration')); ok = false;

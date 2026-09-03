@@ -97,11 +97,17 @@
     .face-del  { background: none; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 4px 6px; }
 
     /* ── トースト ── */
-    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: .88rem; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 300; }
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: .88rem; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: normal; max-width: 88vw; text-align: center; z-index: 300; }
     #toast.show { opacity: 1; }
     #toast.success { background: var(--green); color: #fff; }
     #toast.error   { background: var(--red);   color: #fff; }
     #toast.info    { background: var(--teal);  color: #fff; }
+
+    /* ── 登録サンプル進捗 ── */
+    #sampleProgress { display: none; text-align: center; font-size: .82rem; color: var(--teal); margin: 6px 0 10px; }
+    .sample-dots { display: inline-flex; gap: 6px; margin-left: 8px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); display: inline-block; transition: background .2s; }
+    .dot.filled { background: var(--teal); }
   </style>
 </head>
 <body>
@@ -111,6 +117,7 @@
   <div class="spinner"></div>
   <p style="color:var(--sub);font-size:.88rem;">AIモデルを読み込み中...</p>
   <p id="loadStep" style="color:var(--teal);font-size:.78rem;"></p>
+  <p style="color:var(--sub);font-size:.72rem;margin-top:4px;">初回のみ約4MBのダウンロードが発生します</p>
 </div>
 
 <header>
@@ -143,8 +150,15 @@
       <input type="text" id="regFuri" placeholder="例: ヤマダ タロウ">
     </div>
     <button class="btn btn-primary" id="btnCapture" onclick="captureAndRegister()" disabled>
-      顔を登録する
+      顔を登録する（3枚撮影）
     </button>
+    <div id="sampleProgress">
+      撮影中... <span class="sample-dots">
+        <span class="dot" id="dot0"></span>
+        <span class="dot" id="dot1"></span>
+        <span class="dot" id="dot2"></span>
+      </span>
+    </div>
   </div>
 
   <!-- 認証モード -->
@@ -192,9 +206,11 @@
 const MODEL_URL   = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights';
 const STORAGE_KEY = 'lbc_faces_v1';
 const THRESHOLD   = 0.5; // 距離しきい値（小さいほど厳しい）
+const DETECT_OPTS = () => new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
 
 /* ── 状態 ── */
 let faceVisible = false;
+let detecting   = false; // 並行実行ガード
 let loopTimer   = null;
 
 /* ── localStorage ── */
@@ -229,33 +245,41 @@ function startLoop() {
   const canvas = document.getElementById('overlay');
   const badge  = document.getElementById('camBadge');
 
-  // キャンバスサイズを一度だけ設定
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 480;
-
   loopTimer = setInterval(async () => {
-    if (!video.videoWidth) return;
-    const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!video.videoWidth || detecting) return;
 
-    if (det) {
-      faceVisible = true;
-      const { x, y, width, height } = det.box;
-      ctx.strokeStyle = '#3eb5ac';
-      ctx.lineWidth   = 2.5;
-      ctx.strokeRect(x, y, width, height);
-      badge.textContent = '顔を検出 ✓';
-      badge.className   = 'badge ok';
-    } else {
-      faceVisible = false;
-      badge.textContent = '顔が見つかりません';
-      badge.className   = 'badge';
+    // ビデオ解像度が変わったときだけキャンバスを更新
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    detecting = true;
+    try {
+      const det = await faceapi.detectSingleFace(video, DETECT_OPTS());
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (det) {
+        faceVisible = true;
+        const { x, y, width, height } = det.box;
+        ctx.strokeStyle = '#3eb5ac';
+        ctx.lineWidth   = 2.5;
+        ctx.strokeRect(x, y, width, height);
+        badge.textContent = '顔を検出 ✓';
+        badge.className   = 'badge ok';
+      } else {
+        faceVisible = false;
+        badge.textContent = '顔が見つかりません';
+        badge.className   = 'badge';
+      }
+    } finally {
+      detecting = false;
     }
 
     document.getElementById('btnCapture').disabled   = !faceVisible;
     document.getElementById('btnRecognize').disabled = !faceVisible;
-  }, 300);
+  }, 400);
 }
 
 /* ── モード切替 ── */
@@ -267,30 +291,56 @@ function setMode(m) {
   document.getElementById('resultBar').className = '';
 }
 
-/* ── 顔を登録 ── */
+/* ── 顔を登録（3枚撮影・平均化） ── */
 async function captureAndRegister() {
   const name = document.getElementById('regName').value.trim();
   const furi = document.getElementById('regFuri').value.trim();
   if (!name) { toast('氏名を入力してください', 'error'); return; }
 
-  const btn = document.getElementById('btnCapture');
-  btn.disabled = true; btn.textContent = '処理中...';
+  const btn      = document.getElementById('btnCapture');
+  const progress = document.getElementById('sampleProgress');
+  btn.disabled   = true;
+  btn.textContent = '撮影中...';
+  progress.style.display = 'block';
 
-  const det = await faceapi
-    .detectSingleFace(document.getElementById('video'), new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }))
-    .withFaceLandmarks(true).withFaceDescriptor();
+  const video       = document.getElementById('video');
+  const descriptors = [];
 
-  btn.textContent = '顔を登録する';
-  if (!det) { toast('顔の取得に失敗しました。顔がカメラに映っているか確認してください', 'error'); return; }
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('dot' + i).classList.add('filled');
+    const det = await faceapi
+      .detectSingleFace(video, DETECT_OPTS())
+      .withFaceLandmarks(true).withFaceDescriptor();
+    if (det) descriptors.push(det.descriptor);
+    if (i < 2) await new Promise(r => setTimeout(r, 500));
+  }
+
+  progress.style.display = 'none';
+  btn.textContent = '顔を登録する（3枚撮影）';
+  ['dot0','dot1','dot2'].forEach(id => document.getElementById(id).classList.remove('filled'));
+
+  if (!descriptors.length) {
+    toast('顔の取得に失敗しました。顔がカメラに正面を向けてください', 'error');
+    return;
+  }
+
+  // 取得できた枚数分を平均化して1つのディスクリプタに
+  const avg = new Float32Array(128);
+  descriptors.forEach(d => d.forEach((v, i) => avg[i] += v / descriptors.length));
 
   const faces = loadFaces();
-  faces.push({ id: Date.now(), name, furi, descriptor: Array.from(det.descriptor), at: new Date().toISOString() });
+  faces.push({
+    id: Date.now(), name, furi,
+    descriptors: [Array.from(avg)], // FaceMatcherが複数サンプルに対応
+    shots: descriptors.length,
+    at: new Date().toISOString(),
+  });
   saveFaces(faces);
 
   document.getElementById('regName').value = '';
   document.getElementById('regFuri').value = '';
   renderList();
-  toast(name + ' さんを登録しました ✓', 'success');
+  toast(name + ' さんを登録しました（' + descriptors.length + '枚）✓', 'success');
 }
 
 /* ── 顔で認証 ── */
@@ -302,15 +352,19 @@ async function recognizeFace() {
   btn.disabled = true; btn.textContent = '照合中...';
 
   const det = await faceapi
-    .detectSingleFace(document.getElementById('video'), new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }))
+    .detectSingleFace(document.getElementById('video'), DETECT_OPTS())
     .withFaceLandmarks(true).withFaceDescriptor();
 
   btn.disabled = false; btn.textContent = '顔で認証する';
   if (!det) { toast('顔の取得に失敗しました', 'error'); return; }
 
-  const labeled  = faces.map(f =>
-    new faceapi.LabeledFaceDescriptors(f.name + '§' + f.id, [new Float32Array(f.descriptor)])
-  );
+  // 旧データ（descriptor単数）と新データ（descriptors複数）の両方に対応
+  const labeled = faces.map(f => {
+    const samples = f.descriptors
+      ? f.descriptors.map(d => new Float32Array(d))
+      : [new Float32Array(f.descriptor)];
+    return new faceapi.LabeledFaceDescriptors(f.name + '§' + f.id, samples);
+  });
   const matcher  = new faceapi.FaceMatcher(labeled, THRESHOLD);
   const best     = matcher.findBestMatch(det.descriptor);
 
@@ -364,15 +418,18 @@ function renderList() {
     el.innerHTML = '<p style="color:var(--sub);font-size:.85rem;">まだ登録されていません</p>';
     return;
   }
-  el.innerHTML = faces.map(f => `
+  el.innerHTML = faces.map(f => {
+    const date = new Date(f.at).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const shots = f.descriptors ? f.descriptors.length : 1;
+    return `
     <div class="face-item">
       <div>
         <div style="font-size:.9rem;">${f.name}</div>
-        ${f.furi ? `<div style="font-size:.75rem;color:var(--sub);">${f.furi}</div>` : ''}
+        <div style="font-size:.72rem;color:var(--sub);">${f.furi ? f.furi + ' · ' : ''}登録: ${date} · ${shots}枚</div>
       </div>
       <button class="face-del" onclick="deleteFace(${f.id})">🗑</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function deleteFace(id) {

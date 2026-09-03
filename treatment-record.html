@@ -838,7 +838,11 @@ async function verifyPassword() {
   document.getElementById('pwLoading').style.display = 'flex';
   document.querySelector('#passwordGate .btn-submit').disabled = true;
   try {
-    const res  = await fetch(CONFIG.GAS_URL + '?action=verifyStaff&pw=' + encodeURIComponent(pw) + envQ());
+    const res  = await fetch(CONFIG.GAS_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({ action: 'verifyStaff', pw, env: CONFIG.ENV_PARAM }),
+    });
     const data = await res.json();
     if (data.ok) {
       _authPw = pw;
@@ -1268,6 +1272,7 @@ async function submitRecord() {
   try {
     const payload = {
       action:          'submitTreatmentRecord',
+      password:        _authPw,
       customerId:      S.customerId,
       patientNum:      S.patientNum,
       courseId:        gasId,
@@ -1291,7 +1296,12 @@ async function submitRecord() {
     if (data.success) {
       showSuccess(courseId, Number(salesAmount));
     } else {
-      toast(data.error || 'エラーが発生しました。', 'error');
+      let errMsg = data.error || 'エラーが発生しました。';
+      if (data.error === 'auth_locked') {
+        const min = Math.ceil((data.remainingSec || 900) / 60);
+        errMsg = 'セキュリティロック中です。' + min + '分後に再試行してください。';
+      }
+      toast(errMsg, 'error');
       document.getElementById('submitBtn').disabled = false;
     }
   } catch {

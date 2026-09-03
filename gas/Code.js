@@ -61,6 +61,7 @@ function doPost(e) {
     var data   = JSON.parse(e.postData.contents);
     action     = data.action || '?';
     var cfg    = getConfig(resolveEnv(data.env));
+    if (action === 'verifyStaff')           return jsonRes(handleVerifyStaff(data, cfg));
     if (action === 'lookupPatient')         return jsonRes(handleLookupPatient(data, cfg));
     if (action === 'updateCustomerInfo')    return jsonRes(handleUpdateCustomerInfo(data, cfg));
     if (action === 'submitAll')             return jsonRes(handleSubmitAll(data, cfg));
@@ -516,10 +517,10 @@ function handleSubmitAll(data, cfg) {
   var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';
   if (hasQ && cfg.DRIVE_FOLDER_ID) {
     if (data.bodyImage && data.bodyImage.length > 100) {
-      bodyImageUrl = saveBodyImage(cfg, data.bodyImage, customerId);
+      bodyImageUrl = saveBodyImage(cfg, data.bodyImage, customerId, '人体図');
     }
     if (data.signatureImage && data.signatureImage.length > 100) {
-      sigUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + customerId);
+      sigUrl = saveBodyImage(cfg, data.signatureImage, 'sig_' + customerId, '署名');
     }
   }
 
@@ -630,6 +631,14 @@ function recordAuthFail(cfg) {
 
 function recordAuthSuccess(cfg) {
   PropertiesService.getScriptProperties().deleteProperty(bfKey(cfg));
+}
+
+// GASエディタから手動実行してロックを解除する（緊急時用）
+function resetAuthLock() {
+  var props = PropertiesService.getScriptProperties();
+  props.deleteProperty('bf_staff_production');
+  props.deleteProperty('bf_staff_staging');
+  Logger.log('Auth lock cleared for production and staging.');
 }
 
 function verifyStaffPassword(password, cfg) {
@@ -884,17 +893,19 @@ function handleSubmitTreatmentRecord(data, cfg) {
   }
 
   // 紹介クレジット付与（初回来院の紹介者に）
+  var referralLimitReached = false;
   if (data.referralDiscount && data.referrerId) {
     var grantCount = countReferralGrants(ss, data.referrerId);
     if (grantCount < 3) {
       appendCreditEntry(ss, data.referrerId, 'grant', 1000, '', entryId);
     } else {
       Logger.log('紹介クレジット上限到達: referrerId=' + data.referrerId + ' count=' + grantCount);
+      referralLimitReached = true;
     }
   }
 
   logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
-  return { success: true, patientNum: customerId, entryId: entryId };
+  return { success: true, patientNum: customerId, entryId: entryId, referralLimitReached: referralLimitReached };
 }
 
 /* ============================================================
@@ -1336,7 +1347,12 @@ function syncTreatment(ss, cfg) {
       if (r[TR.payment])      props['支払い方法'] = { select: { name: String(r[TR.payment]) } };
       if (r[TR.memo])         props['施術メモ']   = richText(String(r[TR.memo]));
       if (r[TR.credit_used])  props['クレジット使用額'] = { number: Number(r[TR.credit_used]) };
-      if (r[TR.referrer_customer_id]) props['紹介者名'] = richText(String(r[TR.referrer_customer_id]));
+      if (r[TR.referrer_customer_id]) {
+        var refId   = String(r[TR.referrer_customer_id]);
+        var refData = findCustomerById(ss, refId);
+        var refName = refData ? String(refData.row[CM.name]) + ' (' + refId + ')' : refId;
+        props['紹介者名'] = richText(refName);
+      }
 
       notionPatch(cfg, '/pages/' + pageId, { properties: props });
       sheet.getRange(i + 2, TR.notion_page_id + 1).setValue(pageId);
@@ -1468,7 +1484,14 @@ function sendDailySummary() {
     var ss   = getLedger(cfg);
     var yesterday = fmtDate(new Date(Date.now() - 86400000));
 
+    // クレジット失効バッチ（本番のみ実行）
+    var expiredCount = 0;
+    if (cfg._env !== 'staging') {
+      expiredCount = expireCredits(ss);
+    }
+
     var treatRows  = getSheetData(ss, '施術台帳');
+    var crRows     = getSheetData(ss, 'クレジット台帳');
     var logRows    = getSheetData(ss, 'アクセスログ');
 
     // 取消エントリのtarget IDを収集
@@ -1493,6 +1516,18 @@ function sendDailySummary() {
       }
       if (Number(r[TR.error_count]) >= 5) syncErrors++;
     }
+
+    // クレジット台帳の当日付与・消費集計
+    var creditGrantCount = 0, creditGrantAmt = 0, creditUseCount = 0, creditUseAmt = 0;
+    for (var c = 0; c < crRows.length; c++) {
+      var cr = crRows[c];
+      if (toDateStr(cr[CR.date]) !== yesterday) continue;
+      var crType = String(cr[CR.type]);
+      var crAmt  = Number(cr[CR.amount]) || 0;
+      if (crType === 'grant') { creditGrantCount++; creditGrantAmt += crAmt; }
+      if (crType === 'use')   { creditUseCount++;   creditUseAmt  += Math.abs(crAmt); }
+    }
+
     for (var j = 0; j < logRows.length; j++) {
       var ts = String(logRows[j][AL.timestamp] || '');
       if (ts.startsWith(yesterday)) {
@@ -1505,6 +1540,11 @@ function sendDailySummary() {
       '',
       '来院数: ' + visits + '件',
       '売上合計: ¥' + sales.toLocaleString(),
+      '',
+      'クレジット付与: ' + creditGrantCount + '件 ¥' + creditGrantAmt.toLocaleString(),
+      'クレジット消費: ' + creditUseCount   + '件 ¥' + creditUseAmt.toLocaleString(),
+      'クレジット失効処理: ' + expiredCount + '件',
+      '',
       '同期エラー累積5回以上の行: ' + syncErrors + '件',
       '認証失敗: ' + authFails + '件',
       '',
@@ -1515,6 +1555,63 @@ function sendDailySummary() {
     MailApp.sendEmail({ to: cfg.NOTIFY_EMAIL, subject: '【LBC Care】日次サマリ ' + yesterday, body: body });
   } catch(e) {
     Logger.log('sendDailySummary error: ' + e.message);
+  }
+}
+
+/* ============================================================
+   クレジット失効バッチ（sendDailySummary から呼び出し）
+   ============================================================ */
+
+function expireCredits(ss) {
+  try {
+    var cfg  = ss ? null : getConfig();
+    if (!ss) ss = getLedger(cfg || getConfig());
+    var rows  = getSheetData(ss, 'クレジット台帳');
+    var today = todayStr();
+    var count = 0;
+
+    // 期限切れ grant を顧客単位で収集
+    var expiredGrants = {}; // custId → [{entryId, amount}]
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (String(r[CR.type]) !== 'grant') continue;
+      var expiry = toDateStr(r[CR.expiry]);
+      if (!expiry || expiry >= today) continue;
+      var cid = String(r[CR.customer_id]);
+      if (!expiredGrants[cid]) expiredGrants[cid] = [];
+      expiredGrants[cid].push({ entryId: String(r[CR.entry_id]), amount: Number(r[CR.amount]) });
+    }
+
+    // 既に expire 済みの grant entry_id を収集
+    var doneSet = {};
+    for (var j = 0; j < rows.length; j++) {
+      if (String(rows[j][CR.type]) === 'expire') {
+        doneSet[String(rows[j][CR.rel_entry_id])] = true;
+      }
+    }
+
+    for (var custId in expiredGrants) {
+      var balance = computeCreditBalance(ss, custId);
+      if (balance <= 0) continue;
+      var grants = expiredGrants[custId];
+      for (var k = 0; k < grants.length; k++) {
+        var g = grants[k];
+        if (doneSet[g.entryId]) continue;
+        var expireAmt = Math.min(g.amount, balance);
+        if (expireAmt <= 0) continue;
+        appendCreditEntry(ss, custId, 'expire', -expireAmt, g.entryId, '');
+        balance -= expireAmt;
+        count++;
+        Logger.log('expireCredits: custId=' + custId + ' grant=' + g.entryId + ' amount=' + expireAmt);
+      }
+    }
+
+    Logger.log('expireCredits: 計' + count + '件の失効処理完了');
+    return count;
+  } catch(e) {
+    Logger.log('expireCredits error: ' + e.message);
+    notifyError('expireCredits', e);
+    return 0;
   }
 }
 
@@ -1630,7 +1727,7 @@ function getAllBookingsForMonth(cfg, startDate, endDate) {
       var time = String(r[TR.updated_at] || ''); // 予約時間列がないため暫定
       if (date >= startDate && date <= endDate) {
         if (!byDate[date]) byDate[date] = [];
-        // TODO: TR に予約時間列を追加する際に更新
+        // 予約時間列は凍結中のため未実装
       }
     }
     return byDate;
@@ -1647,7 +1744,7 @@ function getBookedTimesForDate(dateStr, cfg) {
     var times = [];
     for (var i = 0; i < rows.length; i++) {
       if (String(rows[i][TR.date]) === dateStr) {
-        // TODO: 予約時間列追加時に更新
+        // 予約時間列は凍結中のため未実装
       }
     }
     return times;
@@ -1832,23 +1929,69 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
    Google Drive — 人体図・署名保存
    ============================================================ */
 
-function saveBodyImage(cfg, base64DataUrl, prefix) {
+function saveBodyImage(cfg, base64DataUrl, prefix, subfolderName) {
   try {
     var match = base64DataUrl.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/s);
     if (!match) return '';
     var mimeType = 'image/' + match[1];
     var ext      = match[1] === 'jpeg' ? 'jpg' : match[1];
     var bytes    = Utilities.base64Decode(match[2]);
-    var fileName = 'body_' + prefix + '_' + Date.now() + '.' + ext;
+    var fileName = prefix + '_' + Date.now() + '.' + ext;
     var blob     = Utilities.newBlob(bytes, mimeType, fileName);
-    var folder   = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
-    var file     = folder.createFile(blob);
+    var root     = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
+
+    // サブフォルダへ振り分け（なければ作成）
+    var target = root;
+    if (subfolderName) {
+      var it = root.getFoldersByName(subfolderName);
+      target = it.hasNext() ? it.next() : root.createFolder(subfolderName);
+    }
+
+    var file = target.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return 'https://drive.google.com/file/d/' + file.getId() + '/preview';
   } catch(e) {
     Logger.log('saveBodyImage error: ' + e.message);
     return '';
   }
+}
+
+// 既存ファイルをサブフォルダへ整理（手動実行用）
+function reorganizeDriveFiles() {
+  var cfg = getConfig();
+  if (!cfg.DRIVE_FOLDER_ID) { Logger.log('DRIVE_FOLDER_ID 未設定'); return; }
+
+  var root = DriveApp.getFolderById(cfg.DRIVE_FOLDER_ID);
+
+  // サブフォルダを取得 or 作成
+  function getOrCreate(name) {
+    var it = root.getFoldersByName(name);
+    return it.hasNext() ? it.next() : root.createFolder(name);
+  }
+  var bodyFolder = getOrCreate('人体図');
+  var sigFolder  = getOrCreate('署名');
+
+  var movedBody = 0, movedSig = 0, skipped = 0;
+  var files = root.getFiles();
+  while (files.hasNext()) {
+    var file = files.next();
+    var name = file.getName();
+    // 既にサブフォルダ内のファイルはスキップ（rootの直下のみ対象）
+    if (name.indexOf('sig_') === 0 || name.indexOf('body_sig_') === 0) {
+      sigFolder.addFile(file);
+      root.removeFile(file);
+      movedSig++;
+    } else if (name.indexOf('body_') === 0) {
+      bodyFolder.addFile(file);
+      root.removeFile(file);
+      movedBody++;
+    } else {
+      skipped++;
+    }
+  }
+
+  Logger.log('reorganizeDriveFiles 完了: 人体図=' + movedBody + '件, 署名=' + movedSig + '件, スキップ=' + skipped + '件');
+  return { body: movedBody, sig: movedSig, skipped: skipped };
 }
 
 /* ============================================================
@@ -2882,7 +3025,9 @@ function handleGetDashboardData(cfg) {
     payments:      payments,
     totalSales:    Math.round(totalSalesSum),
     recordedCount: recordedCount,
-    totalVisits:   kartePages.length,
+    totalVisits:   allYm.reduce(function(acc, ym) {
+      return acc + (visits[ym] ? Object.keys(visits[ym].newKeys).length + Object.keys(visits[ym].retKeys).length : 0);
+    }, 0),
     updatedAt:     new Date().toISOString()
   };
 

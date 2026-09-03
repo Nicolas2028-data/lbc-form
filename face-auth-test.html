@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>顔認証テスト — LBC Care</title>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    :root {
+      --bg:        #1a1f2e;
+      --card:      #242938;
+      --teal:      #3eb5ac;
+      --teal-dark: #2a8c84;
+      --text:      #e8eaf0;
+      --sub:       #8892a4;
+      --border:    #2e3548;
+      --red:       #e05252;
+      --green:     #4caf50;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', sans-serif; min-height: 100vh; }
+
+    /* ── ローディング ── */
+    #loadingScreen {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 100;
+    }
+    .spinner { width: 48px; height: 48px; border: 3px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ヘッダー ── */
+    header { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 20px; text-align: center; }
+    header h1 { font-size: 1.05rem; color: var(--teal); letter-spacing: .05em; }
+    header p  { font-size: .72rem; color: var(--sub); margin-top: 3px; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 20px 16px 60px; }
+
+    /* ── モード切替 ── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+    .tab  { flex: 1; padding: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--sub); font-size: .9rem; cursor: pointer; text-align: center; transition: all .2s; }
+    .tab.active { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 700; }
+
+    /* ── カメラ ── */
+    .cam-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+    #video   { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transform: scaleX(-1); }
+    .cam-guide {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -55%);
+      width: 160px; height: 200px; border: 2px dashed rgba(255,255,255,.25); border-radius: 50%; pointer-events: none;
+    }
+    .cam-status { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; }
+    .badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: .78rem; font-weight: 600; background: rgba(0,0,0,.6); color: #fff; }
+    .badge.ok  { background: rgba(62,181,172,.85); }
+    .badge.ng  { background: rgba(224,82,82,.75); }
+
+    /* ── カード ── */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .card h2 { font-size: .92rem; color: var(--teal); margin-bottom: 12px; }
+
+    label { display: block; font-size: .78rem; color: var(--sub); margin-bottom: 4px; }
+    input[type="text"] {
+      width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: .95rem; outline: none; margin-bottom: 10px;
+    }
+    input[type="text"]:focus { border-color: var(--teal); }
+
+    .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: .98rem; font-weight: 700; cursor: pointer; transition: all .2s; margin-bottom: 8px; }
+    .btn-primary   { background: var(--teal); color: #fff; }
+    .btn-primary:hover { background: var(--teal-dark); }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-ghost     { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+    .btn-danger    { background: var(--red); color: #fff; }
+
+    /* ── 結果バー（認証後） ── */
+    #resultBar {
+      display: none; background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;
+    }
+    #resultBar.show { display: block; }
+    #resultBar.match { border-color: var(--teal); }
+    #resultBar.nomatch { border-color: var(--red); }
+
+    /* ── 確認モーダル ── */
+    #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+    #modal.show { display: flex; }
+    .modal-card { background: var(--card); border-radius: 16px; padding: 28px 22px; width: 100%; max-width: 340px; text-align: center; }
+    .modal-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--teal); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; }
+    .modal-name { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
+    .modal-sub  { font-size: .82rem; color: var(--sub); margin-bottom: 6px; }
+    .modal-score { font-size: .75rem; color: var(--sub); margin-bottom: 22px; }
+    .modal-btns { display: flex; gap: 10px; }
+    .modal-btns .btn { margin: 0; flex: 1; }
+
+    /* ── 登録リスト ── */
+    .face-list { display: flex; flex-direction: column; gap: 8px; }
+    .face-item { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+    .face-del  { background: none; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 4px 6px; }
+
+    /* ── トースト ── */
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: .88rem; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 300; }
+    #toast.show { opacity: 1; }
+    #toast.success { background: var(--green); color: #fff; }
+    #toast.error   { background: var(--red);   color: #fff; }
+    #toast.info    { background: var(--teal);  color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- ローディング -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <p style="color:var(--sub);font-size:.88rem;">AIモデルを読み込み中...</p>
+  <p id="loadStep" style="color:var(--teal);font-size:.78rem;"></p>
+</div>
+
+<header>
+  <h1>LBC Care — 顔認証プロトタイプ</h1>
+  <p>⚠ テスト用。顔データはこの端末のみに保存されます</p>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <div class="tab active" id="tabReg" onclick="setMode('register')">🙋 顔を登録</div>
+    <div class="tab"        id="tabRec" onclick="setMode('recognize')">🔍 認証する</div>
+  </div>
+
+  <!-- カメラ -->
+  <div class="cam-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <div class="cam-guide"></div>
+    <div class="cam-status"><span class="badge" id="camBadge">起動中...</span></div>
+  </div>
+
+  <!-- 登録モード -->
+  <div id="modeRegister">
+    <div class="card">
+      <h2>👤 患者情報を入力</h2>
+      <label>氏名</label>
+      <input type="text" id="regName" placeholder="例: 山田 太郎">
+      <label>フリガナ（任意）</label>
+      <input type="text" id="regFuri" placeholder="例: ヤマダ タロウ">
+    </div>
+    <button class="btn btn-primary" id="btnCapture" onclick="captureAndRegister()" disabled>
+      顔を登録する
+    </button>
+  </div>
+
+  <!-- 認証モード -->
+  <div id="modeRecognize" style="display:none;">
+    <button class="btn btn-primary" id="btnRecognize" onclick="recognizeFace()" disabled>
+      顔で認証する
+    </button>
+
+    <!-- 認証結果バー -->
+    <div id="resultBar">
+      <div id="resultText" style="font-weight:700;margin-bottom:4px;"></div>
+      <div id="resultSub"  style="font-size:.8rem;color:var(--sub);"></div>
+    </div>
+  </div>
+
+  <!-- 登録済みリスト -->
+  <div class="card" style="margin-top:6px;">
+    <h2>📋 登録済み <span id="faceCount" style="color:var(--sub);font-weight:400;font-size:.8rem;"></span></h2>
+    <div class="face-list" id="faceList"></div>
+    <button class="btn btn-ghost" onclick="clearAll()" style="margin-top:12px;font-size:.82rem;padding:9px;">
+      全データ消去（テスト用）
+    </button>
+  </div>
+
+</div>
+
+<!-- 確認モーダル -->
+<div id="modal">
+  <div class="modal-card">
+    <div class="modal-avatar">😊</div>
+    <div class="modal-name"  id="modalName"></div>
+    <div class="modal-sub"   id="modalSub">顔認証で一致しました</div>
+    <div class="modal-score" id="modalScore"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost"    onclick="closeModal(false)">いいえ、もう一度</button>
+      <button class="btn btn-primary"  onclick="closeModal(true)">はい、本人です</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ── 定数 ── */
+const MODEL_URL   = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+const STORAGE_KEY = 'lbc_faces_v1';
+const THRESHOLD   = 0.48; // 距離しきい値（小さいほど厳しい）
+
+/* ── 状態 ── */
+let faceVisible = false;
+let loopTimer   = null;
+
+/* ── localStorage ── */
+const loadFaces = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } };
+const saveFaces = f  => localStorage.setItem(STORAGE_KEY, JSON.stringify(f));
+
+/* ── 初期化 ── */
+async function init() {
+  const step = id => document.getElementById('loadStep').textContent = id;
+
+  step('1/3  顔検出モデル...');
+  await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+  step('2/3  ランドマークモデル...');
+  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+  step('3/3  特徴量モデル...');
+  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+  });
+  const video = document.getElementById('video');
+  video.srcObject = stream;
+  await new Promise(r => video.addEventListener('loadeddata', r, { once: true }));
+
+  document.getElementById('loadingScreen').style.display = 'none';
+  renderList();
+  startLoop();
+}
+
+/* ── 顔検出ループ ── */
+function startLoop() {
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('overlay');
+  const badge  = document.getElementById('camBadge');
+
+  loopTimer = setInterval(async () => {
+    if (!video.videoWidth) return;
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const det = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }));
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (det) {
+      faceVisible = true;
+      const { x, y, width, height } = det.box;
+      ctx.strokeStyle = '#3eb5ac';
+      ctx.lineWidth   = 2.5;
+      ctx.strokeRect(x, y, width, height);
+      badge.textContent = '顔を検出 ✓';
+      badge.className   = 'badge ok';
+    } else {
+      faceVisible = false;
+      badge.textContent = '顔が見つかりません';
+      badge.className   = 'badge';
+    }
+
+    document.getElementById('btnCapture').disabled   = !faceVisible;
+    document.getElementById('btnRecognize').disabled = !faceVisible;
+  }, 300);
+}
+
+/* ── モード切替 ── */
+function setMode(m) {
+  document.getElementById('modeRegister').style.display  = m === 'register'  ? 'block' : 'none';
+  document.getElementById('modeRecognize').style.display = m === 'recognize' ? 'block' : 'none';
+  document.getElementById('tabReg').className = 'tab' + (m === 'register'  ? ' active' : '');
+  document.getElementById('tabRec').className = 'tab' + (m === 'recognize' ? ' active' : '');
+  document.getElementById('resultBar').className = '';
+}
+
+/* ── 顔を登録 ── */
+async function captureAndRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const furi = document.getElementById('regFuri').value.trim();
+  if (!name) { toast('氏名を入力してください', 'error'); return; }
+
+  const btn = document.getElementById('btnCapture');
+  btn.disabled = true; btn.textContent = '処理中...';
+
+  const det = await faceapi
+    .detectSingleFace(document.getElementById('video'), new faceapi.SsdMobilenetv1Options())
+    .withFaceLandmarks().withFaceDescriptor();
+
+  btn.textContent = '顔を登録する';
+  if (!det) { toast('顔の取得に失敗しました。再度試してください', 'error'); return; }
+
+  const faces = loadFaces();
+  faces.push({ id: Date.now(), name, furi, descriptor: Array.from(det.descriptor), at: new Date().toISOString() });
+  saveFaces(faces);
+
+  document.getElementById('regName').value = '';
+  document.getElementById('regFuri').value = '';
+  renderList();
+  toast(name + ' さんを登録しました ✓', 'success');
+}
+
+/* ── 顔で認証 ── */
+async function recognizeFace() {
+  const faces = loadFaces();
+  if (!faces.length) { toast('登録済みの顔データがありません', 'error'); return; }
+
+  const btn = document.getElementById('btnRecognize');
+  btn.disabled = true; btn.textContent = '照合中...';
+
+  const det = await faceapi
+    .detectSingleFace(document.getElementById('video'), new faceapi.SsdMobilenetv1Options())
+    .withFaceLandmarks().withFaceDescriptor();
+
+  btn.disabled = false; btn.textContent = '顔で認証する';
+  if (!det) { toast('顔の取得に失敗しました', 'error'); return; }
+
+  const labeled  = faces.map(f =>
+    new faceapi.LabeledFaceDescriptors(f.name + '§' + f.id, [new Float32Array(f.descriptor)])
+  );
+  const matcher  = new faceapi.FaceMatcher(labeled, THRESHOLD);
+  const best     = matcher.findBestMatch(det.descriptor);
+
+  const bar  = document.getElementById('resultBar');
+  const rTxt = document.getElementById('resultText');
+  const rSub = document.getElementById('resultSub');
+
+  if (best.label === 'unknown') {
+    bar.className  = 'show nomatch';
+    rTxt.textContent = '❌ 一致する患者が見つかりません';
+    rSub.textContent = '距離: ' + best.distance.toFixed(3) + '（しきい値: ' + THRESHOLD + '）';
+    document.getElementById('camBadge').className = 'badge ng';
+    document.getElementById('camBadge').textContent = '一致なし';
+    return;
+  }
+
+  const [matchName] = best.label.split('§');
+  const confidence  = Math.round((1 - best.distance) * 100);
+
+  document.getElementById('modalName').textContent  = matchName + ' さんですか？';
+  document.getElementById('modalScore').textContent = '一致度: ' + confidence + '%（距離: ' + best.distance.toFixed(3) + '）';
+  document.getElementById('modal').classList.add('show');
+}
+
+/* ── モーダル ── */
+function closeModal(ok) {
+  document.getElementById('modal').classList.remove('show');
+  const name = document.getElementById('modalName').textContent.replace(' さんですか？', '');
+
+  const bar  = document.getElementById('resultBar');
+  const rTxt = document.getElementById('resultText');
+  const rSub = document.getElementById('resultSub');
+
+  if (ok) {
+    bar.className    = 'show match';
+    rTxt.textContent = '✅ ' + name + ' さんの認証が完了しました';
+    rSub.textContent = '→ 本番では問診票を自動入力・スキップします';
+    toast(name + ' さん、ようこそ！', 'success');
+  } else {
+    bar.className    = '';
+    toast('もう一度カメラに顔を向けてください', 'info');
+  }
+}
+
+/* ── リスト描画 ── */
+function renderList() {
+  const faces = loadFaces();
+  document.getElementById('faceCount').textContent = '(' + faces.length + '件)';
+  const el = document.getElementById('faceList');
+  if (!faces.length) {
+    el.innerHTML = '<p style="color:var(--sub);font-size:.85rem;">まだ登録されていません</p>';
+    return;
+  }
+  el.innerHTML = faces.map(f => `
+    <div class="face-item">
+      <div>
+        <div style="font-size:.9rem;">${f.name}</div>
+        ${f.furi ? `<div style="font-size:.75rem;color:var(--sub);">${f.furi}</div>` : ''}
+      </div>
+      <button class="face-del" onclick="deleteFace(${f.id})">🗑</button>
+    </div>
+  `).join('');
+}
+
+function deleteFace(id) {
+  saveFaces(loadFaces().filter(f => f.id !== id));
+  renderList();
+  toast('削除しました', 'info');
+}
+
+function clearAll() {
+  if (!confirm('全ての顔データを消去します。よろしいですか？')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderList();
+  toast('全データを消去しました', 'info');
+}
+
+/* ── トースト ── */
+let toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3200);
+}
+
+/* ── 起動 ── */
+init().catch(err => {
+  document.getElementById('loadingScreen').innerHTML = `
+    <p style="color:#e05252;text-align:center;padding:20px;line-height:1.8;">
+      初期化エラー:<br><strong>${err.message}</strong><br><br>
+      カメラへのアクセス許可を確認してください。<br>
+      Safariの場合: 設定 → Safari → カメラ → 許可
+    </p>`;
+});
+</script>
+</body>
+</html>

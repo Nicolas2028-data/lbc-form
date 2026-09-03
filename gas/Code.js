@@ -1619,6 +1619,103 @@ function expireCredits(ss) {
    エラー通知
    ============================================================ */
 
+// GASエディタから実行して Notion 接続・トリガー・スタック行を一括診断する
+function diagnoseSyncIssues() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+  var out = [];
+
+  // 1. Notion トークン疎通確認
+  try {
+    var res = UrlFetchApp.fetch('https://api.notion.com/v1/users/me', {
+      headers: { 'Authorization': 'Bearer ' + cfg.NOTION_TOKEN, 'Notion-Version': '2022-06-28' },
+      muteHttpExceptions: true,
+    });
+    var code = res.getResponseCode();
+    if (code === 200) {
+      out.push('✅ Notion API トークン: 正常 (200)');
+    } else {
+      var body = JSON.parse(res.getContentText());
+      out.push('❌ Notion API トークン: エラー ' + code + ' — ' + (body.message || body.code));
+    }
+  } catch(e) { out.push('❌ Notion API 疎通失敗: ' + e.message); }
+
+  // 2. 顧客マスタDB接続確認
+  try {
+    var dbRes = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + cfg.CUSTOMER_DB_ID, {
+      headers: { 'Authorization': 'Bearer ' + cfg.NOTION_TOKEN, 'Notion-Version': '2022-06-28' },
+      muteHttpExceptions: true,
+    });
+    out.push(dbRes.getResponseCode() === 200
+      ? '✅ 顧客マスタDB: アクセス可'
+      : '❌ 顧客マスタDB: ' + dbRes.getResponseCode() + ' — インテグレーションが DB に接続されているか確認');
+  } catch(e) { out.push('❌ 顧客マスタDB確認失敗: ' + e.message); }
+
+  // 3. カルテDB接続確認
+  try {
+    var kRes = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + cfg.KARTE_DB_ID, {
+      headers: { 'Authorization': 'Bearer ' + cfg.NOTION_TOKEN, 'Notion-Version': '2022-06-28' },
+      muteHttpExceptions: true,
+    });
+    out.push(kRes.getResponseCode() === 200
+      ? '✅ カルテDB: アクセス可'
+      : '❌ カルテDB: ' + kRes.getResponseCode() + ' — インテグレーションが DB に接続されているか確認');
+  } catch(e) { out.push('❌ カルテDB確認失敗: ' + e.message); }
+
+  // 4. 同期トリガー確認
+  var triggers = ScriptApp.getProjectTriggers().map(function(t) { return t.getHandlerFunction(); });
+  out.push(triggers.indexOf('syncToNotion') >= 0
+    ? '✅ syncToNotion トリガー: 稼働中'
+    : '❌ syncToNotion トリガー: 停止 — installTriggers() を実行してください');
+
+  // 5. スタック行（error_count >= 5）の件数確認
+  var sheets = ['顧客マスタ','施術台帳'];
+  var errCols = [CM.error_count, TR.error_count];
+  sheets.forEach(function(name, si) {
+    try {
+      var sh = ss.getSheetByName(name);
+      if (!sh) return;
+      var vals = sh.getDataRange().getValues().slice(1);
+      var stuck = vals.filter(function(r) { return Number(r[errCols[si]]) >= 5; }).length;
+      out.push(stuck > 0
+        ? '⚠ ' + name + ': error_count>=5 のスタック行が ' + stuck + ' 件 → resetSyncErrors() で解除'
+        : '✅ ' + name + ': スタック行なし');
+    } catch(e) { out.push('⚠ ' + name + ' 確認失敗: ' + e.message); }
+  });
+
+  var report = out.join('\n');
+  Logger.log(report);
+  if (cfg.NOTIFY_EMAIL) {
+    MailApp.sendEmail({ to: cfg.NOTIFY_EMAIL, subject: '【LBC Care】Notion 同期診断レポート', body: report });
+  }
+  return report;
+}
+
+// error_count >= 5 のスタック行をリセットして再同期対象に戻す
+function resetSyncErrors() {
+  var cfg = getConfig();
+  var ss  = getLedger(cfg);
+  var count = 0;
+  [
+    { name: '顧客マスタ',  errCol: CM.error_count, syncCol: CM.synced_at },
+    { name: '施術台帳',    errCol: TR.error_count, syncCol: TR.synced_at },
+    { name: 'クレジット台帳', errCol: CR.error_count, syncCol: CR.synced_at },
+  ].forEach(function(def) {
+    var sh = ss.getSheetByName(def.name);
+    if (!sh) return;
+    var vals = sh.getDataRange().getValues().slice(1);
+    vals.forEach(function(r, i) {
+      if (Number(r[def.errCol]) >= 5) {
+        sh.getRange(i + 2, def.errCol  + 1).setValue(0);
+        sh.getRange(i + 2, def.syncCol + 1).setValue('');
+        count++;
+      }
+    });
+  });
+  Logger.log('resetSyncErrors: ' + count + '件リセット完了');
+  return count;
+}
+
 function notifyError(action, err) {
   try {
     var cfg = getConfig();

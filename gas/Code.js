@@ -98,6 +98,9 @@ function doGet(e) {
 
     if (p.action === 'getSlots')          return jsonRes(getMonthSlots(p.month, cfg));
     if (p.action === 'verifyStaff')       return jsonRes(handleVerifyStaff(p, cfg));
+    if (p.action === 'runDiagnose'        && p.pw === cfg.STAFF_PASSWORD) return jsonRes({ report: diagnoseSyncIssues() });
+    if (p.action === 'runResetSyncErrors' && p.pw === cfg.STAFF_PASSWORD) return jsonRes({ reset: resetSyncErrors() });
+    if (p.action === 'runDetailedReport'  && p.pw === cfg.STAFF_PASSWORD) return jsonRes(getDetailedReport(p.date || null));
     if (p.action === 'devResetAuthLock' && cfg._env === 'staging') {
       PropertiesService.getScriptProperties().deleteProperty('bf_staff_staging');
       return jsonRes({ cleared: true });
@@ -1618,6 +1621,54 @@ function expireCredits(ss) {
 /* ============================================================
    エラー通知
    ============================================================ */
+
+// 指定日のアクセスログ内訳と施術台帳スタック行の詳細を返す
+function getDetailedReport(targetDate) {
+  var cfg     = getConfig();
+  var ss      = getLedger(cfg);
+  var date    = targetDate || fmtDate(new Date(Date.now() - 86400000));
+  var logRows = getSheetData(ss, 'アクセスログ');
+  var trRows  = getSheetData(ss, '施術台帳');
+
+  // アクセスログ全件（指定日）
+  var authFailDetails = [];
+  var successDetails  = [];
+  logRows.forEach(function(r) {
+    var ts  = String(r[AL.timestamp] || '');
+    var res = String(r[AL.result]    || '');
+    var act = String(r[AL.action]    || '');
+    if (!ts.startsWith(date)) return;
+    if (res === 'auth_fail') {
+      authFailDetails.push({ time: ts.slice(11,19), action: act });
+    }
+    if (res === 'ok' && act === 'submitTreatmentRecord') {
+      successDetails.push({ time: ts.slice(11,19), requestId: String(r[AL.request_id] || ''), customerId: String(r[AL.customer_id_hint] || '') });
+    }
+  });
+
+  // 施術台帳の全行詳細（指定日）
+  var allTreatRows = [];
+  trRows.forEach(function(r, i) {
+    var rDate = toDateStr(r[TR.date]);
+    if (rDate !== date) return;
+    allTreatRows.push({
+      row:        i + 2,
+      entryId:    String(r[TR.entry_id]         || ''),
+      type:       String(r[TR.type]             || ''),
+      customer:   String(r[TR.customer_id]      || ''),
+      course:     String(r[TR.course]           || ''),
+      sales:      Number(r[TR.sales])           || 0,
+      payment:    String(r[TR.payment]          || ''),
+      memo:       String(r[TR.memo]             || '').slice(0, 40),
+      eligible:   String(r[TR.count_eligible]   || ''),
+      createdAt:  String(r[TR.created_at]       || '').slice(11,19),
+      errCount:   Number(r[TR.error_count])     || 0,
+      notionId:   String(r[TR.notion_page_id]   || ''),
+    });
+  });
+
+  return { date: date, authFails: authFailDetails, submitOk: successDetails, treatments: allTreatRows };
+}
 
 // GASエディタから実行して Notion 接続・トリガー・スタック行を一括診断する
 function diagnoseSyncIssues() {

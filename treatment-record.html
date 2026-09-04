@@ -1269,9 +1269,11 @@ async function submitRecord() {
   document.getElementById('submitBtn').disabled       = true;
   document.getElementById('loadingRow').style.display = 'flex';
 
+  const requestId = genRequestId();
   try {
     const payload = {
       action:          'submitTreatmentRecord',
+      requestId,
       password:        _authPw,
       customerId:      S.customerId,
       patientNum:      S.patientNum,

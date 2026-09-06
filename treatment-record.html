@@ -1257,7 +1257,13 @@ function recalcAmount() {
 }
 
 /* ── 送信 ────────────────────────────────────────── */
+// 二重送信防止: 500ms 以内の連打は無視(2026-09-06)
+let _lastSubmitTs = 0;
+
 async function submitRecord() {
+  const now = Date.now();
+  if (now - _lastSubmitTs < 500) return; // 500ms 以内の連打を破棄
+  _lastSubmitTs = now;
   if (S.submitting) return;
 
   const courseId      = document.querySelector('input[name="course"]:checked')?.value;
@@ -1279,6 +1285,8 @@ async function submitRecord() {
   S.submitting = true;
   document.getElementById('submitBtn').disabled       = true;
   document.getElementById('loadingRow').style.display = 'flex';
+  // 全画面オーバーレイで物理的に再クリック不可に(2026-09-06)
+  showSubmitBlocker();
 
   const requestId = genRequestId();
   try {
@@ -1308,9 +1316,9 @@ async function submitRecord() {
 
     if (data.success) {
       // 二重送信防止 (2026-09-06): 成功時は S.submitting を true のまま維持
-      // ボタンも disabled のまま → 送信完了画面から戻るまで再送信不可
+      // ボタン disabled + オーバーレイ維持 → 送信完了画面から戻るまで再送信不可
       showSuccess(courseId, Number(salesAmount));
-      return; // finally での S.submitting = false をスキップ
+      return;
     } else {
       let errMsg = data.error || 'エラーが発生しました。';
       if (data.error === 'auth_locked') {
@@ -1319,14 +1327,34 @@ async function submitRecord() {
       }
       toast(errMsg, 'error');
       document.getElementById('submitBtn').disabled = false;
-      S.submitting = false; // エラー時のみ再送信を許可
+      S.submitting = false;
+      hideSubmitBlocker();
     }
   } catch {
     document.getElementById('loadingRow').style.display = 'none';
     toast('通信エラーが発生しました。再度お試しください。', 'error');
     document.getElementById('submitBtn').disabled = false;
     S.submitting = false;
+    hideSubmitBlocker();
   }
+}
+
+/* 全画面オーバーレイ: 送信中の物理クリック防止 */
+function showSubmitBlocker() {
+  let el = document.getElementById('submitBlocker');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'submitBlocker';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(8,23,26,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;pointer-events:auto;user-select:none;-webkit-tap-highlight-color:transparent';
+    el.innerHTML = '<div style="background:var(--white);padding:20px 28px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;max-width:280px"><div style="font-size:1.5rem;margin-bottom:8px">⏳</div><div style="font-weight:700;color:var(--text)">送信中...</div><div style="font-size:0.85rem;color:var(--text-sub);margin-top:8px">画面を触らずお待ちください</div></div>';
+    document.body.appendChild(el);
+  } else {
+    el.style.display = 'flex';
+  }
+}
+function hideSubmitBlocker() {
+  const el = document.getElementById('submitBlocker');
+  if (el) el.style.display = 'none';
 }
 
 function showSuccess(courseId, amount) {

@@ -386,6 +386,20 @@ function sanitizeSheetInput(v) {
   return s;
 }
 
+// コンテンツ署名ベースの二重送信防止(CacheService で高速化 2026-09-06)
+// 同一内容の送信を 5 分間ブロック(iPad の誤ダブルタップ・タイムアウト後の再送信対策)
+function checkContentDedupCache(cacheKey) {
+  try {
+    return CacheService.getScriptCache().get(cacheKey);
+  } catch(e) { return null; }
+}
+
+function markContentDedupCache(cacheKey) {
+  try {
+    CacheService.getScriptCache().put(cacheKey, '1', 300); // 5 分 TTL
+  } catch(e) {}
+}
+
 // customer_id を部分マスクしてログに残す(下位オペレータでも PII 露出を減らす)
 // 例: 'P0123' → 'P0***'
 function maskCustomerId(id) {
@@ -614,14 +628,22 @@ function handleSubmitAll(data, cfg) {
 
   if (!customerId) return { success: false, error: '顧客IDを特定できませんでした' };
 
-  // コンテンツ署名ベースの二重送信防止 (2026-09-06 追加)
-  //  同一 customerId + 日付 + visitType が 90 秒以内に問診台帳にあれば重複と判定
+  // ── 多層 dedup(2026-09-06 強化) ─────────────────────────
+  // 層 1: CacheService(超高速・5 分 TTL)— 同時リクエストにも強い
+  // 層 2: 問診台帳走査(直近 300 秒・fallback)
   var todayCache = todayStr();
   var visitTypeStr = String(data.visitType || 'first');
+  var dedupKeyQu = 'qu:' + customerId + ':' + (data.date || todayCache) + ':' + visitTypeStr;
+
+  if (checkContentDedupCache(dedupKeyQu)) {
+    logAccess(ss, 'submitAll', data.requestId, 'dedup_cache', 'cache hit <5min', 0, customerId);
+    return { success: true, duplicate: true, customerId: customerId, patientNum: customerId, reason: 'cache' };
+  }
+
   var quSheet = ss.getSheetByName('問診台帳');
   if (quSheet && quSheet.getLastRow() > 1) {
     var quVals = quSheet.getRange(2, 1, quSheet.getLastRow() - 1, 24).getValues();
-    var startQu = Math.max(0, quVals.length - 200);
+    var startQu = Math.max(0, quVals.length - 300);
     var nowMsQu = Date.now();
     for (var qi = quVals.length - 1; qi >= startQu; qi--) {
       var qr = quVals[qi];
@@ -630,9 +652,10 @@ function handleSubmitAll(data, cfg) {
       if (String(qr[QU.visit_type]) !== visitTypeStr) continue;
       var createdRawQu = qr[QU.created_at];
       var createdMsQu = createdRawQu instanceof Date ? createdRawQu.getTime() : Date.parse(String(createdRawQu));
-      if (createdMsQu && (nowMsQu - createdMsQu) < 90000) {
-        logAccess(ss, 'submitAll', data.requestId, 'dedup_content', 'same content <90s', 0, customerId);
-        return { success: true, duplicate: true, customerId: customerId, patientNum: customerId };
+      if (createdMsQu && (nowMsQu - createdMsQu) < 300000) { // 5 分に延長
+        markContentDedupCache(dedupKeyQu);
+        logAccess(ss, 'submitAll', data.requestId, 'dedup_sheet', 'same content <5min', 0, customerId);
+        return { success: true, duplicate: true, customerId: customerId, patientNum: customerId, reason: 'sheet' };
       }
       break;
     }
@@ -696,6 +719,8 @@ function handleSubmitAll(data, cfg) {
   ss.getSheetByName('問診台帳').appendRow(quRow);
   incSyncCounter(ss);
 
+  // 成功時にキャッシュにマーク(次の 5 分は同一内容ブロック)
+  markContentDedupCache(dedupKeyQu);
   logAccess(ss, 'submitAll', data.requestId, 'ok', '', Date.now() - t0, customerId);
   return { success: true, patientNum: customerId };
 }
@@ -1076,16 +1101,23 @@ function handleSubmitTreatmentRecord(data, cfg) {
   var entryId    = genUUID();
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
 
-  // コンテンツ署名ベースの二重送信防止 (2026-09-06 追加)
-  //  requestId 一致だけでは異なる click で異なる requestId になり効かない
-  //  → (customerId + 日付 + course + sales + payment) の一致で 90秒以内は重複と判定
+  // ── 多層 dedup(2026-09-06 強化) ─────────────────────────
+  // 層 1: CacheService(超高速・5 分 TTL)— 同時リクエストにも強い
+  // 層 2: シート走査(直近 300 秒・fallback)— キャッシュ蒸発時の保険
   var todayStrCache = todayStr();
   var salesNum = data.salesAmount !== '' && data.salesAmount !== undefined ? Number(data.salesAmount) : 0;
   var paymentStr = String(data.paymentMethod || '');
+  var dedupKey = 'tr:' + customerId + ':' + todayStrCache + ':' + courseLabel + ':' + salesNum + ':' + paymentStr;
+
+  if (checkContentDedupCache(dedupKey)) {
+    logAccess(ss, 'submitTreatmentRecord', data.requestId, 'dedup_cache', 'cache hit <5min', 0, customerId);
+    return { success: true, duplicate: true, reason: 'cache' };
+  }
+
   var trSheet = ss.getSheetByName('施術台帳');
   if (trSheet && trSheet.getLastRow() > 1) {
     var trVals = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
-    var startTr = Math.max(0, trVals.length - 200); // 直近 200 行走査
+    var startTr = Math.max(0, trVals.length - 300); // 直近 300 行走査
     var nowMs = Date.now();
     for (var ti = trVals.length - 1; ti >= startTr; ti--) {
       var tr = trVals[ti];
@@ -1096,14 +1128,14 @@ function handleSubmitTreatmentRecord(data, cfg) {
       if (String(tr[TR.payment]) !== paymentStr) continue;
       var trSales = Number(tr[TR.sales]) || 0;
       if (trSales !== salesNum) continue;
-      // 作成時刻を確認(90 秒以内 → 二重送信)
       var createdRaw = tr[TR.created_at];
       var createdMs = createdRaw instanceof Date ? createdRaw.getTime() : Date.parse(String(createdRaw));
-      if (createdMs && (nowMs - createdMs) < 90000) {
-        logAccess(ss, 'submitTreatmentRecord', data.requestId, 'dedup_content', 'same content <90s', 0, customerId);
-        return { success: true, duplicate: true, entryId: String(tr[TR.entry_id]) };
+      if (createdMs && (nowMs - createdMs) < 300000) { // 5 分に延長
+        markContentDedupCache(dedupKey); // 次回はキャッシュヒット
+        logAccess(ss, 'submitTreatmentRecord', data.requestId, 'dedup_sheet', 'same content <5min', 0, customerId);
+        return { success: true, duplicate: true, entryId: String(tr[TR.entry_id]), reason: 'sheet' };
       }
-      break; // 直近の同一顧客・同日 record が見つかったら以降は不要
+      break;
     }
   }
 
@@ -1156,6 +1188,8 @@ function handleSubmitTreatmentRecord(data, cfg) {
     }
   }
 
+  // 成功時にキャッシュにマーク(次の 5 分は同一内容ブロック)
+  markContentDedupCache(dedupKey);
   logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
   return { success: true, patientNum: customerId, entryId: entryId, referralLimitReached: referralLimitReached };
   } finally {

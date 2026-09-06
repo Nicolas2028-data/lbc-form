@@ -1853,10 +1853,11 @@ function onLedgerEdit(e) {
    ============================================================ */
 
 function sendDailySummary() {
+  var cfg, yesterday, body;
   try {
-    var cfg  = getConfig();
+    cfg  = getConfig();
     var ss   = getLedger(cfg);
-    var yesterday = fmtDate(new Date(Date.now() - 86400000));
+    yesterday = fmtDate(new Date(Date.now() - 86400000));
 
     // クレジット失効バッチ（本番のみ実行）
     var expiredCount = 0;
@@ -1864,6 +1865,7 @@ function sendDailySummary() {
       expiredCount = expireCredits(ss);
     }
 
+    var quRows     = getSheetData(ss, '問診台帳');
     var treatRows  = getSheetData(ss, '施術台帳');
     var crRows     = getSheetData(ss, 'クレジット台帳');
     var logRows    = getSheetData(ss, 'アクセスログ');
@@ -1878,6 +1880,7 @@ function sendDailySummary() {
     }
 
     var visits = 0, sales = 0, syncErrors = 0, authFails = 0;
+    var syncErrorRows = []; // REL-H1: 5回以上失敗した行の詳細
     for (var i = 0; i < treatRows.length; i++) {
       var r = treatRows[i];
       var rDate = toDateStr(r[TR.date]);
@@ -1888,7 +1891,27 @@ function sendDailySummary() {
           sales += Number(r[TR.sales]) || 0;
         }
       }
-      if (Number(r[TR.error_count]) >= 5) syncErrors++;
+      if (Number(r[TR.error_count]) >= 5) {
+        syncErrors++;
+        syncErrorRows.push({
+          tab: '施術台帳',
+          row: i + 2,
+          customer: maskCustomerId(String(r[TR.customer_id])),
+          errorCount: Number(r[TR.error_count]),
+        });
+      }
+    }
+    // 問診台帳の同期エラーも集計 (REL-H1)
+    for (var qi = 0; qi < quRows.length; qi++) {
+      if (Number(quRows[qi][QU.error_count]) >= 5) {
+        syncErrors++;
+        syncErrorRows.push({
+          tab: '問診台帳',
+          row: qi + 2,
+          customer: maskCustomerId(String(quRows[qi][QU.customer_id])),
+          errorCount: Number(quRows[qi][QU.error_count]),
+        });
+      }
     }
 
     // クレジット台帳の当日付与・消費集計
@@ -1909,7 +1932,7 @@ function sendDailySummary() {
       }
     }
 
-    var body = [
+    var lines = [
       '【LBC Care 日次サマリ】 ' + yesterday,
       '',
       '来院数: ' + visits + '件',
@@ -1921,14 +1944,59 @@ function sendDailySummary() {
       '',
       '同期エラー累積5回以上の行: ' + syncErrors + '件',
       '認証失敗: ' + authFails + '件',
-      '',
-      '台帳: https://docs.google.com/spreadsheets/d/' + cfg.LEDGER_SPREADSHEET_ID,
-      '環境: ' + (cfg._env || 'production'),
-    ].join('\n');
+    ];
 
-    MailApp.sendEmail({ to: cfg.NOTIFY_EMAIL, subject: '【LBC Care】日次サマリ ' + yesterday, body: body });
+    // REL-H1: 同期エラー詳細セクション(5回以上失敗した行を明記)
+    if (syncErrorRows.length > 0) {
+      lines.push('', '── 同期エラー詳細(要対応) ──');
+      syncErrorRows.slice(0, 20).forEach(function(er) {
+        lines.push('  ' + er.tab + ' 行' + er.row + ' / ' + er.customer + ' / エラー ' + er.errorCount + '回');
+      });
+      if (syncErrorRows.length > 20) {
+        lines.push('  ...(残り ' + (syncErrorRows.length - 20) + ' 件は台帳を直接確認)');
+      }
+    }
+
+    // REL-H2: 過去のメール送信失敗の記録があれば含める
+    var props = PropertiesService.getScriptProperties();
+    var lastFail = props.getProperty('LAST_MAIL_FAILURE');
+    if (lastFail) {
+      lines.push('', '⚠️ 過去のメール送信失敗を検知しました: ' + lastFail);
+      lines.push('   このメールが届いているので復旧しています。');
+    }
+
+    lines.push('', '台帳: https://docs.google.com/spreadsheets/d/' + cfg.LEDGER_SPREADSHEET_ID);
+    lines.push('環境: ' + (cfg._env || 'production'));
+
+    body = lines.join('\n');
+
+    // REL-H2: MailApp 失敗時に GmailApp フォールバック + 失敗時刻記録
+    var mailSent = false;
+    try {
+      MailApp.sendEmail({ to: cfg.NOTIFY_EMAIL, subject: '【LBC Care】日次サマリ ' + yesterday, body: body });
+      mailSent = true;
+    } catch(mailErr1) {
+      Logger.log('MailApp.sendEmail 失敗、GmailApp で再試行: ' + mailErr1.message);
+      try {
+        GmailApp.sendEmail(cfg.NOTIFY_EMAIL, '【LBC Care】日次サマリ ' + yesterday, body);
+        mailSent = true;
+      } catch(mailErr2) {
+        Logger.log('GmailApp.sendEmail も失敗: ' + mailErr2.message);
+      }
+    }
+
+    if (mailSent) {
+      // 送信成功 → 過去の失敗記録をクリア
+      if (lastFail) props.deleteProperty('LAST_MAIL_FAILURE');
+    } else {
+      // 送信失敗 → 記録(次回サマリで報告)
+      props.setProperty('LAST_MAIL_FAILURE', yesterday + ' の日次サマリ送信に失敗');
+      throw new Error('daily summary mail failed via both MailApp and GmailApp');
+    }
   } catch(e) {
     Logger.log('sendDailySummary error: ' + e.message);
+    // メール送信自体が失敗した場合の最後の砦: エラー通知を試みる
+    try { notifyError('sendDailySummary', e); } catch(_) {}
   }
 }
 
@@ -2328,7 +2396,10 @@ function appendQuestionnaireBlocks(cfg, karteId, data, bodyImageUrl, signatureUr
   }
 
   function rt(text, bold, color) {
-    var obj = { type: 'text', text: { content: text } };
+    // Notion rich_text の 1 ブロックあたり 2000 文字制限に対応 (SEC-H3 2026-09-06)
+    // 想定外の長文で Notion API がエラーを返し、同期が停止するのを防ぐ
+    var content = String(text == null ? '' : text).slice(0, 2000);
+    var obj = { type: 'text', text: { content: content } };
     var ann = {};
     if (bold)  ann.bold  = true;
     if (color) ann.color = color;

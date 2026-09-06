@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#fbfbfd">
+  <meta name="theme-color" content="#1e5c42">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script>
@@ -69,12 +69,10 @@
       letter-spacing: -0.003em;
     }
 
-    /* ── Header (minimal white bar) ── */
+    /* ── Header (deep corporate green) ── */
     header {
-      background: rgba(251, 251, 253, 0.85);
-      backdrop-filter: saturate(180%) blur(20px);
-      -webkit-backdrop-filter: saturate(180%) blur(20px);
-      color: var(--text);
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+      color: var(--white);
       padding: 14px 22px;
       display: flex;
       align-items: center;
@@ -82,15 +80,15 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      border-bottom: 1px solid var(--border-light);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.03), 0 2px 8px rgba(30, 92, 66, 0.15);
     }
-    .logo { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
-    .logo span { color: var(--primary); font-weight: 700; }
-    .logo small { font-size: 0.68rem; font-weight: 400; opacity: 0.55; display: block; letter-spacing: 0.02em; margin-top: 2px; }
+    .logo { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--white); }
+    .logo span { color: var(--white); font-weight: 700; }
+    .logo small { font-size: 0.68rem; font-weight: 400; opacity: 0.7; display: block; letter-spacing: 0.02em; margin-top: 2px; }
     .lang-select {
-      background: var(--bg-secondary);
-      border: none;
-      color: var(--text);
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--white);
       padding: 7px 30px 7px 14px;
       border-radius: 999px;
       font-size: 0.82rem;
@@ -98,25 +96,44 @@
       cursor: pointer;
       -webkit-appearance: none;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(29,29,31,0.55)'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.85)'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
       transition: background 0.15s;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
-    .lang-select:focus { outline: none; box-shadow: var(--shadow-focus); }
-    .lang-select:hover { background: #ececef; }
-    .lang-select option { background: var(--white); color: var(--text); }
+    .lang-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
+    .lang-select:hover { background: rgba(255, 255, 255, 0.22); }
+    .lang-select option { background: var(--primary-dark); color: var(--white); }
 
-    /* ── Hero (clean, light) ── */
+    /* ── Hero (green gradient continuation) ── */
     .hero {
-      background: linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
-      color: var(--text);
+      background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--white);
       text-align: center;
-      padding: 44px 20px 32px;
-      border-bottom: 1px solid var(--border-light);
+      padding: 56px 20px 60px;
+      position: relative;
+      overflow: hidden;
     }
-    .hero h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; color: var(--text); }
-    .hero p { font-size: 0.95rem; color: var(--text-sub); margin-bottom: 16px; }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%; right: -20%;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -30%; left: -10%;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero h1 { font-size: 2.1rem; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.02em; color: var(--white); position: relative; }
+    .hero p { font-size: 0.98rem; color: rgba(255,255,255,0.85); margin-bottom: 16px; position: relative; }
     .hero-meta {
       display: inline-flex;
       gap: 20px;
@@ -127,8 +144,8 @@
     }
     .hero-meta span { display: flex; align-items: center; gap: 4px; }
 
-    /* ── Layout ── */
-    .container { max-width: 640px; margin: 0 auto; padding: 28px 16px 96px; }
+    /* ── Layout (cards overlap green hero) ── */
+    .container { max-width: 640px; margin: -32px auto 0; padding: 0 16px 96px; position: relative; z-index: 2; }
 
     /* ── Cards (clean white, subtle) ── */
     .card {
@@ -2527,10 +2544,44 @@ const FACE_AUTH = {
   totalSamples: 3,
   scriptLoaded: false,
   modelsLoaded: false,
+  preloadStarted: false,
+  preloadPromise: null,
   stream: null,
   samples: [],
   detecting: false,
 };
+
+// 高速化: ページ読み込み後にバックグラウンドで face-api.js とモデルをプリロード
+// ユーザーが顔認証ボタンを押した時にはすでにロード完了している状態にする
+function preloadFaceApiInBackground() {
+  if (FACE_AUTH.preloadStarted) return FACE_AUTH.preloadPromise;
+  FACE_AUTH.preloadStarted = true;
+  FACE_AUTH.preloadPromise = (async () => {
+    try {
+      await loadScriptOnce(FACE_AUTH.scriptUrl);
+      FACE_AUTH.scriptLoaded = true;
+      // モデルは並列ロードで高速化(直列だと 3 回のラウンドトリップになる)
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(FACE_AUTH.modelBase),
+        faceapi.nets.faceLandmark68Net.loadFromUri(FACE_AUTH.modelBase),
+        faceapi.nets.faceRecognitionNet.loadFromUri(FACE_AUTH.modelBase),
+      ]);
+      FACE_AUTH.modelsLoaded = true;
+      console.log('face-api models preloaded');
+    } catch (e) {
+      console.warn('face-api preload failed (will retry on demand):', e.message);
+      FACE_AUTH.preloadStarted = false; // 再試行可能に
+    }
+  })();
+  return FACE_AUTH.preloadPromise;
+}
+
+// requestIdleCallback で低優先度プリロード(メイン処理完了後)
+if (typeof window !== 'undefined') {
+  const startPreload = () => setTimeout(preloadFaceApiInBackground, 800);
+  if (document.readyState === 'complete') startPreload();
+  else window.addEventListener('load', startPreload);
+}
 
 function loadScriptOnce(src) {
   return new Promise((resolve, reject) => {
@@ -2544,14 +2595,22 @@ function loadScriptOnce(src) {
 }
 
 async function loadFaceApiOnce() {
+  // すでにプリロードが走っていればそれを待つ(重複ダウンロード回避)
+  if (FACE_AUTH.preloadPromise) {
+    await FACE_AUTH.preloadPromise;
+    if (FACE_AUTH.modelsLoaded) return;
+  }
   if (!FACE_AUTH.scriptLoaded) {
     await loadScriptOnce(FACE_AUTH.scriptUrl);
     FACE_AUTH.scriptLoaded = true;
   }
   if (!FACE_AUTH.modelsLoaded) {
-    await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_AUTH.modelBase);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_AUTH.modelBase);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_AUTH.modelBase);
+    // 並列ロードで高速化
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(FACE_AUTH.modelBase),
+      faceapi.nets.faceLandmark68Net.loadFromUri(FACE_AUTH.modelBase),
+      faceapi.nets.faceRecognitionNet.loadFromUri(FACE_AUTH.modelBase),
+    ]);
     FACE_AUTH.modelsLoaded = true;
   }
 }
@@ -2777,7 +2836,7 @@ async function captureFaceRegSample() {
   btn.disabled = true;
   status.textContent = L('face_detecting') || '検出中...';
   try {
-    const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+    const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
     const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
     if (!det) {
       status.textContent = L('face_not_found') || '顔が検出できませんでした';
@@ -2834,21 +2893,30 @@ async function openPatientFaceLogin() {
   const result = document.getElementById('faceLookupResult');
   const actions = document.getElementById('faceLookupActions');
   modal.style.display = 'flex';
-  status.textContent = L('face_loading') || 'モデルを読み込み中...';
   result.style.display = 'none';
   actions.style.display = 'none';
   FACE_LOOKUP.candidate = null;
 
   try {
+    // モデルがまだロード中ならバーで進捗を示す
+    if (!FACE_AUTH.modelsLoaded) {
+      status.textContent = (L('face_loading') || 'モデルを読み込み中...') + ' (初回のみ数秒)';
+      preloadFaceApiInBackground(); // プリロードが未実行なら開始
+    }
     await loadFaceApiOnce();
+
+    // カメラ起動と並行して次のステップへ
+    status.textContent = 'カメラを起動中...';
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
     FACE_LOOKUP.stream = stream;
     const video = document.getElementById('faceLookupVideo');
     video.srcObject = stream;
     await new Promise(r => (video.onloadedmetadata = r));
-    status.textContent = L('t_face_login_scanning') || 'お顔を検出中...';
+    await video.play().catch(() => {});
+    status.textContent = L('t_face_login_scanning') || 'お顔をカメラに向けてください';
     scanFaceLoopPatient();
   } catch (e) {
+    console.error('face login error:', e);
     status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
   }
 }
@@ -2858,18 +2926,22 @@ async function scanFaceLoopPatient() {
   FACE_LOOKUP.scanning = true;
   const video = document.getElementById('faceLookupVideo');
   const status = document.getElementById('faceLookupStatus');
-  const maxAttempts = 20;
+  // 検出回数と体感速度のバランス: inputSize=224 で 2-3 倍速い / 40 回で 20 秒スキャン
+  const maxAttempts = 40;
+  const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+  let framesWithoutFace = 0;
+
   for (let attempt = 0; attempt < maxAttempts && FACE_LOOKUP.scanning; attempt++) {
     try {
-      const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
       const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
       if (det) {
-        status.textContent = L('t_face_login_scanning') || '照合中...';
+        framesWithoutFace = 0;
+        status.textContent = '照合中...';
         const embStr = JSON.stringify(Array.from(det.descriptor));
         const res = await gasPost(CONFIG.GAS_URL, {
           action: 'matchFace', embedding: embStr,
           sessionId: CONFIG.requestId, lang: Q.lang, env: CONFIG.ENV_PARAM,
-        }, 15000);
+        }, 12000);
         if (res && res.error === 'rate_limited') {
           status.textContent = L('t_face_login_rate_limited') || '試行回数の上限です';
           FACE_LOOKUP.scanning = false;
@@ -2884,9 +2956,18 @@ async function scanFaceLoopPatient() {
           stopFaceLookupCamera();
           return;
         }
+        // 顔は検出できたが一致せず → 続けてスキャン
+        status.textContent = '照合中... (一致する登録が見つかりません)';
+      } else {
+        framesWithoutFace++;
+        if (framesWithoutFace === 5) {
+          status.textContent = 'お顔をカメラの中央に映してください';
+        } else if (framesWithoutFace === 15) {
+          status.textContent = '明るい場所でカメラに近づいてお試しください';
+        }
       }
-    } catch (e) { console.warn(e); }
-    await new Promise(r => setTimeout(r, 500));
+    } catch (e) { console.warn('scan error:', e); }
+    await new Promise(r => setTimeout(r, 350));
   }
   FACE_LOOKUP.scanning = false;
   status.textContent = L('t_face_login_not_found') || '顔認証が見つかりませんでした';

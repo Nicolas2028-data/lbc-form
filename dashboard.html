@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LBC Care — ダッシュボード</title>
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#fbfbfd">
+  <meta name="theme-color" content="#1e5c42">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <script>
     if ('serviceWorker' in navigator) {
@@ -51,34 +51,36 @@
       letter-spacing: -0.003em;
     }
 
-    /* ── Header ── */
+    /* ── Header (deep green) ── */
     header {
-      background: rgba(251, 251, 253, 0.85);
-      backdrop-filter: saturate(180%) blur(20px);
-      -webkit-backdrop-filter: saturate(180%) blur(20px);
-      padding: 14px 24px;
+      background: linear-gradient(135deg, var(--pri-dk) 0%, var(--primary) 100%);
+      color: #fff;
+      padding: 16px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border-light);
       position: sticky;
       top: 0;
       z-index: 10;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.03), 0 2px 8px rgba(30, 92, 66, 0.15);
     }
     .logo { display: flex; align-items: center; gap: 12px; }
     .logo-mark {
-      width: 36px; height: 36px;
-      background: var(--primary);
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.25);
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.8rem; color: #fff;
+      font-weight: 700; font-size: 0.82rem; color: #fff;
       letter-spacing: -0.02em;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
-    .logo-text { font-size: 1.05rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
-    .logo-sub  { font-size: 0.66rem; color: var(--faint); display: block; margin-top: 2px; }
+    .logo-text { font-size: 1.1rem; font-weight: 600; color: #fff; letter-spacing: -0.01em; }
+    .logo-sub  { font-size: 0.68rem; color: rgba(255,255,255,0.65); display: block; margin-top: 2px; }
     .header-right { text-align: right; }
-    .updated-label { font-size: 0.62rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
-    .updated-val   { font-size: 0.78rem; color: var(--sub); font-weight: 500; }
+    .updated-label { font-size: 0.62rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+    .updated-val   { font-size: 0.78rem; color: rgba(255,255,255,0.85); font-weight: 500; }
 
     /* ── Layout ── */
     .container { max-width: 1160px; margin: 0 auto; padding: 32px 20px 64px; }

@@ -496,15 +496,11 @@ function logAccess(ss, action, requestId, result, errorMsg, elapsedMs, customerI
 
 function handleLookupPatient(data, cfg) {
   cfg = cfg || getConfig();
-  var ss    = getLedger(cfg);
   var phone = normalizePhone(data.phone || '');
 
   if (!phone || !isValidPhone(phone)) return { success: true, found: false };
 
   // レート制限: 同一 phone を短時間に連投する電話番号列挙攻撃を防ぐ
-  //  - Cache キー: 'lookup_' + phone
-  //  - 1 分あたり 5 回まで(通常利用は 1〜3 回で十分)
-  //  - 超過時は found: false を返す(攻撃者に「存在しない」と誤認させる)
   var cache = CacheService.getScriptCache();
   var cacheKey = 'lookup_' + phone;
   var attempts = parseInt(cache.get(cacheKey) || '0', 10);
@@ -512,15 +508,24 @@ function handleLookupPatient(data, cfg) {
     Logger.log('handleLookupPatient: rate-limited phone=' + maskCustomerId(phone));
     return { success: true, found: false };
   }
-  cache.put(cacheKey, String(attempts + 1), 60); // 60 秒 TTL
+  cache.put(cacheKey, String(attempts + 1), 60);
 
+  // 高速化: 直近 30 秒の照会結果をキャッシュ(同一 phone の連続クエリを回避)
+  var respKey = 'lookupResp_' + phone;
+  var cached = cache.get(respKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch(_) {}
+  }
+
+  var ss = getLedger(cfg);
   var matches = findCustomersByPhone(ss, phone);
+  var result;
 
-  if (matches.length === 0) return { success: true, found: false };
-
-  if (matches.length === 1) {
+  if (matches.length === 0) {
+    result = { success: true, found: false };
+  } else if (matches.length === 1) {
     var r = matches[0].row;
-    return {
+    result = {
       success:          true,
       found:            true,
       customerId:       String(r[CM.customer_id]),
@@ -528,15 +533,17 @@ function handleLookupPatient(data, cfg) {
       name:             String(r[CM.name]),
       furigana:         String(r[CM.furigana]),
       email:            String(r[CM.email] || ''),
-      // 顔認証登録状況(2026-09-06): フロントで「顔登録しますか?」を提案するため
       hasFaceEmbedding: !!(String(r[CM.face_embedding] || '').length > 20),
-      // 「今後表示しない」を選んだかどうか(TRUE 文字列で保存)
       faceRegDeclined:  String(r[CM.face_reg_declined] || '').toUpperCase() === 'TRUE',
     };
+  } else {
+    // 複数ヒット → 特定不可のため未発見扱いにして初回フローへ誘導
+    result = { success: true, found: false };
   }
 
-  // 複数ヒット → 特定不可のため未発見扱いにして初回フローへ誘導
-  return { success: true, found: false };
+  // 30 秒キャッシュ(連続リクエスト時に体感速度を大幅改善)
+  try { cache.put(respKey, JSON.stringify(result), 30); } catch(_) {}
+  return result;
 }
 
 function handleUpdateCustomerInfo(data, cfg) {

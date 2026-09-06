@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#fbfbfd">
+  <meta name="theme-color" content="#1e5c42">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script>
@@ -63,33 +63,40 @@
     }
 
     header {
-      background: rgba(251, 251, 253, 0.85);
-      backdrop-filter: saturate(180%) blur(20px);
-      -webkit-backdrop-filter: saturate(180%) blur(20px);
-      color: var(--text);
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+      color: var(--white);
       padding: 14px 22px;
       display: flex;
       align-items: center;
       position: sticky;
       top: 0;
       z-index: 100;
-      border-bottom: 1px solid var(--border-light);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.03), 0 2px 8px rgba(30, 92, 66, 0.15);
     }
-    .logo { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
-    .logo span { color: var(--primary); font-weight: 700; }
-    .logo small { font-size: 0.68rem; font-weight: 400; opacity: 0.55; display: block; letter-spacing: 0.02em; margin-top: 2px; }
+    .logo { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--white); }
+    .logo span { color: var(--white); font-weight: 700; }
+    .logo small { font-size: 0.68rem; font-weight: 400; opacity: 0.7; display: block; letter-spacing: 0.02em; margin-top: 2px; }
 
     .hero {
-      background: linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
-      color: var(--text);
+      background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--white);
       text-align: center;
-      padding: 36px 20px 24px;
-      border-bottom: 1px solid var(--border-light);
+      padding: 48px 20px 56px;
+      position: relative;
+      overflow: hidden;
     }
-    .hero h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.02em; }
-    .hero p  { font-size: 0.9rem; color: var(--text-sub); }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%; right: -20%;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.02em; color: var(--white); position: relative; }
+    .hero p  { font-size: 0.95rem; color: rgba(255,255,255,0.85); position: relative; }
 
-    .container { max-width: 620px; margin: 0 auto; padding: 28px 16px 96px; }
+    .container { max-width: 620px; margin: -32px auto 0; padding: 0 16px 96px; position: relative; z-index: 2; }
 
     .card {
       background: var(--white);

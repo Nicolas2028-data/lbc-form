@@ -176,5 +176,19 @@
   "face_error": "カメラを利用できません",
   "lbl_face_capture": "📸 撮影",
   "lbl_face_reset": "やり直す",
-  "lbl_face_progress": "撮影済み: {n} / {total} 枚"
+  "lbl_face_progress": "撮影済み: {n} / {total} 枚",
+  "t_face_lookup": "📸 顔で確認(即時)",
+  "t_face_lookup_title": "顔認証で本人確認",
+  "t_face_lookup_scanning": "お顔を検出しています...",
+  "t_face_lookup_matching": "照合中...",
+  "t_face_lookup_no_match": "一致する登録が見つかりませんでした。電話番号でお願いします",
+  "t_face_lookup_found": "こちらの方でお間違いないですか?",
+  "t_face_lookup_yes": "はい、私です",
+  "t_face_lookup_no": "違います(電話番号入力へ)",
+  "t_staff_unlock_title": "スタッフ認証",
+  "t_staff_unlock_prompt": "スタッフパスワードを入力してください",
+  "t_staff_unlock_button": "解除",
+  "t_staff_unlock_success": "解除されました",
+  "t_staff_unlock_fail": "パスワードが違います",
+  "t_staff_unlock_locked": "🔒 ロック中(数分後に再試行)"
 }

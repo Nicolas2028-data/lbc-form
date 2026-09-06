@@ -176,5 +176,19 @@
   "face_error": "Não é possível usar a câmera",
   "lbl_face_capture": "📸 Capturar",
   "lbl_face_reset": "Reiniciar",
-  "lbl_face_progress": "Capturado: {n} / {total}"
+  "lbl_face_progress": "Capturado: {n} / {total}",
+  "t_face_lookup": "📸 Identificar-se pelo rosto",
+  "t_face_lookup_title": "Reconhecimento facial",
+  "t_face_lookup_scanning": "Detectando seu rosto...",
+  "t_face_lookup_matching": "Verificando...",
+  "t_face_lookup_no_match": "Nenhuma correspondência encontrada. Use o telefone, por favor",
+  "t_face_lookup_found": "É você mesmo?",
+  "t_face_lookup_yes": "Sim, sou eu",
+  "t_face_lookup_no": "Não (digitar telefone)",
+  "t_staff_unlock_title": "Autenticação da equipe",
+  "t_staff_unlock_prompt": "Digite a senha da equipe",
+  "t_staff_unlock_button": "Desbloquear",
+  "t_staff_unlock_success": "Desbloqueado",
+  "t_staff_unlock_fail": "Senha incorreta",
+  "t_staff_unlock_locked": "🔒 Bloqueado (tente novamente em alguns minutos)"
 }

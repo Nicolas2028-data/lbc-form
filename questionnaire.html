@@ -6,6 +6,17 @@
   <title id="pageTitle">LBC整体院 – 問診票</title>
   <meta name="robots" content="noindex">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0B2B26">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      });
+    }
+  </script>
   <style>
     :root {
       --primary: #2c7a5c;
@@ -559,13 +570,52 @@
 <body>
 
 <header>
-  <div class="logo">LBC<span>整体院</span><small>Lucas Body Care</small></div>
-  <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
-    <option value="ja">日本語</option>
-    <option value="es">Español</option>
-    <option value="pt">Português</option>
-  </select>
+  <div class="logo" id="siteLogoTap" style="cursor:pointer">LBC<span>整体院</span><small>Lucas Body Care</small></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span id="staffLockIndicator" style="display:none;font-size:0.7rem;padding:3px 8px;border-radius:10px;background:#0e4d3c;color:#e8f5ef">🔓 STAFF</span>
+    <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
+      <option value="ja">日本語</option>
+      <option value="es">Español</option>
+      <option value="pt">Português</option>
+    </select>
+  </div>
 </header>
+
+<!-- ═══ Staff Unlock Modal(顔認証で使用・4連タップで表示) ═══ -->
+<div id="staffUnlockModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--white);border-radius:12px;padding:24px;max-width:360px;width:100%;box-shadow:var(--shadow)">
+    <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px" id="t_staff_unlock_title">スタッフ認証</div>
+    <div style="font-size:0.9rem;color:var(--text-sub);margin-bottom:12px" id="t_staff_unlock_prompt">スタッフパスワードを入力してください</div>
+    <input type="password" id="staffUnlockPw" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:1rem" autocomplete="current-password">
+    <div id="staffUnlockMsg" style="font-size:0.85rem;color:var(--danger);margin-top:8px;min-height:1em"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" class="btn-back" style="flex:1" onclick="closeStaffUnlock()">← Cancel</button>
+      <button type="button" class="btn-submit" id="staffUnlockBtn" style="flex:1" onclick="submitStaffUnlock()">
+        <span id="t_staff_unlock_button">解除</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Face Lookup Modal(再来院時の顔認証照合) ═══ -->
+<div id="faceLookupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--white);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:var(--shadow);text-align:center">
+    <div style="font-size:1.05rem;font-weight:700;margin-bottom:12px" id="t_face_lookup_title">顔認証で本人確認</div>
+    <video id="faceLookupVideo" autoplay muted playsinline
+           style="width:100%;max-width:360px;border-radius:8px;background:#000;height:auto"></video>
+    <div id="faceLookupStatus" style="margin-top:12px;font-size:0.95rem;color:var(--text-sub);min-height:1.6em"></div>
+    <div id="faceLookupResult" style="display:none;margin-top:12px;padding:12px;background:var(--primary-light);border-radius:8px;font-size:1rem"></div>
+    <div id="faceLookupActions" style="display:none;gap:8px;margin-top:14px;flex-direction:column">
+      <button type="button" class="btn-submit" onclick="acceptFaceLookup()">
+        <span id="t_face_lookup_yes">はい、私です</span>
+      </button>
+      <button type="button" class="btn-back" style="width:100%" onclick="rejectFaceLookup()">
+        <span id="t_face_lookup_no">違います(電話番号入力へ)</span>
+      </button>
+    </div>
+    <button type="button" class="btn-back" id="faceLookupCancelBtn" style="margin-top:14px;width:100%" onclick="closeFaceLookup()">✕ Cancel</button>
+  </div>
+</div>
 
 <div class="hero">
   <div class="container" style="padding-bottom:0;padding-top:0">
@@ -669,6 +719,11 @@
       <div class="loading-row" id="lookupLoading">
         <span class="spinner"></span><span id="t_lookingUp">確認中...</span>
       </div>
+      <!-- 顔認証照合ボタン(kiosk unlock 済のみ表示) -->
+      <button class="btn-submit" id="faceLookupTriggerBtn" onclick="openFaceLookup()"
+              style="display:none;background:#0e4d3c;margin-bottom:10px">
+        <span id="t_face_lookup">📸 顔で確認(即時)</span>
+      </button>
       <button class="btn-submit" id="lookupBtn" onclick="lookupPatient()">
         <span id="l_lookup">次へ</span>
       </button>
@@ -1265,13 +1320,21 @@ function applyTexts() {
   set('lbl_face_q', l.lbl_face_q);
   set('lbl_face_ok', l.lbl_face_ok);
   set('lbl_face_no', l.lbl_face_no);
-  // Face Auth Phase 1 (2026-09-06)
+  // Face Auth Phase B: 顔登録 (2026-09-06)
   set('t_face_auth', l.t_face_auth);
   set('t_face_auth_desc', l.t_face_auth_desc);
   set('lbl_face_auth_consent', l.lbl_face_auth_consent);
   set('lbl_face_capture', l.lbl_face_capture);
   set('lbl_face_reset', l.lbl_face_reset);
   updateFaceProgress();
+  // Face Auth Phase C: 顔照合 + Staff unlock (2026-09-06)
+  set('t_face_lookup', l.t_face_lookup);
+  set('t_face_lookup_title', l.t_face_lookup_title);
+  set('t_face_lookup_yes', l.t_face_lookup_yes);
+  set('t_face_lookup_no', l.t_face_lookup_no);
+  set('t_staff_unlock_title', l.t_staff_unlock_title);
+  set('t_staff_unlock_prompt', l.t_staff_unlock_prompt);
+  set('t_staff_unlock_button', l.t_staff_unlock_button);
   set('t_s5', l.t_s5);
   set('consent_1', l.consent_1); set('consent_1_expand', l.consent_1_expand);
   const cb1 = document.getElementById('consent_1_body'); if (cb1) cb1.innerHTML = l.consent_1_body;
@@ -2462,6 +2525,276 @@ function resetFaceAuth() {
   document.getElementById('faceAuthConsent').checked = false;
   document.getElementById('faceAuthCapture').style.display = 'none';
   const s = document.getElementById('faceAuthStatus'); if (s) s.textContent = '';
+}
+
+/* ============================================================
+   FACE AUTH — Phase C: Kiosk 解除 + 再来院時の顔照合
+   ============================================================ */
+
+const STAFF_KIOSK = {
+  storageKey: 'lbc_staff_pw',
+  matchThreshold: 0.5,
+  cachedPatients: null,
+  cacheTtlMs: 6 * 60 * 60 * 1000, // 6時間
+};
+
+const FACE_LOOKUP = {
+  stream: null,
+  scanning: false,
+  candidate: null, // { customerId, patientNum, name, furigana, phone, email }
+};
+
+// ── ロゴ 4連タップで staff unlock modal を開く(patient 発見防止のため隠しトリガー) ──
+(function () {
+  var count = 0, timer = null;
+  var logo = document.getElementById('siteLogoTap');
+  if (!logo) return;
+  logo.addEventListener('click', function () {
+    count++;
+    clearTimeout(timer);
+    timer = setTimeout(function () { count = 0; }, 1500);
+    if (count >= 4) {
+      count = 0;
+      openStaffUnlock();
+    }
+  });
+})();
+
+// 初期化時に既存の unlock 状態を復元
+(function initStaffKiosk() {
+  var pw = sessionStorage.getItem(STAFF_KIOSK.storageKey);
+  if (pw) {
+    document.getElementById('staffLockIndicator').style.display = 'inline-block';
+    document.getElementById('faceLookupTriggerBtn').style.display = '';
+  }
+})();
+
+function isStaffUnlocked() {
+  return !!sessionStorage.getItem(STAFF_KIOSK.storageKey);
+}
+
+function getStaffPw() {
+  return sessionStorage.getItem(STAFF_KIOSK.storageKey) || '';
+}
+
+function openStaffUnlock() {
+  document.getElementById('staffUnlockModal').style.display = 'flex';
+  var input = document.getElementById('staffUnlockPw');
+  input.value = '';
+  document.getElementById('staffUnlockMsg').textContent = '';
+  setTimeout(function () { input.focus(); }, 100);
+}
+
+function closeStaffUnlock() {
+  document.getElementById('staffUnlockModal').style.display = 'none';
+}
+
+async function submitStaffUnlock() {
+  var pw = document.getElementById('staffUnlockPw').value;
+  var msg = document.getElementById('staffUnlockMsg');
+  var btn = document.getElementById('staffUnlockBtn');
+  if (!pw) return;
+  btn.disabled = true;
+  msg.textContent = '';
+  try {
+    var data = await gasPost(CONFIG.GAS_URL, { action: 'verifyStaff', pw: pw, requestId: CONFIG.requestId, env: CONFIG.ENV_PARAM }, 15000);
+    if (data.ok) {
+      sessionStorage.setItem(STAFF_KIOSK.storageKey, pw);
+      document.getElementById('staffLockIndicator').style.display = 'inline-block';
+      document.getElementById('faceLookupTriggerBtn').style.display = '';
+      msg.style.color = 'var(--primary-dark)';
+      msg.textContent = L('t_staff_unlock_success') || '解除されました';
+      setTimeout(closeStaffUnlock, 700);
+    } else {
+      msg.style.color = 'var(--danger)';
+      if (data.error === 'auth_locked') {
+        msg.textContent = L('t_staff_unlock_locked') || '🔒 ロック中';
+      } else {
+        msg.textContent = L('t_staff_unlock_fail') || 'パスワードが違います';
+      }
+    }
+  } catch (e) {
+    msg.style.color = 'var(--danger)';
+    msg.textContent = (L('err_net') || '通信エラー') + ': ' + (e.message || e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── 顔照合フロー ──
+async function openFaceLookup() {
+  if (!isStaffUnlocked()) { openStaffUnlock(); return; }
+  var modal = document.getElementById('faceLookupModal');
+  var status = document.getElementById('faceLookupStatus');
+  var result = document.getElementById('faceLookupResult');
+  var actions = document.getElementById('faceLookupActions');
+  modal.style.display = 'flex';
+  status.textContent = L('face_loading') || 'モデルを読み込み中...';
+  result.style.display = 'none';
+  actions.style.display = 'none';
+  FACE_LOOKUP.candidate = null;
+
+  try {
+    await loadFaceApiOnce();
+    // Patient embeddings を取得(6時間キャッシュ)
+    var patients = await fetchPatientEmbeddings();
+    if (!patients || patients.length === 0) {
+      status.textContent = L('t_face_lookup_no_match') || '一致する登録が見つかりませんでした';
+      return;
+    }
+    // カメラ起動
+    var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+    FACE_LOOKUP.stream = stream;
+    var video = document.getElementById('faceLookupVideo');
+    video.srcObject = stream;
+    await new Promise(function (r) { video.onloadedmetadata = r; });
+    status.textContent = L('t_face_lookup_scanning') || 'お顔を検出しています...';
+    scanFaceLoop(patients);
+  } catch (e) {
+    console.error(e);
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+  }
+}
+
+async function fetchPatientEmbeddings() {
+  // 6時間キャッシュ
+  if (STAFF_KIOSK.cachedPatients && STAFF_KIOSK.cachedPatients._at &&
+      (Date.now() - STAFF_KIOSK.cachedPatients._at < STAFF_KIOSK.cacheTtlMs)) {
+    return STAFF_KIOSK.cachedPatients.list;
+  }
+  var res = await gasPost(CONFIG.GAS_URL, {
+    action: 'getFaceEmbeddings',
+    password: getStaffPw(),
+    env: CONFIG.ENV_PARAM,
+  }, 20000);
+  if (!res.success) {
+    if (res.error === 'auth_fail' || res.error === 'auth_locked') {
+      sessionStorage.removeItem(STAFF_KIOSK.storageKey);
+      document.getElementById('staffLockIndicator').style.display = 'none';
+      document.getElementById('faceLookupTriggerBtn').style.display = 'none';
+    }
+    throw new Error(res.error || 'fetch failed');
+  }
+  // JSON descriptor を Float32Array 化
+  var list = (res.patients || []).map(function (p) {
+    var arr = JSON.parse(p.embedding);
+    var f32 = new Float32Array(arr.length);
+    for (var i = 0; i < arr.length; i++) f32[i] = arr[i];
+    return {
+      customerId: p.customerId,
+      patientNum: p.patientNum || p.customerId,
+      name:       p.name,
+      furigana:   p.furigana || '',
+      phone:      p.phone || '',
+      email:      p.email || '',
+      descriptor: f32,
+    };
+  });
+  STAFF_KIOSK.cachedPatients = { list: list, _at: Date.now() };
+  return list;
+}
+
+function euclideanDistance(a, b) {
+  var sum = 0;
+  for (var i = 0; i < a.length; i++) { var d = a[i] - b[i]; sum += d * d; }
+  return Math.sqrt(sum);
+}
+
+async function scanFaceLoop(patients) {
+  if (FACE_LOOKUP.scanning) return;
+  FACE_LOOKUP.scanning = true;
+  var video = document.getElementById('faceLookupVideo');
+  var status = document.getElementById('faceLookupStatus');
+  var maxAttempts = 20; // 約 10秒
+  for (var attempt = 0; attempt < maxAttempts && FACE_LOOKUP.scanning; attempt++) {
+    try {
+      var opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+      var det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+      if (det) {
+        status.textContent = L('t_face_lookup_matching') || '照合中...';
+        var minDist = Infinity, best = null;
+        for (var i = 0; i < patients.length; i++) {
+          var d = euclideanDistance(det.descriptor, patients[i].descriptor);
+          if (d < minDist) { minDist = d; best = patients[i]; }
+        }
+        if (best && minDist < STAFF_KIOSK.matchThreshold) {
+          FACE_LOOKUP.candidate = best;
+          showFaceLookupResult(best, minDist);
+          FACE_LOOKUP.scanning = false;
+          stopFaceLookupCamera();
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('scan error', e);
+    }
+    await new Promise(function (r) { setTimeout(r, 500); });
+  }
+  FACE_LOOKUP.scanning = false;
+  if (FACE_LOOKUP.candidate === null) {
+    status.textContent = L('t_face_lookup_no_match') || '一致する登録が見つかりませんでした';
+    stopFaceLookupCamera();
+    setTimeout(closeFaceLookup, 2000);
+  }
+}
+
+function showFaceLookupResult(patient, distance) {
+  var status = document.getElementById('faceLookupStatus');
+  var result = document.getElementById('faceLookupResult');
+  var actions = document.getElementById('faceLookupActions');
+  status.textContent = L('t_face_lookup_found') || 'こちらの方でお間違いないですか?';
+  result.style.display = 'block';
+  result.innerHTML = '<div style="font-size:1.1rem;font-weight:700;color:var(--primary-dark)">'
+    + escapeHtml(patient.name) + '</div>'
+    + '<div style="font-size:0.85rem;color:var(--text-sub);margin-top:4px">'
+    + escapeHtml(patient.patientNum) + '</div>'
+    + '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">'
+    + '一致度: ' + (Math.round((1 - distance) * 100)) + '%</div>';
+  actions.style.display = 'flex';
+  document.getElementById('faceLookupCancelBtn').style.display = 'none';
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+function acceptFaceLookup() {
+  var p = FACE_LOOKUP.candidate;
+  if (!p) { closeFaceLookup(); return; }
+  Q.foundPatient = { customerId: p.customerId, patientNum: p.patientNum, name: p.name, furigana: p.furigana, email: p.email, phone: p.phone };
+  Q.customerId = p.customerId;
+  Q.patientNum = p.patientNum;
+  // 電話番号を照合キーに入れる(既存の submitAll が phone を使うため)
+  if (p.phone) document.getElementById('phone').value = p.phone;
+  closeFaceLookup();
+  // showPatientInfo を呼ぶ(既存の再来院確認画面)
+  if (typeof showPatientInfo === 'function') {
+    showPatientInfo({ customerId: p.customerId, patientNum: p.patientNum, name: p.name, furigana: p.furigana, email: p.email });
+  }
+}
+
+function rejectFaceLookup() {
+  closeFaceLookup();
+  // 電話番号入力にフォーカス
+  var phone = document.getElementById('phone');
+  if (phone) { phone.value = ''; phone.focus(); }
+}
+
+function stopFaceLookupCamera() {
+  if (FACE_LOOKUP.stream) {
+    FACE_LOOKUP.stream.getTracks().forEach(function (t) { t.stop(); });
+    FACE_LOOKUP.stream = null;
+  }
+}
+
+function closeFaceLookup() {
+  FACE_LOOKUP.scanning = false;
+  stopFaceLookupCamera();
+  document.getElementById('faceLookupModal').style.display = 'none';
+  document.getElementById('faceLookupCancelBtn').style.display = '';
+  document.getElementById('faceLookupResult').style.display = 'none';
+  document.getElementById('faceLookupActions').style.display = 'none';
+  document.getElementById('faceLookupStatus').textContent = '';
 }
 </script>
 </body>

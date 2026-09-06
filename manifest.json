@@ -1,0 +1,26 @@
+{
+  "name": "LBC整体院 — 問診票・施術記録",
+  "short_name": "LBC Care",
+  "description": "LBC整体院 (Lucas Body Care) の問診票・施術記録・ダッシュボード",
+  "start_url": "./questionnaire.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B2B26",
+  "theme_color": "#0B2B26",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%230B2B26'/%3E%3Ctext y='134' x='96' text-anchor='middle' font-size='108' fill='%232c7a5c'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230B2B26'/%3E%3Ctext y='360' x='256' text-anchor='middle' font-size='288' fill='%232c7a5c'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

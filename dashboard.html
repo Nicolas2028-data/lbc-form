@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LBC Care — ダッシュボード</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0B2B26">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      });
+    }
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -293,6 +303,25 @@
           <div class="chart-meta" id="payMeta"></div>
         </div>
         <div class="chart-wrap donut-h" id="payWrap"><canvas id="chartPayments"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 拡張指標 (2026-09-06) -->
+    <div class="section-label">追加指標</div>
+    <div class="charts-grid two">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">平均単価推移</div>
+          <div class="chart-meta" id="avgPriceMeta">売上 ÷ 来院数</div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartAvgPrice"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-title">新規獲得数</div>
+          <div class="chart-meta" id="newAcqMeta">初回来院者数</div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartNewAcq"></canvas></div>
       </div>
     </div>
 
@@ -654,6 +683,67 @@ async function loadData() {
     } else {
       noDataMsg('payWrap', '支払いデータなし');
     }
+
+    /* ── Chart⑥: 平均単価推移 (2026-09-06 追加) ── */
+    const avgPrice = totalByMonth.map((v, i) => v > 0 ? Math.round((sales[i] || 0) / v) : 0);
+    const gAvg = makeGrad('chartAvgPrice', 'rgba(94,159,127,0.45)', 'rgba(94,159,127,0.02)');
+    new Chart(document.getElementById('chartAvgPrice'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: '平均単価',
+          data: avgPrice,
+          borderColor: '#5e9f7f',
+          backgroundColor: gAvg,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 5,
+          pointBackgroundColor: '#5e9f7f',
+          pointBorderColor: '#101e1b',
+          pointBorderWidth: 2,
+          borderWidth: 2.2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...TT, callbacks: { label: ctx => '  ¥' + ctx.parsed.y.toLocaleString() + ' / 回' } },
+        },
+        scales: xy(v => '¥' + fmtYen(v)),
+      }
+    });
+    setS('avgPriceMeta', '直近平均 ¥' + (avgPrice[avgPrice.length - 1] || 0).toLocaleString());
+
+    /* ── Chart⑦: 新規獲得数 (breakdown データの new を月別) ── */
+    const newByMonth = labels.map((_, i) => newVisits[i] || 0);
+    const gNew = makeGrad('chartNewAcq', 'rgba(232,168,56,0.4)', 'rgba(232,168,56,0.02)');
+    new Chart(document.getElementById('chartNewAcq'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '新規',
+          data: newByMonth,
+          backgroundColor: gNew,
+          borderColor: C.accent,
+          borderWidth: 1.5,
+          borderRadius: 7,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...TT, callbacks: { label: ctx => '  ' + ctx.parsed.y + '人 (初回)' } },
+        },
+        scales: xy(v => v + '人'),
+      }
+    });
+    const sumNew = newByMonth.reduce((a, b) => a + b, 0);
+    setS('newAcqMeta', '累計 ' + sumNew + '人');
 
   } catch (err) {
     document.getElementById('loading').style.display  = 'none';

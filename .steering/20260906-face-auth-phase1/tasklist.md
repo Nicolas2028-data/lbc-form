@@ -17,17 +17,22 @@
 - [x] A-7. `doPost` に `getFaceEmbeddings` action 追加
 - [x] A-8. 本番 push + 疎通確認(GAS @76、ヘッダー migration 成功)
 
-### Phase B: フロント側(問診票 UI 統合)
+### Phase B: フロント側 — 初回登録のみ実装(2026-09-06)
 
-- [ ] B-1. `i18n/ja.json` `es.json` `pt.json` に顔認証関連文言追加
-  - 例: `face_register_prompt`, `face_register_button`, `face_lookup_button`, `face_scanning`, `face_match_found`, `face_no_match`
-- [ ] B-2. `questionnaire.html` にface-api.js CDN 読み込み追加
-- [ ] B-3. 初回来院フローに「顔登録同意」チェックボックス追加(未成年除外ロジック)
-- [ ] B-4. 顔登録画面: カメラ起動 → 3枚キャプチャ → embedding 平均化 → 送信ペイロードに含める
-- [ ] B-5. 再来院フロー冒頭に「カメラで確認」ボタン追加(電話番号入力より上)
-- [ ] B-6. 顔認証画面: `getFaceEmbeddings` で全 embedding 取得 → euclideanDistance で照合 → 候補表示
-- [ ] B-7. 候補確認画面: 「はい/いいえ」の 3言語ボタン、いいえなら電話番号照合へフォールバック
-- [ ] B-8. `js/common.js` に `faceApiLoader()`, `computeEmbedding(videoElm)`, `euclideanDistance(a,b)` を追加
+- [x] B-1. `i18n/ja.json` `es.json` `pt.json` に顔認証関連文言 15 キー追加
+- [x] B-2. `questionnaire.html` に face-api.js CDN の lazy-load 実装(同意時のみ読み込み)
+- [x] B-3. 初回来院フローに「顔登録同意」チェックボックス追加、未成年(18歳未満)は自動で非表示
+- [x] B-4. 顔登録画面:カメラ起動 → 3枚キャプチャ → 128次元 float 平均化 → `Q.faceEmbedding` に保存 → `submitAll` payload に追加
+- [ ] B-5〜B-8: **Phase C へ延期**(照合フローは kiosk password unlock UI が必要で別工数)
+
+### Phase C: フロント側 — 再来院時の顔認証照合(未着手)
+
+- [ ] C-Fa-1. Kiosk mode: 朝一 staff password 入力 → sessionStorage 保持 UI
+- [ ] C-Fa-2. 再来院フロー冒頭に「📸 カメラで確認」ボタン(電話番号入力の上)
+- [ ] C-Fa-3. face-api.js で embedding 生成 + `getFaceEmbeddings` API 呼出(staff password 添付)
+- [ ] C-Fa-4. euclideanDistance で全照合 → 候補確定(THRESHOLD 未満で最短)
+- [ ] C-Fa-5. 候補確認モーダル(名前表示 + はい/いいえ)、いいえで電話番号照合へフォールバック
+- [ ] C-Fa-6. `js/common.js` に共通ヘルパー抽出(現状は questionnaire.html 内)
 
 ### Phase C: テスト・検証(face-auth-specialist + tester)
 

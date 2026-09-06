@@ -176,5 +176,19 @@
   "face_error": "No se puede usar la cámara",
   "lbl_face_capture": "📸 Capturar",
   "lbl_face_reset": "Reiniciar",
-  "lbl_face_progress": "Capturado: {n} / {total}"
+  "lbl_face_progress": "Capturado: {n} / {total}",
+  "t_face_lookup": "📸 Identificarse con rostro",
+  "t_face_lookup_title": "Reconocimiento facial",
+  "t_face_lookup_scanning": "Detectando su rostro...",
+  "t_face_lookup_matching": "Verificando...",
+  "t_face_lookup_no_match": "No se encontró coincidencia. Use el teléfono, por favor",
+  "t_face_lookup_found": "¿Es usted esta persona?",
+  "t_face_lookup_yes": "Sí, soy yo",
+  "t_face_lookup_no": "No (ingresar teléfono)",
+  "t_staff_unlock_title": "Autenticación de personal",
+  "t_staff_unlock_prompt": "Ingrese la contraseña de personal",
+  "t_staff_unlock_button": "Desbloquear",
+  "t_staff_unlock_success": "Desbloqueado",
+  "t_staff_unlock_fail": "Contraseña incorrecta",
+  "t_staff_unlock_locked": "🔒 Bloqueado (reintente en unos minutos)"
 }

@@ -885,8 +885,8 @@ function handleGetPatientList(cfg) {
    ハンドラ: 顔認証 embedding 一括取得 (Face Auth Phase 1)
    ============================================================ */
 
-// active な顧客の face_embedding + customerId + name を返却
-// 認証: staff password 必須(customerId + name の PII 保護のため)
+// active な顧客の face_embedding + プロファイル情報を返却
+// 認証: staff password 必須(顧客プロファイル(氏名/電話/メール)の PII 保護)
 // iPad kiosk 運用前提: Lucas が朝一度パスワード入力 → sessionStorage 保持
 function handleGetFaceEmbeddings(data, cfg) {
   cfg = cfg || getConfig();
@@ -905,7 +905,11 @@ function handleGetFaceEmbeddings(data, cfg) {
     if (!emb) continue;
     patients.push({
       customerId: String(r[CM.customer_id]),
+      patientNum: String(r[CM.customer_id]),
       name:       String(r[CM.name] || ''),
+      furigana:   String(r[CM.furigana] || ''),
+      phone:      String(r[CM.phone] || ''),
+      email:      String(r[CM.email] || ''),
       embedding:  emb, // JSON 文字列(128次元 float 配列)
     });
   }

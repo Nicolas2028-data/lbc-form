@@ -203,5 +203,7 @@
   "t_face_reg_fail": "Error al registrar",
   "t_face_login_scanning": "Verificando su rostro...",
   "t_face_login_not_found": "No se encontró coincidencia. Use el teléfono, por favor",
-  "t_face_login_rate_limited": "Demasiados intentos. Espere un momento"
+  "t_face_login_rate_limited": "Demasiados intentos. Espere un momento",
+  "t_face_verified_hint": "✓ Identidad confirmada por rostro. Por seguridad, ingrese también el teléfono",
+  "t_face_phone_mismatch": "El rostro y el teléfono no coinciden. Intente de nuevo"
 }

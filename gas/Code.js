@@ -2232,6 +2232,9 @@ function resetSyncErrors() {
     { name: '顧客マスタ',  errCol: CM.error_count, syncCol: CM.synced_at },
     { name: '施術台帳',    errCol: TR.error_count, syncCol: TR.synced_at },
     { name: 'クレジット台帳', errCol: CR.error_count, syncCol: CR.synced_at },
+    // 問診台帳: error_count はあるが CM/TR/CR にはない updated_at ではなく synced_at のみでの再同期
+    // (2026-09-06 バグ修正: これまで問診台帳のエラー行がスキップされたまま復旧されなかった)
+    { name: '問診台帳',    errCol: QU.error_count, syncCol: QU.synced_at },
   ].forEach(function(def) {
     var sh = ss.getSheetByName(def.name);
     if (!sh) return;

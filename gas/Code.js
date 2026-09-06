@@ -82,6 +82,11 @@ function doPost(e) {
     if (action === 'getFaceEmbeddings') {
       return jsonRes(handleGetFaceEmbeddings(data, cfg));
     }
+    // 顔認証マッチング(サーバー側計算・プライバシー保護・パスワード不要)
+    // 患者側 UI から embedding を送信 → 一致する customerId を返す
+    if (action === 'matchFace') {
+      return jsonRes(handleMatchFace(data, cfg));
+    }
     if (action === 'submitVoidRecord') {
       var authVR = verifyStaffPassword(data.password, cfg);
       if (!authVR.ok) return jsonRes({ success: false, error: authVR.error, remainingSec: authVR.remainingSec });
@@ -172,6 +177,7 @@ function doGet(e) {
       PropertiesService.getScriptProperties().setProperties({ CUSTOMER_DB_ID: cId, KARTE_DB_ID: kId });
       return jsonRes({ ok: true, customerDbId: cId, karteDbId: kId });
     }
+
     if (p.action === 'devCheckConfig' && cfg._env === 'staging') {
       var allProps = PropertiesService.getScriptProperties().getProperties();
       return jsonRes({
@@ -513,13 +519,15 @@ function handleLookupPatient(data, cfg) {
   if (matches.length === 1) {
     var r = matches[0].row;
     return {
-      success:    true,
-      found:      true,
-      customerId: String(r[CM.customer_id]),
-      patientNum: String(r[CM.customer_id]),
-      name:       String(r[CM.name]),
-      furigana:   String(r[CM.furigana]),
-      email:      String(r[CM.email] || ''),
+      success:          true,
+      found:            true,
+      customerId:       String(r[CM.customer_id]),
+      patientNum:       String(r[CM.customer_id]),
+      name:             String(r[CM.name]),
+      furigana:         String(r[CM.furigana]),
+      email:            String(r[CM.email] || ''),
+      // 顔認証登録状況(2026-09-06): フロントで「顔登録しますか?」を提案するため
+      hasFaceEmbedding: !!(String(r[CM.face_embedding] || '').length > 20),
     };
   }
 
@@ -963,6 +971,84 @@ function handleGetFaceEmbeddings(data, cfg) {
     });
   }
   return { success: true, count: patients.length, patients: patients };
+}
+
+/* ============================================================
+   ハンドラ: 顔認証マッチング(サーバー側計算・パスワード不要)
+   ============================================================ */
+
+// 患者が撮影した embedding を受け取り、サーバー側で全登録者と照合。
+// プライバシー保護: 登録者の embedding 一覧はレスポンスに含めない。
+// レート制限: session あたり 1 分間で 10 回まで(顔画像による列挙攻撃を防ぐ)
+function handleMatchFace(data, cfg) {
+  cfg = cfg || getConfig();
+
+  var inputEmb;
+  try {
+    inputEmb = JSON.parse(data.embedding || '[]');
+    if (!Array.isArray(inputEmb) || inputEmb.length !== 128) {
+      return { success: false, error: 'invalid_embedding' };
+    }
+  } catch(e) {
+    return { success: false, error: 'invalid_embedding' };
+  }
+
+  // レート制限: session あたり 1 分間で 10 回まで
+  var cacheR = CacheService.getScriptCache();
+  var rateKey = 'facematch_' + String(data.sessionId || 'anon').slice(0, 40);
+  var attempts = parseInt(cacheR.get(rateKey) || '0', 10);
+  if (attempts >= 10) {
+    return { success: true, found: false, error: 'rate_limited' };
+  }
+  cacheR.put(rateKey, String(attempts + 1), 60);
+
+  var ss = getLedger(cfg);
+  var rows = getSheetData(ss, '顧客マスタ');
+  var THRESHOLD = 0.5;
+  var bestDist = Infinity;
+  var bestMatch = null;
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[CM.status]) === 'archived') continue;
+    var embStr = String(r[CM.face_embedding] || '');
+    if (!embStr || embStr.length < 20) continue;
+    try {
+      var emb = JSON.parse(embStr);
+      if (!Array.isArray(emb) || emb.length !== 128) continue;
+      var d = 0;
+      for (var j = 0; j < 128; j++) {
+        var dv = inputEmb[j] - emb[j];
+        d += dv * dv;
+      }
+      d = Math.sqrt(d);
+      if (d < bestDist) {
+        bestDist = d;
+        bestMatch = {
+          customerId: String(r[CM.customer_id]),
+          name:       String(r[CM.name] || ''),
+          furigana:   String(r[CM.furigana] || ''),
+          phone:      String(r[CM.phone] || ''),
+          email:      String(r[CM.email] || ''),
+        };
+      }
+    } catch(_) {}
+  }
+
+  if (bestMatch && bestDist < THRESHOLD) {
+    return {
+      success:    true,
+      found:      true,
+      customerId: bestMatch.customerId,
+      patientNum: bestMatch.customerId,
+      name:       bestMatch.name,
+      furigana:   bestMatch.furigana,
+      phone:      bestMatch.phone,
+      email:      bestMatch.email,
+      confidence: Math.round((1 - bestDist) * 100),
+    };
+  }
+  return { success: true, found: false };
 }
 
 /* ============================================================

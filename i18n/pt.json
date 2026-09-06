@@ -190,5 +190,18 @@
   "t_staff_unlock_button": "Desbloquear",
   "t_staff_unlock_success": "Desbloqueado",
   "t_staff_unlock_fail": "Senha incorreta",
-  "t_staff_unlock_locked": "🔒 Bloqueado (tente novamente em alguns minutos)"
+  "t_staff_unlock_locked": "🔒 Bloqueado (tente novamente em alguns minutos)",
+  "t_login_choice": "Como deseja se identificar?",
+  "t_login_by_face": "📸 Pelo rosto",
+  "t_login_by_phone": "📞 Pelo telefone",
+  "t_or": "ou",
+  "t_face_reg_consent_title": "Deseja registrar seu rosto?",
+  "t_face_reg_consent_desc": "Na próxima visita, poderá se identificar apenas com a câmera. O registro é opcional.",
+  "t_face_reg_yes": "Sim, registrar",
+  "t_face_reg_no": "Agora não",
+  "t_face_reg_success": "Rosto registrado ✓",
+  "t_face_reg_fail": "Falha ao registrar",
+  "t_face_login_scanning": "Verificando seu rosto...",
+  "t_face_login_not_found": "Nenhuma correspondência. Use o telefone, por favor",
+  "t_face_login_rate_limited": "Muitas tentativas. Aguarde um momento"
 }

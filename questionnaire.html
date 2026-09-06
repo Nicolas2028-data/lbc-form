@@ -627,6 +627,17 @@
 
   <!-- ════ PHASE 1: 電話照合 ════ -->
   <div id="phase1">
+    <!-- 顔認証で来院確認カード(既存患者向け) -->
+    <div class="card" id="faceLoginCard" style="text-align:center">
+      <div class="card-title" style="justify-content:center"><span id="t_login_choice">どちらで来院確認しますか?</span></div>
+      <button type="button" class="btn-submit" onclick="openPatientFaceLogin()"
+              style="background:#0e4d3c;margin-bottom:10px">
+        <span id="t_login_by_face">📸 顔で来院確認</span>
+      </button>
+      <div style="text-align:center;color:var(--text-muted);font-size:0.85rem;margin:8px 0" id="t_or">または</div>
+      <div style="color:var(--text-sub);font-size:0.85rem" id="t_login_by_phone_hint">下のフォームで電話番号を入力してください ↓</div>
+    </div>
+
     <div class="card">
       <div class="card-title"><span class="icon">📋</span><span id="t_namePhone">お名前・電話番号</span></div>
 
@@ -727,6 +738,34 @@
       <button class="btn-submit" id="lookupBtn" onclick="lookupPatient()">
         <span id="l_lookup">次へ</span>
       </button>
+    </div>
+
+    <!-- 既存患者向け顔認証登録の同意カード(hasFaceEmbedding=false の再来院時のみ表示) -->
+    <div id="faceRegConsentCard" class="card" style="display:none">
+      <div class="card-title"><span class="icon">🎥</span><span id="t_face_reg_consent_title">顔認証も登録しませんか?</span></div>
+      <p class="section-hint" id="t_face_reg_consent_desc">次回のご来院時、カメラだけで本人確認できるようになります。任意でご登録いただけます。</p>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button type="button" class="btn-submit" onclick="onFaceRegConsentYes()" style="flex:1;background:#0e4d3c">
+          <span id="t_face_reg_yes">はい、登録します</span>
+        </button>
+        <button type="button" class="btn-submit" onclick="onFaceRegConsentNo()"
+                style="flex:1;background:var(--white);color:var(--primary-dark);border:1.5px solid var(--primary);box-shadow:none">
+          <span id="t_face_reg_no">今回はやめておく</span>
+        </button>
+      </div>
+      <!-- 撮影 UI(consent Yes 後に表示) -->
+      <div id="faceRegCapture" style="display:none;margin-top:16px;text-align:center">
+        <video id="faceRegVideo" width="320" height="240" autoplay muted playsinline
+               style="border-radius:8px;background:#000;max-width:100%;height:auto"></video>
+        <div id="faceRegStatus" style="margin-top:8px;font-size:0.9rem;color:var(--text-sub)"></div>
+        <div id="faceRegProgress" style="margin-top:8px;font-size:0.85rem;color:var(--text-sub);display:none">
+          <span id="lbl_face_reg_progress">撮影済み: 0 / 3 枚</span>
+        </div>
+        <button type="button" class="btn-submit" id="faceRegCaptureBtn" onclick="captureFaceRegSample()"
+                style="margin-top:12px;display:none">
+          <span>📸 撮影</span>
+        </button>
+      </div>
     </div>
 
     <!-- hidden fields moved to phase2 / used in submit -->
@@ -1613,6 +1652,12 @@ function showPatientInfo(data) {
 
 function onInfoNoChange() {
   const p = Q.foundPatient;
+  // 既存患者で顔未登録なら「登録しますか?」を提案(2026-09-06)
+  if (p && !p.hasFaceEmbedding && !Q.faceRegAsked) {
+    Q.faceRegAsked = true;
+    showFaceRegConsent(p);
+    return;
+  }
   showPhase2('return', p.customerId, p.patientNum, p.name);
 }
 
@@ -2555,6 +2600,205 @@ function resetFaceAuth() {
   document.getElementById('faceAuthConsent').checked = false;
   document.getElementById('faceAuthCapture').style.display = 'none';
   const s = document.getElementById('faceAuthStatus'); if (s) s.textContent = '';
+}
+
+/* ============================================================
+   FACE AUTH — Phase D: 既存患者向け顔登録 + 患者側顔ログイン
+   ============================================================ */
+
+// applyTexts に新規キー追加(一度呼ばれるように)
+(function () {
+  const orig = window.applyTexts;
+  if (typeof orig !== 'function') return;
+  window.applyTexts = function () {
+    orig.apply(this, arguments);
+    try {
+      const l = I18N[Q.lang] || I18N.ja;
+      const set = (id, v) => { const e = document.getElementById(id); if (e && typeof v !== 'undefined') e.textContent = v; };
+      set('t_login_choice', l.t_login_choice);
+      set('t_login_by_face', l.t_login_by_face);
+      set('t_login_by_phone', l.t_login_by_phone);
+      set('t_or', l.t_or);
+      set('t_face_reg_consent_title', l.t_face_reg_consent_title);
+      set('t_face_reg_consent_desc', l.t_face_reg_consent_desc);
+      set('t_face_reg_yes', l.t_face_reg_yes);
+      set('t_face_reg_no', l.t_face_reg_no);
+    } catch(_) {}
+  };
+})();
+
+/* ─ 既存患者向け顔登録の同意フロー ────────────── */
+
+function showFaceRegConsent(patient) {
+  document.getElementById('patientInfoCard').style.display = 'none';
+  const card = document.getElementById('faceRegConsentCard');
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function onFaceRegConsentYes() {
+  const box = document.getElementById('faceRegCapture');
+  const status = document.getElementById('faceRegStatus');
+  box.style.display = 'block';
+  status.textContent = L('face_loading') || 'モデルを読み込み中...';
+  FACE_AUTH.samples = [];
+  Q.faceEmbeddingForUpdate = '';
+  try {
+    await loadFaceApiOnce();
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+    FACE_AUTH.stream = stream;
+    const video = document.getElementById('faceRegVideo');
+    video.srcObject = stream;
+    await new Promise(res => (video.onloadedmetadata = res));
+    status.textContent = L('face_ready') || 'カメラの準備ができました。「撮影」を押してください';
+    document.getElementById('faceRegCaptureBtn').style.display = 'inline-block';
+    document.getElementById('faceRegProgress').style.display = 'block';
+    updateFaceRegProgress();
+  } catch (e) {
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+    box.style.display = 'none';
+    onFaceRegConsentNo();
+  }
+}
+
+function onFaceRegConsentNo() {
+  document.getElementById('faceRegConsentCard').style.display = 'none';
+  stopFaceAuthCamera();
+  const p = Q.foundPatient;
+  showPhase2('return', p.customerId, p.patientNum, p.name);
+}
+
+function updateFaceRegProgress() {
+  const el = document.getElementById('lbl_face_reg_progress');
+  if (!el) return;
+  const template = L('lbl_face_progress') || '撮影済み: {n} / {total} 枚';
+  el.textContent = template.replace('{n}', FACE_AUTH.samples.length).replace('{total}', FACE_AUTH.totalSamples);
+}
+
+async function captureFaceRegSample() {
+  if (FACE_AUTH.detecting) return;
+  FACE_AUTH.detecting = true;
+  const video = document.getElementById('faceRegVideo');
+  const status = document.getElementById('faceRegStatus');
+  const btn = document.getElementById('faceRegCaptureBtn');
+  btn.disabled = true;
+  status.textContent = L('face_detecting') || '検出中...';
+  try {
+    const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+    const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+    if (!det) {
+      status.textContent = L('face_not_found') || '顔が検出できませんでした';
+      return;
+    }
+    FACE_AUTH.samples.push(Array.from(det.descriptor));
+    updateFaceRegProgress();
+    if (FACE_AUTH.samples.length >= FACE_AUTH.totalSamples) {
+      const avg = new Array(128).fill(0);
+      for (const s of FACE_AUTH.samples) for (let i = 0; i < 128; i++) avg[i] += s[i];
+      for (let i = 0; i < 128; i++) avg[i] /= FACE_AUTH.samples.length;
+      const embStr = JSON.stringify(avg);
+      status.textContent = L('face_detecting') || '送信中...';
+      // updateCustomerInfo で保存
+      const p = Q.foundPatient;
+      const payload = {
+        action: 'updateCustomerInfo', customerId: p.customerId,
+        phone: p.phone || document.getElementById('phone').value, // 認証用
+        faceEmbedding: embStr, lang: Q.lang, env: CONFIG.ENV_PARAM,
+      };
+      try {
+        const res = await gasPost(CONFIG.GAS_URL, payload, 15000);
+        if (res.success) {
+          status.textContent = L('t_face_reg_success') || '顔認証を登録しました ✓';
+          Q.foundPatient.hasFaceEmbedding = true;
+          stopFaceAuthCamera();
+          btn.style.display = 'none';
+          setTimeout(function () {
+            document.getElementById('faceRegConsentCard').style.display = 'none';
+            showPhase2('return', p.customerId, p.patientNum, p.name);
+          }, 1200);
+        } else {
+          status.textContent = L('t_face_reg_fail') || '登録に失敗しました';
+        }
+      } catch (e) {
+        status.textContent = (L('t_face_reg_fail') || '登録に失敗しました') + ': ' + (e.message || e);
+      }
+    } else {
+      status.textContent = L('face_more') || '角度を少し変えて再度撮影してください';
+    }
+  } catch (e) {
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+  } finally {
+    FACE_AUTH.detecting = false;
+    btn.disabled = false;
+  }
+}
+
+/* ─ 患者側顔ログイン(サーバーで matchFace 実行) ────────────── */
+
+async function openPatientFaceLogin() {
+  const modal = document.getElementById('faceLookupModal');
+  const status = document.getElementById('faceLookupStatus');
+  const result = document.getElementById('faceLookupResult');
+  const actions = document.getElementById('faceLookupActions');
+  modal.style.display = 'flex';
+  status.textContent = L('face_loading') || 'モデルを読み込み中...';
+  result.style.display = 'none';
+  actions.style.display = 'none';
+  FACE_LOOKUP.candidate = null;
+
+  try {
+    await loadFaceApiOnce();
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+    FACE_LOOKUP.stream = stream;
+    const video = document.getElementById('faceLookupVideo');
+    video.srcObject = stream;
+    await new Promise(r => (video.onloadedmetadata = r));
+    status.textContent = L('t_face_login_scanning') || 'お顔を検出中...';
+    scanFaceLoopPatient();
+  } catch (e) {
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+  }
+}
+
+async function scanFaceLoopPatient() {
+  if (FACE_LOOKUP.scanning) return;
+  FACE_LOOKUP.scanning = true;
+  const video = document.getElementById('faceLookupVideo');
+  const status = document.getElementById('faceLookupStatus');
+  const maxAttempts = 20;
+  for (let attempt = 0; attempt < maxAttempts && FACE_LOOKUP.scanning; attempt++) {
+    try {
+      const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+      const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+      if (det) {
+        status.textContent = L('t_face_login_scanning') || '照合中...';
+        const embStr = JSON.stringify(Array.from(det.descriptor));
+        const res = await gasPost(CONFIG.GAS_URL, {
+          action: 'matchFace', embedding: embStr,
+          sessionId: CONFIG.requestId, lang: Q.lang, env: CONFIG.ENV_PARAM,
+        }, 15000);
+        if (res && res.error === 'rate_limited') {
+          status.textContent = L('t_face_login_rate_limited') || '試行回数の上限です';
+          FACE_LOOKUP.scanning = false;
+          stopFaceLookupCamera();
+          setTimeout(closeFaceLookup, 2000);
+          return;
+        }
+        if (res && res.found) {
+          FACE_LOOKUP.candidate = res;
+          showFaceLookupResult(res, 1 - (res.confidence / 100));
+          FACE_LOOKUP.scanning = false;
+          stopFaceLookupCamera();
+          return;
+        }
+      }
+    } catch (e) { console.warn(e); }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  FACE_LOOKUP.scanning = false;
+  status.textContent = L('t_face_login_not_found') || '顔認証が見つかりませんでした';
+  stopFaceLookupCamera();
+  setTimeout(closeFaceLookup, 2500);
 }
 
 /* ============================================================

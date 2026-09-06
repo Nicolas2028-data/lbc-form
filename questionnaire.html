@@ -1457,13 +1457,17 @@ function applyTexts() {
   set('lbl_furiganaGroup_p1', l.lbl_furiganaGroup);
   set('lbl_seiKana_p1', l.lbl_seiKana);
   set('lbl_meiKana_p1', l.lbl_meiKana);
-  // 名前・フリガナグループ: 照合失敗後のみ表示
+  // 名前・フリガナグループ: 照合失敗後 or 新規客(first)フロー時に表示
   const nameGrp = document.getElementById('p1NameGroup');
   if (nameGrp) nameGrp.style.display = Q.nameFieldsVisible ? '' : 'none';
   const kanaGrp = document.getElementById('p1KanaGroup');
   if (kanaGrp) kanaGrp.style.display = (Q.nameFieldsVisible && Q.lang === 'ja') ? '' : 'none';
   const phoneGrp = document.getElementById('phoneGroup');
-  if (phoneGrp) phoneGrp.style.display = Q.nameFieldsVisible ? 'none' : '';
+  // 新規客(first)は名前と電話番号を同時に表示する
+  if (phoneGrp) {
+    const showPhone = !Q.nameFieldsVisible || Q.visitTypeChoice === 'first';
+    phoneGrp.style.display = showPhone ? '' : 'none';
+  }
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
   const _dp = document.getElementById('detail_pregnant_text');     if (_dp)  _dp.placeholder  = l.ph_detail_pregnant  || '';
@@ -1932,9 +1936,21 @@ function revealNameFieldsForFirstVisit() {
 }
 
 async function lookupPatient() {
-  // 名前フィールドが表示済み = 照合失敗後の初回フロー確定ステップ
+  // 名前フィールドが表示済み = 照合失敗後 or 新規客の初回フロー確定ステップ
   if (Q.nameFieldsVisible) {
     if (!validateP1Name()) return;
+    // 新規客(first)フローでは電話番号も同時入力なので必須バリデーション
+    if (Q.visitTypeChoice === 'first') {
+      const phone2 = normPhone(document.getElementById('phone').value);
+      const rawPhone2 = document.getElementById('phone').value.trim()
+        .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/[－]/g, '-');
+      if (!phone2) { showErr('e_phone', L('e_phone'), 'phone'); return; }
+      if (!PHONE_PATTERNS[Q.lang].test(rawPhone2.replace(/[-\s]/g, ''))) {
+        showErr('e_phone', L('e_phone'), 'phone'); return;
+      }
+      clearErr('e_phone', 'phone');
+    }
     showPhase2('first', null, null, '');
     return;
   }
@@ -2095,11 +2111,33 @@ function backToPhase1() {
   document.getElementById('phase1').style.display = 'block';
   document.getElementById('patientInfoCard').style.display = 'none';
   document.getElementById('patientEditCard').style.display = 'none';
-  document.getElementById('lookupBtnCard').style.display = 'block';
-  document.getElementById('phoneGroup').style.display = '';
-  document.getElementById('p1NameGroup').style.display = 'none';
-  document.getElementById('p1KanaGroup').style.display = 'none';
-  Q.nameFieldsVisible = false;
+  // 顔登録のインラインカードもリセット
+  document.getElementById('faceRegInlineCard').style.display = 'none';
+  if (typeof stopFaceAuthCamera === 'function') stopFaceAuthCamera();
+
+  if (Q.visitTypeChoice === 'first') {
+    // 新規客: 認証方法選択に戻す(顔認証やり直し等ができるように)
+    Q.authPrefChoice = null;
+    Q.nameFieldsVisible = false;
+    Q.faceEmbedding = '';
+    FACE_AUTH.samples = [];
+    document.getElementById('authPrefChoiceCard').style.display = '';
+    document.getElementById('phoneCard').style.display = 'none';
+    document.getElementById('lookupBtnCard').style.display = 'none';
+    document.getElementById('faceLoginCard').style.display = 'none';
+  } else if (Q.visitTypeChoice === 'return') {
+    // 既存客: 電話番号入力に戻す
+    document.getElementById('lookupBtnCard').style.display = 'block';
+    document.getElementById('phoneCard').style.display = '';
+    document.getElementById('faceLoginCard').style.display = '';
+    document.getElementById('phoneGroup').style.display = '';
+    document.getElementById('p1NameGroup').style.display = 'none';
+    document.getElementById('p1KanaGroup').style.display = 'none';
+    Q.nameFieldsVisible = false;
+  } else {
+    // フォールバック: 完全リセット
+    if (typeof backToVisitChoice === 'function') backToVisitChoice();
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

@@ -1461,8 +1461,9 @@ function syncCustomerMaster(ss, cfg) {
 
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    var updatedAt = String(r[CM.updated_at]);
-    var syncedAt  = String(r[CM.synced_at]);
+    // 修正 (2026-09-06): Date オブジェクトを ISO に正規化(syncTreatment と同じ理由)
+    var updatedAt = (r[CM.updated_at] instanceof Date) ? r[CM.updated_at].toISOString() : String(r[CM.updated_at]);
+    var syncedAt  = (r[CM.synced_at]  instanceof Date) ? r[CM.synced_at].toISOString()  : String(r[CM.synced_at]);
     if (syncedAt && syncedAt >= updatedAt) continue; // 同期済み
     try {
       var pageId = String(r[CM.notion_page_id]);
@@ -1613,8 +1614,11 @@ function syncTreatment(ss, cfg) {
 
   for (var i = 0; i < rows.length; i++) {
     var r        = rows[i];
-    var updatedAt = String(r[TR.updated_at]);
-    var syncedAt  = String(r[TR.synced_at]);
+    // 修正 (2026-09-06): Google Sheets が ISO 文字列を Date オブジェクトに自動変換する
+    //  → String() で "Thu Sep 03 2026..." になり ISO 形式の syncedAt と比較不能
+    //  → 常に updatedAt > syncedAt になり毎回同期 → カルテページ重複生成
+    var updatedAt = (r[TR.updated_at] instanceof Date) ? r[TR.updated_at].toISOString() : String(r[TR.updated_at]);
+    var syncedAt  = (r[TR.synced_at]  instanceof Date) ? r[TR.synced_at].toISOString()  : String(r[TR.synced_at]);
     if (syncedAt && syncedAt >= updatedAt) continue;
     var errCount = Number(r[TR.error_count] || 0);
     if (errCount >= 5) continue;
@@ -1628,10 +1632,13 @@ function syncTreatment(ss, cfg) {
 
       if (!pageId) {
         // 同日の問診台帳エントリから Notion ページIDを探す
-        var trDate = String(r[TR.date]);
+        // 修正 (2026-09-06): Date オブジェクトを toDateStr で正規化して比較
+        //  従来: String(r[TR.date]) が "Thu Sep 03 2026..." になりマッチしない
+        //  → syncTreatment が毎回カルテページを新規作成する重大バグ
+        var trDate = toDateStr(r[TR.date]);
         for (var q = 0; q < quRows.length; q++) {
           if (String(quRows[q][QU.customer_id]) === custId
-              && String(quRows[q][QU.date]) === trDate
+              && toDateStr(quRows[q][QU.date]) === trDate
               && String(quRows[q][QU.notion_page_id])) {
             pageId = String(quRows[q][QU.notion_page_id]);
             break;
@@ -1641,7 +1648,8 @@ function syncTreatment(ss, cfg) {
 
       if (!pageId) {
         // 問診なし来院 → カルテページを新規作成
-        var dateLabel2 = String(r[TR.date]).replace(/-/g, '/');
+        // 修正 (2026-09-06): タイトル日付を toDateStr で正規化(YYYY/MM/DD)
+        var dateLabel2 = toDateStr(r[TR.date]).replace(/-/g, '/');
         var title2 = (custData ? String(custData.row[CM.name]) : custId) + ' (' + dateLabel2 + ')';
         var langMap3 = { ja: '日本語', es: 'Español', pt: 'Português' };
         var lang2 = custData ? String(custData.row[CM.lang]) : 'ja';
@@ -1676,6 +1684,7 @@ function syncTreatment(ss, cfg) {
 
       notionPatch(cfg, '/pages/' + pageId, { properties: props });
       sheet.getRange(i + 2, TR.notion_page_id + 1).setValue(pageId);
+      // synced_at には ISO 文字列を明示的にセット(次回の比較で updated_at と等しくなるように)
       sheet.getRange(i + 2, TR.synced_at + 1).setValue(updatedAt);
       Utilities.sleep(350);
       synced++;

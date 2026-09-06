@@ -740,6 +740,40 @@
       </div>
     </div>
 
+    <!-- 新規客向け: 顔認証登録カード(初めて + 顔で確認 を選ぶと最初に表示) -->
+    <div class="card" id="faceRegInlineCard" style="display:none;text-align:center">
+      <div class="card-title" style="justify-content:center;border-bottom:none;padding-bottom:0;margin-bottom:10px">
+        <span class="icon">📸</span>
+        <span id="t_face_reg_inline_title">顔を登録しましょう</span>
+      </div>
+      <p class="section-hint" id="t_face_reg_inline_desc" style="margin-bottom:16px">
+        3 回撮影します。カメラに正面から顔を向けてください
+      </p>
+      <video id="faceRegInlineVideo" width="320" height="240" autoplay muted playsinline
+             style="border-radius:12px;background:#000;max-width:100%;height:auto"></video>
+      <div id="faceRegInlineStatus" style="margin-top:10px;font-size:0.9rem;color:var(--text-sub);min-height:1.4em">
+        <span id="t_face_reg_inline_status">カメラを起動中...</span>
+      </div>
+      <div id="faceRegInlineProgressWrap" style="margin-top:6px;font-size:0.85rem;color:var(--text-muted)">
+        <span id="lbl_face_reg_inline_progress">撮影済み: 0 / 3 枚</span>
+      </div>
+      <button type="button" id="faceRegInlineCaptureBtn" class="btn-submit"
+              onclick="captureFaceRegInlineSample()"
+              style="margin-top:16px;background:var(--primary)">
+        <span id="t_face_reg_inline_capture">📸 撮影する</span>
+      </button>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button type="button" onclick="skipFaceRegInline()"
+                style="flex:1;padding:10px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;cursor:pointer;font-family:inherit">
+          <span id="t_face_reg_inline_skip">スキップして電話番号のみで登録</span>
+        </button>
+      </div>
+      <button type="button" onclick="backToVisitChoice()"
+              style="display:block;width:100%;margin-top:10px;padding:8px;background:transparent;color:var(--text-muted);border:none;font-size:0.8rem;cursor:pointer;font-family:inherit">
+        <span id="t_back_to_visit_choice_3">← 最初の選択に戻る</span>
+      </button>
+    </div>
+
     <!-- 新規客向け: 次回以降の認証方法選択カード(初めてを選ぶと表示) -->
     <div class="card" id="authPrefChoiceCard" style="text-align:center;display:none">
       <div class="card-title" style="justify-content:center;border-bottom:none;padding-bottom:0;margin-bottom:10px">
@@ -1757,14 +1791,113 @@ function chooseAuthPref(pref) {
   // pref: 'face'(顔認証希望) or 'phone'(電話番号のみ)
   Q.authPrefChoice = pref;
   document.getElementById('authPrefChoiceCard').style.display = 'none';
+
+  if (pref === 'face') {
+    // 顔認証を先に登録 → 完了後に氏名入力へ
+    document.getElementById('faceRegInlineCard').style.display = '';
+    document.getElementById('phoneCard').style.display = 'none';
+    document.getElementById('lookupBtnCard').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    startFaceRegInline();
+  } else {
+    // 電話番号のみ登録 → すぐ氏名入力へ
+    document.getElementById('faceRegInlineCard').style.display = 'none';
+    document.getElementById('phoneCard').style.display = '';
+    document.getElementById('lookupBtnCard').style.display = 'block';
+    revealNameFieldsForFirstVisit();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+async function startFaceRegInline() {
+  const status = document.getElementById('faceRegInlineStatus');
+  const btn = document.getElementById('faceRegInlineCaptureBtn');
+  btn.disabled = true;
+  FACE_AUTH.samples = [];
+  updateFaceRegInlineProgress();
+  status.textContent = (L('face_loading') || 'モデルを読み込み中...') + ' (初回のみ数秒)';
+  try {
+    if (typeof preloadFaceApiInBackground === 'function') preloadFaceApiInBackground();
+    await loadFaceApiOnce();
+    status.textContent = 'カメラを起動中...';
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 640, height: 480 },
+    });
+    FACE_AUTH.stream = stream;
+    const video = document.getElementById('faceRegInlineVideo');
+    video.srcObject = stream;
+    await new Promise(r => (video.onloadedmetadata = r));
+    await video.play().catch(() => {});
+    status.textContent = L('face_ready') || 'カメラの準備完了。「撮影する」を押してください';
+    btn.disabled = false;
+  } catch (e) {
+    console.error('face reg inline error:', e);
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+    btn.disabled = false;
+  }
+}
+
+function updateFaceRegInlineProgress() {
+  const el = document.getElementById('lbl_face_reg_inline_progress');
+  if (!el) return;
+  const template = L('lbl_face_progress') || '撮影済み: {n} / {total} 枚';
+  el.textContent = template.replace('{n}', FACE_AUTH.samples.length).replace('{total}', FACE_AUTH.totalSamples);
+}
+
+async function captureFaceRegInlineSample() {
+  if (FACE_AUTH.detecting) return;
+  FACE_AUTH.detecting = true;
+  const video = document.getElementById('faceRegInlineVideo');
+  const status = document.getElementById('faceRegInlineStatus');
+  const btn = document.getElementById('faceRegInlineCaptureBtn');
+  btn.disabled = true;
+  status.textContent = L('face_detecting') || '検出中...';
+  try {
+    const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+    if (!det) {
+      status.textContent = L('face_not_found') || '顔が検出できませんでした。もう一度';
+      return;
+    }
+    FACE_AUTH.samples.push(Array.from(det.descriptor));
+    updateFaceRegInlineProgress();
+    if (FACE_AUTH.samples.length >= FACE_AUTH.totalSamples) {
+      // 3 サンプル取れたら平均を Q.faceEmbedding に保存 → 氏名入力へ遷移
+      const avg = new Array(128).fill(0);
+      for (const s of FACE_AUTH.samples) for (let i = 0; i < 128; i++) avg[i] += s[i];
+      for (let i = 0; i < 128; i++) avg[i] /= FACE_AUTH.samples.length;
+      Q.faceEmbedding = JSON.stringify(avg);
+      status.textContent = L('face_done') || '顔認証の登録が完了しました ✓';
+      stopFaceAuthCamera();
+      setTimeout(() => {
+        document.getElementById('faceRegInlineCard').style.display = 'none';
+        document.getElementById('phoneCard').style.display = '';
+        document.getElementById('lookupBtnCard').style.display = 'block';
+        revealNameFieldsForFirstVisit();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 900);
+    } else {
+      status.textContent = L('face_more') || '角度を少し変えて再度撮影してください';
+    }
+  } catch (e) {
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+  } finally {
+    FACE_AUTH.detecting = false;
+    btn.disabled = false;
+  }
+}
+
+function skipFaceRegInline() {
+  // 顔認証をスキップ → 電話番号のみで登録に切替
+  Q.authPrefChoice = 'phone';
+  Q.faceEmbedding = '';
+  FACE_AUTH.samples = [];
+  stopFaceAuthCamera();
+  document.getElementById('faceRegInlineCard').style.display = 'none';
   document.getElementById('phoneCard').style.display = '';
   document.getElementById('lookupBtnCard').style.display = 'block';
   revealNameFieldsForFirstVisit();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  // 顔認証希望なら face-api プリロードを念のため確実に開始
-  if (pref === 'face' && typeof preloadFaceApiInBackground === 'function') {
-    preloadFaceApiInBackground();
-  }
 }
 
 function backToVisitChoice() {
@@ -1772,7 +1905,11 @@ function backToVisitChoice() {
   Q.authPrefChoice = null;
   Q.nameFieldsVisible = false;
   Q.foundPatient = null;
+  Q.faceEmbedding = '';
+  FACE_AUTH.samples = [];
+  if (typeof stopFaceAuthCamera === 'function') stopFaceAuthCamera();
   document.getElementById('visitTypeChoiceCard').style.display = '';
+  document.getElementById('faceRegInlineCard').style.display = 'none';
   document.getElementById('authPrefChoiceCard').style.display = 'none';
   document.getElementById('phoneCard').style.display = 'none';
   document.getElementById('lookupBtnCard').style.display = 'none';
@@ -2762,8 +2899,10 @@ function updateFaceAuthVisibility() {
   const sec = document.getElementById('faceAuthSection');
   if (!sec) return;
   // 新規客が「顔で確認」を選んだ場合のみ表示(電話番号を選んだら非表示)
+  // ただし phase1 でインライン登録済み(Q.faceEmbedding あり)ならもう不要
   const preferredFace = Q.authPrefChoice === 'face';
-  const eligible = Q.visitType === 'first' && preferredFace && isFaceAuthEligible();
+  const alreadyRegistered = !!(Q.faceEmbedding && Q.faceEmbedding.length > 20);
+  const eligible = Q.visitType === 'first' && preferredFace && !alreadyRegistered && isFaceAuthEligible();
   const currentlyVisible = sec.style.display !== 'none';
   sec.style.display = eligible ? 'block' : 'none';
   if (!eligible && currentlyVisible) {
@@ -2908,6 +3047,11 @@ function resetFaceAuth() {
       set('t_auth_pref_face_sub', l.t_auth_pref_face_sub);
       set('t_auth_pref_phone', l.t_auth_pref_phone);
       set('t_auth_pref_phone_sub', l.t_auth_pref_phone_sub);
+      set('t_face_reg_inline_title', l.t_face_reg_inline_title);
+      set('t_face_reg_inline_desc', l.t_face_reg_inline_desc);
+      set('t_face_reg_inline_capture', l.t_face_reg_inline_capture);
+      set('t_face_reg_inline_skip', l.t_face_reg_inline_skip);
+      set('t_back_to_visit_choice_3', l.t_back_to_visit_choice);
     } catch(_) {}
   };
 })();

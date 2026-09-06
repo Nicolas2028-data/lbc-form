@@ -753,6 +753,10 @@
           <span id="t_face_reg_no">今回はやめておく</span>
         </button>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:0.85rem;color:var(--text-sub);cursor:pointer;user-select:none">
+        <input type="checkbox" id="faceRegDontAsk" style="width:16px;height:16px;cursor:pointer">
+        <span id="t_face_reg_dont_ask">今後この案内を表示しない</span>
+      </label>
       <!-- 撮影 UI(consent Yes 後に表示) -->
       <div id="faceRegCapture" style="display:none;margin-top:16px;text-align:center">
         <video id="faceRegVideo" width="320" height="240" autoplay muted playsinline
@@ -1652,8 +1656,8 @@ function showPatientInfo(data) {
 
 function onInfoNoChange() {
   const p = Q.foundPatient;
-  // 既存患者で顔未登録なら「登録しますか?」を提案(2026-09-06)
-  if (p && !p.hasFaceEmbedding && !Q.faceRegAsked) {
+  // 既存患者で顔未登録かつ「今後表示しない」を選んでいなければ「登録しますか?」を提案
+  if (p && !p.hasFaceEmbedding && !p.faceRegDeclined && !Q.faceRegAsked) {
     Q.faceRegAsked = true;
     showFaceRegConsent(p);
     return;
@@ -2623,6 +2627,7 @@ function resetFaceAuth() {
       set('t_face_reg_consent_desc', l.t_face_reg_consent_desc);
       set('t_face_reg_yes', l.t_face_reg_yes);
       set('t_face_reg_no', l.t_face_reg_no);
+      set('t_face_reg_dont_ask', l.t_face_reg_dont_ask);
     } catch(_) {}
   };
 })();
@@ -2665,6 +2670,17 @@ function onFaceRegConsentNo() {
   document.getElementById('faceRegConsentCard').style.display = 'none';
   stopFaceAuthCamera();
   const p = Q.foundPatient;
+  // 「今後表示しない」がチェックされていたらサーバーに永続化
+  const dontAsk = document.getElementById('faceRegDontAsk');
+  if (dontAsk && dontAsk.checked && p && p.customerId) {
+    const payload = {
+      action: 'updateCustomerInfo', customerId: p.customerId,
+      phone: p.phone || document.getElementById('phone').value,
+      faceRegDeclined: true, lang: Q.lang, env: CONFIG.ENV_PARAM,
+    };
+    // fire-and-forget: 失敗してもユーザー体験は止めない
+    gasPost(CONFIG.GAS_URL, payload, 10000).catch(function(e) { console.warn('faceRegDeclined save failed', e); });
+  }
   showPhase2('return', p.customerId, p.patientNum, p.name);
 }
 

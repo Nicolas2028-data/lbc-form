@@ -199,6 +199,7 @@
   "t_face_reg_consent_desc": "En su próxima visita, podrá identificarse solo con la cámara. El registro es opcional.",
   "t_face_reg_yes": "Sí, registrar",
   "t_face_reg_no": "Ahora no",
+  "t_face_reg_dont_ask": "No mostrar más este aviso",
   "t_face_reg_success": "Rostro registrado ✓",
   "t_face_reg_fail": "Error al registrar",
   "t_face_login_scanning": "Verificando su rostro...",

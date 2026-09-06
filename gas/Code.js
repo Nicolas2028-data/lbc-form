@@ -24,7 +24,8 @@ const CM = { // 顧客マスタ
   customer_id:0, name:1, furigana:2, phone:3, email:4, dob:5,
   first_visit:6, lang:7, how_found:8, address:9, status:10,
   notion_page_id:11, created_at:12, updated_at:13, synced_at:14,
-  face_embedding:15, // 顔認証用 128次元 float 配列(JSON文字列)。Notion 同期対象外
+  face_embedding:15,     // 顔認証用 128次元 float 配列(JSON文字列)。Notion 同期対象外
+  face_reg_declined:16,  // 顔認証登録案内を「今後表示しない」を選んだ場合 TRUE
 };
 const TR = { // 施術台帳
   entry_id:0, type:1, target_entry_id:2, date:3, customer_id:4,
@@ -426,7 +427,7 @@ function acquireLedgerLock(waitMs) {
 function appendCustomer(ss, data, customerId) {
   var now = nowISO();
   var phone = normalizePhone(data.phone || '');
-  var row = makeRow(16, {
+  var row = makeRow(17, {
     [CM.customer_id]:    customerId,
     [CM.name]:           sanitizeSheetInput(data.name || ''),
     [CM.furigana]:       sanitizeSheetInput(data.furigana || ''),
@@ -443,6 +444,7 @@ function appendCustomer(ss, data, customerId) {
     [CM.updated_at]:     now,
     [CM.synced_at]:      '',
     [CM.face_embedding]: data.faceEmbedding ? String(data.faceEmbedding).slice(0, 5000) : '',
+    [CM.face_reg_declined]: '',
   });
   ss.getSheetByName('顧客マスタ').appendRow(row);
   return customerId;
@@ -528,6 +530,8 @@ function handleLookupPatient(data, cfg) {
       email:            String(r[CM.email] || ''),
       // 顔認証登録状況(2026-09-06): フロントで「顔登録しますか?」を提案するため
       hasFaceEmbedding: !!(String(r[CM.face_embedding] || '').length > 20),
+      // 「今後表示しない」を選んだかどうか(TRUE 文字列で保存)
+      faceRegDeclined:  String(r[CM.face_reg_declined] || '').toUpperCase() === 'TRUE',
     };
   }
 
@@ -565,6 +569,7 @@ function handleUpdateCustomerInfo(data, cfg) {
     if (data.newPhone) fields[CM.phone]     = normalizePhone(String(data.newPhone));
     if (typeof data.email !== 'undefined') fields[CM.email] = sanitizeSheetInput(String(data.email));
     if (typeof data.faceEmbedding !== 'undefined') fields[CM.face_embedding] = String(data.faceEmbedding).slice(0, 5000);
+    if (typeof data.faceRegDeclined !== 'undefined') fields[CM.face_reg_declined] = data.faceRegDeclined ? 'TRUE' : '';
 
     if (Object.keys(fields).length === 0) return { success: true }; // 変更なし
 
@@ -1630,8 +1635,12 @@ function countUnsyncedRows(ss) {
 // 顧客マスタ → Notion 顧客マスタ DB upsert
 function syncCustomerMaster(ss, cfg) {
   var sheet = ss.getSheetByName('顧客マスタ');
+  // ヘッダー整合: face_reg_declined 列(17列目)がなければ自動追加
+  if (String(sheet.getRange(1, CM.face_reg_declined + 1).getValue()) !== 'face_reg_declined') {
+    sheet.getRange(1, CM.face_reg_declined + 1).setValue('face_reg_declined');
+  }
   var rows  = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 16).getValues() : [];
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues() : [];
   var synced = 0;
 
   for (var i = 0; i < rows.length; i++) {

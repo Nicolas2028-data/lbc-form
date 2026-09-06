@@ -199,6 +199,7 @@
   "t_face_reg_consent_desc": "次回のご来院時、カメラだけで本人確認できるようになります。任意でご登録いただけます。",
   "t_face_reg_yes": "はい、登録します",
   "t_face_reg_no": "今回はやめておく",
+  "t_face_reg_dont_ask": "今後この案内を表示しない",
   "t_face_reg_success": "顔認証を登録しました ✓",
   "t_face_reg_fail": "登録に失敗しました",
   "t_face_login_scanning": "お顔を確認中...",

@@ -1542,10 +1542,12 @@ async function onInfoEditSave() {
   document.getElementById('editLoading').style.display = 'block';
 
   try {
-    const payload = { action: 'updateCustomerInfo', customerId: Q.foundPatient.customerId, lang: Q.lang, env: CONFIG.ENV_PARAM, email };
+    // phone = 認証用の登録済み電話番号(所有権証明・GAS 側で照合)
+    // newPhone = 変更後の電話番号(ユーザーが電話も変更した場合のみ)
+    const payload = { action: 'updateCustomerInfo', customerId: Q.foundPatient.customerId, phone: Q.foundPatient.phone, lang: Q.lang, env: CONFIG.ENV_PARAM, email };
     if (name)  payload.name     = name;
     if (kana)  payload.furigana = kana;
-    if (phone) payload.phone    = phone;
+    if (phone && phone !== Q.foundPatient.phone) payload.newPhone = phone;
 
     const res = await gasPost(CONFIG.GAS_URL, payload, 15000);
     document.getElementById('editLoading').style.display = 'none';

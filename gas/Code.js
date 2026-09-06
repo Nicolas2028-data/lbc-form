@@ -83,6 +83,11 @@ function doPost(e) {
       if (!authVR.ok) return jsonRes({ success: false, error: authVR.error, remainingSec: authVR.remainingSec });
       return jsonRes(handleSubmitVoidRecord(data, cfg));
     }
+    if (action === 'adminForceVoid') {
+      var authAF = verifyStaffPassword(data.password, cfg);
+      if (!authAF.ok) return jsonRes({ success: false, error: authAF.error, remainingSec: authAF.remainingSec });
+      return jsonRes(handleAdminForceVoid(data, cfg));
+    }
     return jsonRes({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     Logger.log('doPost error [' + action + ']: ' + err.message + '\n' + err.stack);
@@ -98,34 +103,65 @@ function doGet(e) {
 
     if (p.action === 'getSlots')          return jsonRes(getMonthSlots(p.month, cfg));
     if (p.action === 'verifyStaff')       return jsonRes(handleVerifyStaff(p, cfg));
-    if (p.action === 'runDiagnose'        && p.pw === cfg.STAFF_PASSWORD) return jsonRes({ report: diagnoseSyncIssues() });
-    if (p.action === 'runResetSyncErrors' && p.pw === cfg.STAFF_PASSWORD) return jsonRes({ reset: resetSyncErrors() });
-    if (p.action === 'runDetailedReport'  && p.pw === cfg.STAFF_PASSWORD) return jsonRes(getDetailedReport(p.date || null));
+    if (p.action === 'runDiagnose') {
+      var authRD = verifyStaffPassword(p.pw, cfg);
+      if (!authRD.ok) return jsonRes({ success: false, error: authRD.error, remainingSec: authRD.remainingSec });
+      return jsonRes({ report: diagnoseSyncIssues() });
+    }
+    if (p.action === 'runResetSyncErrors') {
+      var authRR = verifyStaffPassword(p.pw, cfg);
+      if (!authRR.ok) return jsonRes({ success: false, error: authRR.error, remainingSec: authRR.remainingSec });
+      return jsonRes({ reset: resetSyncErrors() });
+    }
+    if (p.action === 'runDetailedReport') {
+      var authDR = verifyStaffPassword(p.pw, cfg);
+      if (!authDR.ok) return jsonRes({ success: false, error: authDR.error, remainingSec: authDR.remainingSec });
+      return jsonRes(getDetailedReport(p.date || null));
+    }
+    // dev* エンドポイント: 2 段構えの保護 (2026-09-06 強化)
+    //  - 1段目: cfg._env === 'staging' (production の場合は resolveEnv が null 返却で無効化)
+    //  - 2段目: STAFF_PASSWORD 認証 (verifyStaffPassword でブルートフォース保護付き)
+    //  - devSetStagingPw のみ、初回セットアップ用にパスワード未設定時のみバイパス許可
     if (p.action === 'devResetAuthLock' && cfg._env === 'staging') {
+      var authDR = verifyStaffPassword(p.pw, cfg);
+      if (!authDR.ok) return jsonRes({ success: false, error: authDR.error, remainingSec: authDR.remainingSec });
       PropertiesService.getScriptProperties().deleteProperty('bf_staff_staging');
       return jsonRes({ cleared: true });
     }
     if (p.action === 'devFixPhones' && cfg._env === 'staging') {
+      var authFP = verifyStaffPassword(p.pw, cfg);
+      if (!authFP.ok) return jsonRes({ success: false, error: authFP.error, remainingSec: authFP.remainingSec });
       fixExistingPhones(cfg);
       return jsonRes({ done: true });
     }
     if (p.action === 'devCheckTriggers' && cfg._env === 'staging') {
+      var authCT = verifyStaffPassword(p.pw, cfg);
+      if (!authCT.ok) return jsonRes({ success: false, error: authCT.error, remainingSec: authCT.remainingSec });
       var triggers = ScriptApp.getProjectTriggers().map(function(t) {
         return { fn: t.getHandlerFunction(), type: t.getEventType() + '' };
       });
       return jsonRes({ triggers: triggers });
     }
     if (p.action === 'devInstallTriggers' && cfg._env === 'staging') {
+      var authIT = verifyStaffPassword(p.pw, cfg);
+      if (!authIT.ok) return jsonRes({ success: false, error: authIT.error, remainingSec: authIT.remainingSec });
       installTriggers();
       return jsonRes({ done: true });
     }
     if (p.action === 'devSetStagingPw' && cfg._env === 'staging') {
+      // 初回セットアップ時のみパスワード不要でバイパス許可
+      if (cfg.STAFF_PASSWORD) {
+        var authSP = verifyStaffPassword(p.currentPw, cfg);
+        if (!authSP.ok) return jsonRes({ success: false, error: authSP.error, remainingSec: authSP.remainingSec });
+      }
       var newPw = String(p.pw || '');
       if (newPw.length < 4) return jsonRes({ ok: false, error: 'pw too short' });
       PropertiesService.getScriptProperties().setProperty('STAFF_PASSWORD', newPw);
       return jsonRes({ ok: true });
     }
     if (p.action === 'devSetProductionDbIds' && cfg._env === 'staging') {
+      var authSD = verifyStaffPassword(p.pw, cfg);
+      if (!authSD.ok) return jsonRes({ success: false, error: authSD.error, remainingSec: authSD.remainingSec });
       var cId = String(p.customerDbId || '');
       var kId = String(p.karteDbId || '');
       if (!cId || !kId) return jsonRes({ ok: false, error: 'customerDbId and karteDbId required' });
@@ -432,6 +468,12 @@ function handleUpdateCustomerInfo(data, cfg) {
   var customerId = String(data.customerId || '');
   if (!customerId) return { success: false, error: 'customerId required' };
 
+  // 認可: 電話番号の一致を所有権証明として要求(2026-09-06 修正)
+  //  - 患者は lookupPatient で電話番号を入力しており、フロントで既知
+  //  - customerId を推測して他人の情報を書き換える攻撃を防ぐ
+  var verifyPhone = normalizePhone(String(data.phone || ''));
+  if (!verifyPhone) return { success: false, error: 'phone required for verification' };
+
   var ss = getLedger(cfg);
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -439,10 +481,17 @@ function handleUpdateCustomerInfo(data, cfg) {
     var found = findCustomerById(ss, customerId);
     if (!found) return { success: false, error: 'Customer not found' };
 
+    // 電話番号一致確認
+    var registeredPhone = normalizePhone(String(found.row[CM.phone] || ''));
+    if (registeredPhone !== verifyPhone) {
+      logAccess(ss, 'updateCustomerInfo', data.requestId || '', 'phone_mismatch', '', 0, customerId);
+      return { success: false, error: 'auth_fail' };
+    }
+
     var fields = {};
     if (data.name)     fields[CM.name]     = String(data.name);
     if (data.furigana) fields[CM.furigana]  = String(data.furigana);
-    if (data.phone)    fields[CM.phone]     = normalizePhone(String(data.phone));
+    if (data.newPhone) fields[CM.phone]     = normalizePhone(String(data.newPhone));
     if (typeof data.email !== 'undefined') fields[CM.email] = String(data.email);
 
     if (Object.keys(fields).length === 0) return { success: true }; // 変更なし
@@ -644,11 +693,23 @@ function resetAuthLock() {
   Logger.log('Auth lock cleared for production and staging.');
 }
 
+// タイミング攻撃耐性のある文字列比較(同じ長さのものだけ constant-time で比較)
+function safeCompare(a, b) {
+  a = String(a || '');
+  b = String(b || '');
+  if (a.length !== b.length) return false;
+  var result = 0;
+  for (var i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 function verifyStaffPassword(password, cfg) {
   if (!cfg.STAFF_PASSWORD) return { ok: false, error: 'config_error', message: 'STAFF_PASSWORD が設定されていません。GAS スクリプトプロパティを確認してください。' };
   var bf = checkBruteForce(cfg);
   if (!bf.allowed) return { ok: false, error: 'auth_locked', remainingSec: bf.remainingSec };
-  if (!password || password !== cfg.STAFF_PASSWORD) {
+  if (!password || !safeCompare(password, cfg.STAFF_PASSWORD)) {
     recordAuthFail(cfg);
     return { ok: false, error: 'auth_fail' };
   }
@@ -965,10 +1026,13 @@ function handleSubmitVoidRecord(data, cfg) {
   });
   sheet.appendRow(voidRow);
 
-  // 元 record の updated_at を更新 → 次の同期サイクルで Notion ステータスを「取消」に変更
+  // 元 record の updated_at + count_eligible を更新
+  //  - updated_at: 次の同期サイクルで Notion ステータスを「取消」に変更
+  //  - count_eligible: FALSE にして集計対象から除外(SPEC 2.2/5.2, 修正 2026-09-06)
   for (var j = 0; j < rows.length; j++) {
     if (String(rows[j][TR.entry_id]) === targetId) {
       sheet.getRange(j + 2, TR.updated_at + 1).setValue(now);
+      sheet.getRange(j + 2, TR.count_eligible + 1).setValue('FALSE');
       break;
     }
   }
@@ -981,6 +1045,78 @@ function handleSubmitVoidRecord(data, cfg) {
 
   logAccess(ss, 'voidTreatmentRecord', data.requestId || '', 'ok', '', 0, customerId);
   return { success: true };
+}
+
+/* ============================================================
+   管理者強制取消 (日付制限なし — 過去日修正用)
+   ============================================================ */
+
+function handleAdminForceVoid(data, cfg) {
+  var ss         = getLedger(cfg);
+  var sheet      = ss.getSheetByName('施術台帳');
+  var rows       = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+  var targetId   = String(data.targetEntryId || '');
+  var customerId = String(data.customerId || '');
+  var reason     = String(data.reason || '管理者取消');
+
+  if (!targetId || !customerId) return { success: false, error: 'targetEntryId and customerId required' };
+
+  var origRow = null;
+  var alreadyVoided = false;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][TR.entry_id]) === targetId) { origRow = rows[i]; }
+    if (String(rows[i][TR.type]) === 'void' && String(rows[i][TR.target_entry_id]) === targetId) {
+      alreadyVoided = true;
+    }
+  }
+  if (!origRow)                                        return { success: false, error: 'record_not_found' };
+  if (String(origRow[TR.customer_id]) !== customerId)  return { success: false, error: 'customer_mismatch' };
+  if (String(origRow[TR.type]) !== 'record')           return { success: false, error: 'not_a_record_row' };
+  if (alreadyVoided)                                   return { success: false, error: 'already_voided' };
+
+  var now    = nowISO();
+  var voidId = genUUID();
+  var origDate = origRow[TR.date];
+  var voidRow = makeRow(18, {
+    [TR.entry_id]:             voidId,
+    [TR.type]:                 'void',
+    [TR.target_entry_id]:      targetId,
+    [TR.date]:                 toDateStr(origDate),
+    [TR.customer_id]:          customerId,
+    [TR.course]:               String(origRow[TR.course] || ''),
+    [TR.sales]:                -(Number(origRow[TR.sales]) || 0),
+    [TR.payment]:              String(origRow[TR.payment] || ''),
+    [TR.memo]:                 '【管理者取消】' + reason + ' / ' + String(origRow[TR.memo] || ''),
+    [TR.has_questionnaire]:    'FALSE',
+    [TR.credit_used]:          -(Number(origRow[TR.credit_used]) || 0),
+    [TR.referrer_customer_id]: '',
+    [TR.count_eligible]:       'FALSE',
+    [TR.notion_page_id]:       '',
+    [TR.created_at]:           now,
+    [TR.updated_at]:           now,
+    [TR.synced_at]:            now,
+    [TR.error_count]:          0,
+  });
+  sheet.appendRow(voidRow);
+
+  // 元 record の updated_at + count_eligible を更新(SPEC 2.2/5.2, 修正 2026-09-06)
+  for (var j = 0; j < rows.length; j++) {
+    if (String(rows[j][TR.entry_id]) === targetId) {
+      sheet.getRange(j + 2, TR.updated_at + 1).setValue(now);
+      sheet.getRange(j + 2, TR.count_eligible + 1).setValue('FALSE');
+      break;
+    }
+  }
+
+  incSyncCounter(ss);
+
+  if (Number(origRow[TR.credit_used]) > 0) {
+    appendCreditEntry(ss, customerId, 'refund', Number(origRow[TR.credit_used]), targetId, '');
+  }
+
+  logAccess(ss, 'adminForceVoid', data.requestId || '', 'ok', reason, 0, customerId);
+  return { success: true, voidEntryId: voidId, targetEntryId: targetId };
 }
 
 /* ============================================================
@@ -2096,6 +2232,10 @@ function saveBodyImage(cfg, base64DataUrl, prefix, subfolderName) {
     }
 
     var file = target.createFile(blob);
+    // 2 段構えのアクセス制御 (2026-09-06):
+    //   - フォルダ側: Nicolas 所有 + ルカス writer のみ(閲覧・ブラウズ不可)
+    //   - ファイル個別: ANYONE_WITH_LINK VIEW(Notion inline preview のため)
+    // URL は不可推測(Drive の乱数ID)。台帳・Notion カルテ経由でのみ流通する前提。
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return 'https://drive.google.com/file/d/' + file.getId() + '/preview';
   } catch(e) {
@@ -2633,16 +2773,16 @@ function recoverProductionProperties() {
   // 既存値を保持したまま、消えた値だけ補完する
   var toSet = {};
 
-  if (!current.CUSTOMER_DB_ID)
-    toSet.CUSTOMER_DB_ID = 'bafca368-66c7-4bb7-8129-65c2e966cd51';
-  if (!current.KARTE_DB_ID)
-    toSet.KARTE_DB_ID = '1fe16e73-6413-44d5-ba61-a56cd235b7b5';
-  if (!current.STAGING_CUSTOMER_DB_ID)
-    toSet.STAGING_CUSTOMER_DB_ID = '3af88446-d062-812c-998a-ef68015d5ea5';
-  if (!current.SITE_URL)
-    toSet.SITE_URL = 'https://nicolas2028-data.github.io/lbc-form';
-  if (!current.NOTIFY_EMAIL)
-    toSet.NOTIFY_EMAIL = 'v.nico2003@gmail.com';
+  // ハードコード削除 (2026-09-06 セキュリティ修正):
+  // 本番 ID・メール等は公開リポジトリに commit してはいけない。
+  // 復旧が必要な場合は GAS エディタ → プロジェクト設定 → スクリプトプロパティで
+  // 手動入力すること。以下の一覧を Nicolas の別途保管する記録から補完:
+  //   CUSTOMER_DB_ID, KARTE_DB_ID, STAGING_CUSTOMER_DB_ID, SITE_URL, NOTIFY_EMAIL
+  Logger.log('⚠️  ハードコードの復旧値は削除されました。');
+  Logger.log('   欠損プロパティ: ' +
+    ['CUSTOMER_DB_ID','KARTE_DB_ID','STAGING_CUSTOMER_DB_ID','SITE_URL','NOTIFY_EMAIL']
+      .filter(function(k){ return !current[k]; }).join(', ') || '(なし)');
+  Logger.log('   → GAS エディタからスクリプトプロパティで手動設定してください。');
 
   if (Object.keys(toSet).length > 0) {
     props.setProperties(toSet);
@@ -2662,6 +2802,90 @@ function recoverProductionProperties() {
   Logger.log('NOTIFY_EMAIL: '          + (c.NOTIFY_EMAIL || '(未設定)'));
   Logger.log('DRIVE_FOLDER_ID: '       + (c.DRIVE_FOLDER_ID ? '✅ 設定済み' : '⚠️ 未設定（人体図機能に必要）'));
   Logger.log('STAGING_CUSTOMER_DB_ID: '+ (c.STAGING_CUSTOMER_DB_ID || '(未設定)'));
+}
+
+// DRIVE_FOLDER_ID の実値を表示する診断関数(Drive 整理時の確認用)
+function showDriveFolderId() {
+  var id = PropertiesService.getScriptProperties().getProperty('DRIVE_FOLDER_ID');
+  Logger.log('DRIVE_FOLDER_ID (実値): ' + id);
+  if (id === '1F7nAzq-MAGUmrnXm__yyQjyVaV7xanuh') {
+    Logger.log('→ LBC整体院/01_運用/患者画像/ (期待通り)');
+  } else if (id === '11iihJtbdecfI-c4kmdkoeitsdcINEqcN') {
+    Logger.log('→ LBC整体院/old/旧LBC人体図_初期テスト_P003-P009/ (⚠️ 想定外)');
+  } else {
+    Logger.log('→ どちらでもない ID。Drive で確認要');
+  }
+}
+
+// doGet からログ取得できるバージョン(JSON を返す)
+function runTestWriteToNewDrive(cfg, keep) {
+  var out = { logs: [] };
+  function log(msg) { out.logs.push(msg); }
+
+  if (!cfg.DRIVE_FOLDER_ID) { out.error = 'DRIVE_FOLDER_ID 未設定'; return out; }
+
+  var testPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+  log('DRIVE_FOLDER_ID: ' + cfg.DRIVE_FOLDER_ID);
+
+  var url = saveBodyImage(cfg, testPng, 'TEST_' + Date.now(), '人体図');
+  if (!url) { out.error = 'saveBodyImage が空文字を返しました'; return out; }
+
+  var fileId = url.match(/\/d\/([^\/]+)\//)[1];
+  var file = DriveApp.getFileById(fileId);
+  var parent = file.getParents().hasNext() ? file.getParents().next() : null;
+  var grandParent = parent && parent.getParents().hasNext() ? parent.getParents().next() : null;
+
+  out.success = true;
+  out.fileName = file.getName();
+  out.parentName = parent ? parent.getName() : null;
+  out.parentId = parent ? parent.getId() : null;
+  out.grandParentName = grandParent ? grandParent.getName() : null;
+  out.grandParentId = grandParent ? grandParent.getId() : null;
+  out.url = url;
+  out.sharingAccess = String(file.getSharingAccess());
+  out.sharingPermission = String(file.getSharingPermission());
+  out.fileId = fileId;
+
+  if (!keep) {
+    file.setTrashed(true);
+    out.cleanedUp = true;
+  }
+  return out;
+}
+
+// Drive 書き込み先の疎通確認(自動クリーンアップ)
+// 期待動作: LBC整体院/01_運用/患者画像/人体図/ にテストファイルが一瞬作られて即削除
+// アクセス設定・親フォルダ・URL を Logger に出力
+function testWriteToNewDrive() {
+  var cfg = getConfig();
+  if (!cfg.DRIVE_FOLDER_ID) { Logger.log('❌ DRIVE_FOLDER_ID 未設定'); return; }
+
+  // 1x1 透明 PNG(base64)
+  var testPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+
+  Logger.log('--- 書き込みテスト開始 ---');
+  Logger.log('DRIVE_FOLDER_ID: ' + cfg.DRIVE_FOLDER_ID);
+
+  var url = saveBodyImage(cfg, testPng, 'TEST_' + Date.now(), '人体図');
+  if (!url) { Logger.log('❌ saveBodyImage が空文字を返しました'); return; }
+
+  var fileId = url.match(/\/d\/([^\/]+)\//)[1];
+  var file = DriveApp.getFileById(fileId);
+  var parent = file.getParents().hasNext() ? file.getParents().next() : null;
+  var grandParent = parent && parent.getParents().hasNext() ? parent.getParents().next() : null;
+
+  Logger.log('✅ 書き込み成功');
+  Logger.log('  ファイル名: ' + file.getName());
+  Logger.log('  親フォルダ: ' + (parent ? parent.getName() : '(なし)') + ' (' + (parent ? parent.getId() : '') + ')');
+  Logger.log('  祖父フォルダ: ' + (grandParent ? grandParent.getName() : '(なし)') + ' (' + (grandParent ? grandParent.getId() : '') + ')');
+  Logger.log('  URL: ' + url);
+  Logger.log('  アクセス設定: ' + file.getSharingAccess() + ' / ' + file.getSharingPermission());
+  Logger.log('  (期待値: PRIVATE / NONE — 公開設定になっていたらセキュリティ問題)');
+
+  // クリーンアップ
+  file.setTrashed(true);
+  Logger.log('✅ テストファイルをゴミ箱に移動しました');
+  Logger.log('--- テスト終了 ---');
 }
 
 /* ============================================================

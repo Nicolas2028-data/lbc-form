@@ -24,6 +24,7 @@ const CM = { // 顧客マスタ
   customer_id:0, name:1, furigana:2, phone:3, email:4, dob:5,
   first_visit:6, lang:7, how_found:8, address:9, status:10,
   notion_page_id:11, created_at:12, updated_at:13, synced_at:14,
+  face_embedding:15, // 顔認証用 128次元 float 配列(JSON文字列)。Notion 同期対象外
 };
 const TR = { // 施術台帳
   entry_id:0, type:1, target_entry_id:2, date:3, customer_id:4,
@@ -77,6 +78,9 @@ function doPost(e) {
       var authDP = verifyStaffPassword(data.password, cfg);
       if (!authDP.ok) return jsonRes({ success: false, error: authDP.error, remainingSec: authDP.remainingSec });
       return jsonRes(handleGetPatientDetails(data.customerId, cfg));
+    }
+    if (action === 'getFaceEmbeddings') {
+      return jsonRes(handleGetFaceEmbeddings(data, cfg));
     }
     if (action === 'submitVoidRecord') {
       var authVR = verifyStaffPassword(data.password, cfg);
@@ -402,7 +406,7 @@ function acquireLedgerLock(waitMs) {
 function appendCustomer(ss, data, customerId) {
   var now = nowISO();
   var phone = normalizePhone(data.phone || '');
-  var row = makeRow(15, {
+  var row = makeRow(16, {
     [CM.customer_id]:    customerId,
     [CM.name]:           sanitizeSheetInput(data.name || ''),
     [CM.furigana]:       sanitizeSheetInput(data.furigana || ''),
@@ -418,6 +422,7 @@ function appendCustomer(ss, data, customerId) {
     [CM.created_at]:     now,
     [CM.updated_at]:     now,
     [CM.synced_at]:      '',
+    [CM.face_embedding]: data.faceEmbedding ? String(data.faceEmbedding).slice(0, 5000) : '',
   });
   ss.getSheetByName('顧客マスタ').appendRow(row);
   return customerId;
@@ -533,10 +538,11 @@ function handleUpdateCustomerInfo(data, cfg) {
     }
 
     var fields = {};
-    if (data.name)     fields[CM.name]     = String(data.name);
-    if (data.furigana) fields[CM.furigana]  = String(data.furigana);
+    if (data.name)     fields[CM.name]     = sanitizeSheetInput(String(data.name));
+    if (data.furigana) fields[CM.furigana]  = sanitizeSheetInput(String(data.furigana));
     if (data.newPhone) fields[CM.phone]     = normalizePhone(String(data.newPhone));
-    if (typeof data.email !== 'undefined') fields[CM.email] = String(data.email);
+    if (typeof data.email !== 'undefined') fields[CM.email] = sanitizeSheetInput(String(data.email));
+    if (typeof data.faceEmbedding !== 'undefined') fields[CM.face_embedding] = String(data.faceEmbedding).slice(0, 5000);
 
     if (Object.keys(fields).length === 0) return { success: true }; // 変更なし
 
@@ -873,6 +879,37 @@ function handleGetPatientList(cfg) {
     });
   }
   return { success: true, patients: patients };
+}
+
+/* ============================================================
+   ハンドラ: 顔認証 embedding 一括取得 (Face Auth Phase 1)
+   ============================================================ */
+
+// active な顧客の face_embedding + customerId + name を返却
+// 認証: staff password 必須(customerId + name の PII 保護のため)
+// iPad kiosk 運用前提: Lucas が朝一度パスワード入力 → sessionStorage 保持
+function handleGetFaceEmbeddings(data, cfg) {
+  cfg = cfg || getConfig();
+  var authResult = verifyStaffPassword(data.password, cfg);
+  if (!authResult.ok) {
+    return { success: false, error: authResult.error, remainingSec: authResult.remainingSec };
+  }
+
+  var ss = getLedger(cfg);
+  var rows = getSheetData(ss, '顧客マスタ');
+  var patients = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[CM.status]) === 'archived') continue;
+    var emb = String(r[CM.face_embedding] || '');
+    if (!emb) continue;
+    patients.push({
+      customerId: String(r[CM.customer_id]),
+      name:       String(r[CM.name] || ''),
+      embedding:  emb, // JSON 文字列(128次元 float 配列)
+    });
+  }
+  return { success: true, count: patients.length, patients: patients };
 }
 
 /* ============================================================
@@ -3207,7 +3244,7 @@ function testWriteToNewDrive() {
 
 var SHEET_DEFS = {
   '顧客マスタ': {
-    headers: ['診察番号','氏名','フリガナ','電話番号','メールアドレス','生年月日','初回来院日','言語','来院のきっかけ','住所','ステータス','[Notion ID]','[登録日時]','[更新日時]','[同期日時]'],
+    headers: ['診察番号','氏名','フリガナ','電話番号','メールアドレス','生年月日','初回来院日','言語','来院のきっかけ','住所','ステータス','[Notion ID]','[登録日時]','[更新日時]','[同期日時]','[顔認証]'],
     systemFrom: 11, // index 11以降がシステム列
   },
   '施術台帳': {

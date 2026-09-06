@@ -72,6 +72,7 @@
 | M | created_at | ISO8601 | |
 | N | updated_at | ISO8601 | onEdit / スクリプトが更新 |
 | O | synced_at | ISO8601 | 同期トリガーが更新 |
+| P | face_embedding | JSON文字列 | 顔認証 128次元 float 配列(2026-09-06 追加、Phase 1)。Notion 同期対象外。生顔画像は保存しない |
 
 ### 2.2 タブ: `施術台帳` (追記専用)
 

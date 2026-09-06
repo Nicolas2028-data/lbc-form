@@ -677,9 +677,6 @@
         <div class="field-label"><span id="lbl_phone">電話番号</span><span class="badge-req">必須</span></div>
         <input type="tel" id="phone" autocomplete="tel" inputmode="numeric" oninput="formatPhone(this)" onblur="onPhoneBlur()">
         <div class="hint" id="phone_hint">数字のみ入力（ハイフン自動入力）</div>
-        <div id="faceVerifiedHint" style="display:none;margin-top:8px;padding:8px 10px;background:#e8f5e9;border-left:3px solid #0e4d3c;border-radius:4px;font-size:0.85rem;color:#0e4d3c">
-          <span id="t_face_verified_hint">✓ 顔認証で本人確認済み。念のため電話番号もご入力ください</span>
-        </div>
         <div class="field-error" id="e_phone"></div>
       </div>
     </div>
@@ -1223,7 +1220,6 @@ const Q = {
   patientNum: null,
   lookupCandidates: [],
   faceEmbedding: '',    // 顔認証 Phase 1: 平均化した 128次元 float 配列(JSON文字列)
-  faceVerifiedCustomerId: null, // 顔認証で本人確認済みの customerId(電話番号照合と二段階検証)
 };
 
 /* ============================================================
@@ -1623,16 +1619,6 @@ async function lookupPatient() {
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
     if (!data.success) { toast(L('err_lookup'), 'error'); return; }
-    // 顔認証で識別された顧客 と 電話番号で見つかった顧客 が一致するかチェック(2 段階認証)
-    if (Q.faceVerifiedCustomerId) {
-      if (!data.found || data.customerId !== Q.faceVerifiedCustomerId) {
-        toast(L('t_face_phone_mismatch') || '顔認証と電話番号が一致しません。再度お試しください。', 'error');
-        Q.faceVerifiedCustomerId = null;
-        var hint = document.getElementById('faceVerifiedHint');
-        if (hint) hint.style.display = 'none';
-        return;
-      }
-    }
     if (data.found) {
       showPatientInfo(data);
     } else {
@@ -2637,7 +2623,6 @@ function resetFaceAuth() {
       set('t_face_reg_consent_desc', l.t_face_reg_consent_desc);
       set('t_face_reg_yes', l.t_face_reg_yes);
       set('t_face_reg_no', l.t_face_reg_no);
-      set('t_face_verified_hint', l.t_face_verified_hint);
     } catch(_) {}
   };
 })();
@@ -3050,13 +3035,15 @@ function escapeHtml(s) {
 function acceptFaceLookup() {
   var p = FACE_LOOKUP.candidate;
   if (!p) { closeFaceLookup(); return; }
-  // 顔認証で本人らしいことは確認できたが、電話番号入力は必須(2 段階認証)
-  Q.faceVerifiedCustomerId = p.customerId;
+  Q.foundPatient = { customerId: p.customerId, patientNum: p.patientNum, name: p.name, furigana: p.furigana, email: p.email, phone: p.phone };
+  Q.customerId = p.customerId;
+  Q.patientNum = p.patientNum;
+  // 顔認証で一致した既存客はショートカット(電話番号入力を省略)
+  if (p.phone) document.getElementById('phone').value = p.phone;
   closeFaceLookup();
-  var phone = document.getElementById('phone');
-  if (phone) { phone.value = ''; phone.focus(); }
-  var hint = document.getElementById('faceVerifiedHint');
-  if (hint) hint.style.display = 'block';
+  if (typeof showPatientInfo === 'function') {
+    showPatientInfo({ customerId: p.customerId, patientNum: p.patientNum, name: p.name, furigana: p.furigana, email: p.email });
+  }
 }
 
 function rejectFaceLookup() {

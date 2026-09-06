@@ -203,7 +203,5 @@
   "t_face_reg_fail": "登録に失敗しました",
   "t_face_login_scanning": "お顔を確認中...",
   "t_face_login_not_found": "顔認証が見つかりませんでした。電話番号でお願いします",
-  "t_face_login_rate_limited": "試行回数の上限です。しばらくお待ちください",
-  "t_face_verified_hint": "✓ 顔認証で本人確認済み。念のため電話番号もご入力ください",
-  "t_face_phone_mismatch": "顔認証と電話番号が一致しません。再度お試しください"
+  "t_face_login_rate_limited": "試行回数の上限です。しばらくお待ちください"
 }

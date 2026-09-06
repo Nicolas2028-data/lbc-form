@@ -1405,7 +1405,9 @@ function toast(msg, type) {
   S.toastTm = setTimeout(() => el.classList.remove('show'), 3500);
 }
 function escHtml(s) {
-  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // 修正 2026-09-06: quote エスケープを追加(onclick 属性への埋め込み時の XSS 対策)
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
 </script>
 </body>

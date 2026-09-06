@@ -368,21 +368,51 @@ function findCustomerById(ss, customerId) {
   return null;
 }
 
+/* ============================================================
+   セーフティヘルパー (2026-09-06 追加)
+   ============================================================ */
+
+// スプレッドシート formula injection 対策
+// Excel/Sheets で = + - @ で始まるセルは数式として評価されるため
+// 先頭にアポストロフィを付けてリテラル文字列化する(表示上は見えない)
+function sanitizeSheetInput(v) {
+  if (v == null || v === '') return v;
+  var s = String(v);
+  if (/^[=+\-@\t\r]/.test(s)) return "'" + s;
+  return s;
+}
+
+// customer_id を部分マスクしてログに残す(下位オペレータでも PII 露出を減らす)
+// 例: 'P0123' → 'P0***'
+function maskCustomerId(id) {
+  if (!id) return '';
+  var s = String(id);
+  if (s.length <= 2) return s;
+  return s.slice(0, 2) + '***';
+}
+
+// ロールバック用の共通ロック取得
+function acquireLedgerLock(waitMs) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(waitMs || 10000);
+  return lock;
+}
+
 // 顧客マスタに1行追記。LockService は呼び出し元で取得済みであること
 function appendCustomer(ss, data, customerId) {
   var now = nowISO();
   var phone = normalizePhone(data.phone || '');
   var row = makeRow(15, {
     [CM.customer_id]:    customerId,
-    [CM.name]:           data.name || '',
-    [CM.furigana]:       data.furigana || '',
+    [CM.name]:           sanitizeSheetInput(data.name || ''),
+    [CM.furigana]:       sanitizeSheetInput(data.furigana || ''),
     [CM.phone]:          phone,
-    [CM.email]:          data.email || '',
+    [CM.email]:          sanitizeSheetInput(data.email || ''),
     [CM.dob]:            data.dob || '',
     [CM.first_visit]:    data.date || todayStr(),
     [CM.lang]:           data.lang || 'ja',
-    [CM.how_found]:      data.howFound || '',
-    [CM.address]:        data.address || '',
+    [CM.how_found]:      sanitizeSheetInput(data.howFound || ''),
+    [CM.address]:        sanitizeSheetInput(data.address || ''),
     [CM.status]:         'active',
     [CM.notion_page_id]: '',
     [CM.created_at]:     now,
@@ -424,7 +454,8 @@ function logAccess(ss, action, requestId, result, errorMsg, elapsedMs, customerI
       [AL.result]:           result,
       [AL.error_msg]:        (errorMsg || '').slice(0, 200),
       [AL.elapsed_ms]:       elapsedMs || 0,
-      [AL.customer_id_hint]: customerIdHint || '',
+      // customer_id は「ヒント」用途なのでマスク化(PII 保護 2026-09-06)
+      [AL.customer_id_hint]: maskCustomerId(customerIdHint),
     });
     ss.getSheetByName('アクセスログ').appendRow(row);
   } catch(e) {
@@ -442,6 +473,19 @@ function handleLookupPatient(data, cfg) {
   var phone = normalizePhone(data.phone || '');
 
   if (!phone || !isValidPhone(phone)) return { success: true, found: false };
+
+  // レート制限: 同一 phone を短時間に連投する電話番号列挙攻撃を防ぐ
+  //  - Cache キー: 'lookup_' + phone
+  //  - 1 分あたり 5 回まで(通常利用は 1〜3 回で十分)
+  //  - 超過時は found: false を返す(攻撃者に「存在しない」と誤認させる)
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'lookup_' + phone;
+  var attempts = parseInt(cache.get(cacheKey) || '0', 10);
+  if (attempts >= 5) {
+    Logger.log('handleLookupPatient: rate-limited phone=' + maskCustomerId(phone));
+    return { success: true, found: false };
+  }
+  cache.put(cacheKey, String(attempts + 1), 60); // 60 秒 TTL
 
   var matches = findCustomersByPhone(ss, phone);
 
@@ -685,6 +729,49 @@ function recordAuthSuccess(cfg) {
   PropertiesService.getScriptProperties().deleteProperty(bfKey(cfg));
 }
 
+// 本番 → staging の設定混入検知 (REL-H5 対応 2026-09-06)
+// installTriggers 内および GAS エディタから手動実行で使う
+// ENV=production 時、staging 用の ID が本番プロパティに残っていないか確認
+function assertProductionConfig() {
+  var props = PropertiesService.getScriptProperties().getProperties();
+  var env   = props.ENV || 'production';
+  var issues = [];
+
+  if (env !== 'production') {
+    Logger.log('ℹ️ ENV=' + env + ' — assertProductionConfig は production 環境専用');
+    return { ok: true, env: env };
+  }
+
+  // 必須プロパティが空でないか
+  ['LEDGER_SPREADSHEET_ID', 'CUSTOMER_DB_ID', 'KARTE_DB_ID', 'NOTION_TOKEN', 'STAFF_PASSWORD', 'DRIVE_FOLDER_ID', 'NOTIFY_EMAIL']
+    .forEach(function(k) {
+      if (!props[k]) issues.push('必須プロパティ ' + k + ' が未設定');
+    });
+
+  // 本番の LEDGER_SPREADSHEET_ID が staging 用と同じ ID を指していないか
+  if (props.STAGING_LEDGER_SPREADSHEET_ID &&
+      props.LEDGER_SPREADSHEET_ID === props.STAGING_LEDGER_SPREADSHEET_ID) {
+    issues.push('LEDGER_SPREADSHEET_ID が STAGING と同一 — 本番データが staging に混入している可能性');
+  }
+  if (props.STAGING_CUSTOMER_DB_ID &&
+      props.CUSTOMER_DB_ID === props.STAGING_CUSTOMER_DB_ID) {
+    issues.push('CUSTOMER_DB_ID が STAGING と同一');
+  }
+  if (props.STAGING_KARTE_DB_ID &&
+      props.KARTE_DB_ID === props.STAGING_KARTE_DB_ID) {
+    issues.push('KARTE_DB_ID が STAGING と同一');
+  }
+
+  if (issues.length > 0) {
+    Logger.log('❌ assertProductionConfig: ' + issues.length + ' 件の設定問題:');
+    issues.forEach(function(m) { Logger.log('  - ' + m); });
+    try { notifyError('assertProductionConfig', new Error(issues.join(' / '))); } catch(e) {}
+    return { ok: false, env: env, issues: issues };
+  }
+  Logger.log('✅ assertProductionConfig: production 設定 OK');
+  return { ok: true, env: env };
+}
+
 // GASエディタから手動実行してロックを解除する（緊急時用）
 function resetAuthLock() {
   var props = PropertiesService.getScriptProperties();
@@ -898,12 +985,17 @@ function handleSubmitTreatmentRecord(data, cfg) {
 
   var ss         = getLedger(cfg);
 
+  // LockService: クレジット残高確認 → 追記の間に race condition を防ぐ(2026-09-06)
+  var lock = acquireLedgerLock(15000);
+  try {
+
   // 冪等性チェック: 同一 requestId が既に成功済みなら即返す
+  //  走査範囲: 直近 5000 行(約 100 日分。約 2週間の offline 退避 → 再送を許容)
   if (data.requestId) {
     var logSheet = ss.getSheetByName('アクセスログ');
     if (logSheet) {
       var logVals = logSheet.getDataRange().getValues();
-      var start   = Math.max(1, logVals.length - 500); // 直近500行のみ走査
+      var start   = Math.max(1, logVals.length - 5000);
       for (var li = logVals.length - 1; li >= start; li--) {
         if (String(logVals[li][AL.request_id]) === String(data.requestId) &&
             String(logVals[li][AL.action])     === 'submitTreatmentRecord' &&
@@ -937,7 +1029,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
     [TR.sales]:                data.salesAmount !== '' && data.salesAmount !== undefined
                                  ? Number(data.salesAmount) : '',
     [TR.payment]:              data.paymentMethod || '',
-    [TR.memo]:                 data.treatmentMemo || '',
+    [TR.memo]:                 sanitizeSheetInput(data.treatmentMemo || ''),
     [TR.has_questionnaire]:    'FALSE',
     [TR.credit_used]:          Number(data.creditUsed) || 0,
     [TR.referrer_customer_id]: data.referrerId || '',
@@ -970,6 +1062,9 @@ function handleSubmitTreatmentRecord(data, cfg) {
 
   logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
   return { success: true, patientNum: customerId, entryId: entryId, referralLimitReached: referralLimitReached };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ============================================================
@@ -979,14 +1074,36 @@ function handleSubmitTreatmentRecord(data, cfg) {
 function handleSubmitVoidRecord(data, cfg) {
   cfg = cfg || getConfig();
   var ss         = getLedger(cfg);
-  var sheet      = ss.getSheetByName('施術台帳');
-  var rows       = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
-  var today      = todayStr();
   var targetId   = String(data.targetEntryId || '');
   var customerId = String(data.customerId || '');
 
   if (!targetId || !customerId) return { success: false, error: 'targetEntryId required' };
+
+  // LockService + 冪等性チェック(2026-09-06 修正)
+  // 二重送信で void 行が 2 つ入る race を防ぐ
+  var lock = acquireLedgerLock(15000);
+  try {
+
+  // 冪等性: 同一 requestId が既に成功済みなら即返す
+  if (data.requestId) {
+    var logSheet = ss.getSheetByName('アクセスログ');
+    if (logSheet) {
+      var logVals = logSheet.getDataRange().getValues();
+      var start   = Math.max(1, logVals.length - 5000);
+      for (var li = logVals.length - 1; li >= start; li--) {
+        if (String(logVals[li][AL.request_id]) === String(data.requestId) &&
+            String(logVals[li][AL.action])     === 'voidTreatmentRecord' &&
+            String(logVals[li][AL.result])     === 'ok') {
+          return { success: true, duplicate: true };
+        }
+      }
+    }
+  }
+
+  var sheet      = ss.getSheetByName('施術台帳');
+  var rows       = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+  var today      = todayStr();
 
   var origRow = null;
   var alreadyVoided = false;
@@ -1045,6 +1162,9 @@ function handleSubmitVoidRecord(data, cfg) {
 
   logAccess(ss, 'voidTreatmentRecord', data.requestId || '', 'ok', '', 0, customerId);
   return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ============================================================
@@ -1053,14 +1173,34 @@ function handleSubmitVoidRecord(data, cfg) {
 
 function handleAdminForceVoid(data, cfg) {
   var ss         = getLedger(cfg);
-  var sheet      = ss.getSheetByName('施術台帳');
-  var rows       = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
   var targetId   = String(data.targetEntryId || '');
   var customerId = String(data.customerId || '');
   var reason     = String(data.reason || '管理者取消');
 
   if (!targetId || !customerId) return { success: false, error: 'targetEntryId and customerId required' };
+
+  // LockService + 冪等性チェック(2026-09-06 修正)
+  var lock = acquireLedgerLock(15000);
+  try {
+
+  if (data.requestId) {
+    var logSheet2 = ss.getSheetByName('アクセスログ');
+    if (logSheet2) {
+      var logVals2 = logSheet2.getDataRange().getValues();
+      var start2   = Math.max(1, logVals2.length - 5000);
+      for (var li2 = logVals2.length - 1; li2 >= start2; li2--) {
+        if (String(logVals2[li2][AL.request_id]) === String(data.requestId) &&
+            String(logVals2[li2][AL.action])     === 'adminForceVoid' &&
+            String(logVals2[li2][AL.result])     === 'ok') {
+          return { success: true, duplicate: true };
+        }
+      }
+    }
+  }
+
+  var sheet      = ss.getSheetByName('施術台帳');
+  var rows       = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
 
   var origRow = null;
   var alreadyVoided = false;
@@ -1117,6 +1257,9 @@ function handleAdminForceVoid(data, cfg) {
 
   logAccess(ss, 'adminForceVoid', data.requestId || '', 'ok', reason, 0, customerId);
   return { success: true, voidEntryId: voidId, targetEntryId: targetId };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ============================================================
@@ -1194,16 +1337,12 @@ function countReferralGrants(ss, referrerId) {
 function syncToNotion() {
   var cfg = getConfig();
 
-  // Drive フォルダ未設定なら自動設定（ステージング専用。本番では絶対に上書きしない）
-  if (!cfg.DRIVE_FOLDER_ID && cfg._env === 'staging') {
-    try {
-      var stagingFolderId = '1F7nAzq-MAGUmrnXm__yyQjyVaV7xanuh';
-      PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', stagingFolderId);
-      cfg.DRIVE_FOLDER_ID = stagingFolderId;
-      Logger.log('syncToNotion: Drive フォルダ自動設定 ' + stagingFolderId);
-    } catch(e) {
-      Logger.log('syncToNotion: Drive フォルダ設定失敗 ' + e.message);
-    }
+  // Drive フォルダ未設定は Nicolas が手動で設定すること (2026-09-06: 自動設定を廃止)
+  // 以前は staging 用にハードコード ID が自動書き込みされていたが、
+  // その ID は本番 Drive フォルダを指しており、staging → 本番への混入経路になっていた。
+  if (!cfg.DRIVE_FOLDER_ID) {
+    Logger.log('⚠️ syncToNotion: DRIVE_FOLDER_ID 未設定。GAS スクリプトプロパティで手動設定してください。');
+    return;
   }
 
   var ss;
@@ -1389,12 +1528,13 @@ function syncQuestionnaire(ss, cfg) {
       // Lucas に Notion 更新通知
       if (cfg.NOTIFY_EMAIL) {
         try {
-          var custName = custData ? String(custData.row[CM.name]) : String(r[QU.customer_id]);
+          // 通知メールに氏名を含めない(PII 保護 2026-09-06)
+          // 詳細は Notion 側で確認する運用
           var dateStr  = toDateStr(r[QU.date]);
           GmailApp.sendEmail(
             cfg.NOTIFY_EMAIL,
             '【LBC Care】新しい問診票が届きました',
-            custName + ' さん（' + String(r[QU.customer_id]) + '）の問診票が ' + dateStr + ' に Notion カルテへ追加されました。\n\n' +
+            '診察番号 ' + String(r[QU.customer_id]) + ' の問診票が ' + dateStr + ' に Notion カルテへ追加されました。\n\n' +
             'Notion: https://notion.so/' + pageId.replace(/-/g,'')
           );
         } catch(mailErr) {
@@ -1564,6 +1704,9 @@ function syncCredit(ss, cfg) {
    ============================================================ */
 
 function installTriggers() {
+  var before = ScriptApp.getProjectTriggers().length;
+  Logger.log('installTriggers: 既存トリガー ' + before + ' 個');
+
   // 既存トリガー削除（重複防止）
   ScriptApp.getProjectTriggers().forEach(function(t) {
     ScriptApp.deleteTrigger(t);
@@ -1586,7 +1729,18 @@ function installTriggers() {
   ScriptApp.newTrigger('sendDailySummary')
     .timeBased().atHour(8).everyDays(1).create();
 
-  Logger.log('トリガー設置完了: syncToNotion(1分毎) + onLedgerEdit + sendDailySummary(毎朝8時)');
+  // セーフティチェック: 想定トリガー数を超えたら警告 (2026-09-06 追加)
+  var after = ScriptApp.getProjectTriggers().length;
+  var expected = cfg.LEDGER_SPREADSHEET_ID ? 3 : 2;
+  if (after !== expected) {
+    var msg = 'installTriggers: 想定外のトリガー数(想定 ' + expected + ' / 実測 ' + after + ')';
+    Logger.log('⚠️ ' + msg);
+    try { notifyError('installTriggers', new Error(msg)); } catch(e) {}
+  }
+  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary)');
+
+  // production 設定の整合性チェック (REL-H5 2026-09-06)
+  try { assertProductionConfig(); } catch(e) { Logger.log('assertProductionConfig error: ' + e.message); }
 }
 
 function onLedgerEdit(e) {
@@ -1795,7 +1949,8 @@ function getDetailedReport(targetDate) {
       course:     String(r[TR.course]           || ''),
       sales:      Number(r[TR.sales])           || 0,
       payment:    String(r[TR.payment]          || ''),
-      memo:       String(r[TR.memo]             || '').slice(0, 40),
+      // memo は医療情報を含む可能性あり(腰痛悪化・妊娠中等)。存在有無のみ返す(2026-09-06)
+      hasMemo:    !!(String(r[TR.memo] || '')),
       eligible:   String(r[TR.count_eligible]   || ''),
       createdAt:  String(r[TR.created_at]       || '').slice(11,19),
       errCount:   Number(r[TR.error_count])     || 0,
@@ -2487,7 +2642,13 @@ function cleanupKarteTitles() {
 }
 
 // テストデータ削除 + 患者番号振り直し（GASエディタから1回だけ手動実行）
+// ⚠️ 使用禁止 (2026-09-06):
+//   sheet.deleteRow による物理削除および Notion archived:true は SPEC「論理削除のみ」原則に違反する。
+//   本関数は 2026-08 の初期テストデータクリーンアップに1回だけ使用済み。
+//   再度データ整理が必要な場合は Nicolas に相談し、赤伝方式・archive フラグでの対応を検討すること。
 function cleanAndRenumber() {
+  throw new Error('cleanAndRenumber は使用禁止です。SPEC「物理削除禁止・論理削除のみ」原則に違反します。データ整理が必要な場合は Nicolas に相談してください。');
+  // eslint-disable-next-line no-unreachable
   var cfg = getConfig();
   var ss  = getLedger(cfg);
   var now = nowISO();

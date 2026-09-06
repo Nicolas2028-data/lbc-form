@@ -1631,7 +1631,7 @@ function countUnsyncedRows(ss) {
 function syncCustomerMaster(ss, cfg) {
   var sheet = ss.getSheetByName('顧客マスタ');
   var rows  = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 15).getValues() : [];
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 16).getValues() : [];
   var synced = 0;
 
   for (var i = 0; i < rows.length; i++) {
@@ -1650,6 +1650,7 @@ function syncCustomerMaster(ss, cfg) {
         'メールアドレス': { email: String(r[CM.email]) || null },
         '診察番号':       richText(String(r[CM.customer_id])),
         '言語':           { select: langMap[String(r[CM.lang])] ? { name: String(r[CM.lang]) } : null },
+        '顔認証':         { checkbox: String(r[CM.face_embedding] || '').length > 20 },
       };
       if (r[CM.dob])         props['生年月日']   = { date: { start: toDateStr(r[CM.dob]) } };
       if (r[CM.first_visit]) props['初回訪問日'] = { date: { start: toDateStr(r[CM.first_visit]) } };

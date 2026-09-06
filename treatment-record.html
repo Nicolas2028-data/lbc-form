@@ -1307,7 +1307,10 @@ async function submitRecord() {
     document.getElementById('loadingRow').style.display = 'none';
 
     if (data.success) {
+      // 二重送信防止 (2026-09-06): 成功時は S.submitting を true のまま維持
+      // ボタンも disabled のまま → 送信完了画面から戻るまで再送信不可
       showSuccess(courseId, Number(salesAmount));
+      return; // finally での S.submitting = false をスキップ
     } else {
       let errMsg = data.error || 'エラーが発生しました。';
       if (data.error === 'auth_locked') {
@@ -1316,12 +1319,12 @@ async function submitRecord() {
       }
       toast(errMsg, 'error');
       document.getElementById('submitBtn').disabled = false;
+      S.submitting = false; // エラー時のみ再送信を許可
     }
   } catch {
     document.getElementById('loadingRow').style.display = 'none';
     toast('通信エラーが発生しました。再度お試しください。', 'error');
     document.getElementById('submitBtn').disabled = false;
-  } finally {
     S.submitting = false;
   }
 }

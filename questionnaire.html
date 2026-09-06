@@ -2207,18 +2207,21 @@ async function submitQuestionnaire() {
   try {
     const data = await gasPost(CONFIG.GAS_URL, payload, 60000);
     console.log('[LBC] GAS response:', JSON.stringify(data));
+    document.getElementById('loadingRow').style.display = 'none';
     if (data.success) {
+      // 二重送信防止 (2026-09-06): 成功時は Q.submitting = true のまま維持
+      // ボタンも disabled のまま → 完了画面から戻るまで再送信不可
       showSuccess();
-    } else {
-      toast(data.error || L('err_srv'), 'error');
-      document.getElementById('submitBtn').disabled = false;
+      return;
     }
+    toast(data.error || L('err_srv'), 'error');
+    document.getElementById('submitBtn').disabled = false;
+    Q.submitting = false; // エラー時のみ再送信を許可
   } catch {
+    document.getElementById('loadingRow').style.display = 'none';
     toast(L('err_net'), 'error');
     document.getElementById('submitBtn').disabled = false;
-  } finally {
     Q.submitting = false;
-    document.getElementById('loadingRow').style.display = 'none';
   }
 }
 

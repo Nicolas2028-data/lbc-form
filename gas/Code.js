@@ -614,6 +614,30 @@ function handleSubmitAll(data, cfg) {
 
   if (!customerId) return { success: false, error: '顧客IDを特定できませんでした' };
 
+  // コンテンツ署名ベースの二重送信防止 (2026-09-06 追加)
+  //  同一 customerId + 日付 + visitType が 90 秒以内に問診台帳にあれば重複と判定
+  var todayCache = todayStr();
+  var visitTypeStr = String(data.visitType || 'first');
+  var quSheet = ss.getSheetByName('問診台帳');
+  if (quSheet && quSheet.getLastRow() > 1) {
+    var quVals = quSheet.getRange(2, 1, quSheet.getLastRow() - 1, 24).getValues();
+    var startQu = Math.max(0, quVals.length - 200);
+    var nowMsQu = Date.now();
+    for (var qi = quVals.length - 1; qi >= startQu; qi--) {
+      var qr = quVals[qi];
+      if (String(qr[QU.customer_id]) !== customerId) continue;
+      if (toDateStr(qr[QU.date]) !== (data.date || todayCache)) continue;
+      if (String(qr[QU.visit_type]) !== visitTypeStr) continue;
+      var createdRawQu = qr[QU.created_at];
+      var createdMsQu = createdRawQu instanceof Date ? createdRawQu.getTime() : Date.parse(String(createdRawQu));
+      if (createdMsQu && (nowMsQu - createdMsQu) < 90000) {
+        logAccess(ss, 'submitAll', data.requestId, 'dedup_content', 'same content <90s', 0, customerId);
+        return { success: true, duplicate: true, customerId: customerId, patientNum: customerId };
+      }
+      break;
+    }
+  }
+
   // ── 画像保存 ──
   var bodyImageUrl = '', sigUrl = '';
   var hasQ = data.visitType === 'first' || data.hasChanges === 'yes';
@@ -1051,6 +1075,37 @@ function handleSubmitTreatmentRecord(data, cfg) {
   var now        = nowISO();
   var entryId    = genUUID();
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
+
+  // コンテンツ署名ベースの二重送信防止 (2026-09-06 追加)
+  //  requestId 一致だけでは異なる click で異なる requestId になり効かない
+  //  → (customerId + 日付 + course + sales + payment) の一致で 90秒以内は重複と判定
+  var todayStrCache = todayStr();
+  var salesNum = data.salesAmount !== '' && data.salesAmount !== undefined ? Number(data.salesAmount) : 0;
+  var paymentStr = String(data.paymentMethod || '');
+  var trSheet = ss.getSheetByName('施術台帳');
+  if (trSheet && trSheet.getLastRow() > 1) {
+    var trVals = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+    var startTr = Math.max(0, trVals.length - 200); // 直近 200 行走査
+    var nowMs = Date.now();
+    for (var ti = trVals.length - 1; ti >= startTr; ti--) {
+      var tr = trVals[ti];
+      if (String(tr[TR.type]) !== 'record') continue;
+      if (String(tr[TR.customer_id]) !== customerId) continue;
+      if (toDateStr(tr[TR.date]) !== todayStrCache) continue;
+      if (String(tr[TR.course]) !== courseLabel) continue;
+      if (String(tr[TR.payment]) !== paymentStr) continue;
+      var trSales = Number(tr[TR.sales]) || 0;
+      if (trSales !== salesNum) continue;
+      // 作成時刻を確認(90 秒以内 → 二重送信)
+      var createdRaw = tr[TR.created_at];
+      var createdMs = createdRaw instanceof Date ? createdRaw.getTime() : Date.parse(String(createdRaw));
+      if (createdMs && (nowMs - createdMs) < 90000) {
+        logAccess(ss, 'submitTreatmentRecord', data.requestId, 'dedup_content', 'same content <90s', 0, customerId);
+        return { success: true, duplicate: true, entryId: String(tr[TR.entry_id]) };
+      }
+      break; // 直近の同一顧客・同日 record が見つかったら以降は不要
+    }
+  }
 
   // クレジット残高チェック（書き込み前に行う）
   if (data.creditUsed && Number(data.creditUsed) > 0) {

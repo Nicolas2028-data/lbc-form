@@ -163,5 +163,18 @@
   "err_srv": "Error del servidor.",
   "err_lookup": "Error al verificar. Intente nuevamente.",
   "e_photoConsent": "Seleccione su preferencia de foto",
-  "e_facePreference": "Seleccione su preferencia de rostro"
+  "e_facePreference": "Seleccione su preferencia de rostro",
+  "t_face_auth": "Reconocimiento facial (para próximas visitas)",
+  "t_face_auth_desc": "En la próxima visita, podrá identificarse solo con su rostro, sin ingresar el número de teléfono. El registro es opcional.",
+  "lbl_face_auth_consent": "Acepto registrar mi rostro (opcional)",
+  "face_loading": "Cargando modelos...",
+  "face_ready": "Cámara lista. Presione el botón 'Capturar'",
+  "face_detecting": "Detectando...",
+  "face_not_found": "No se detectó rostro. Colóquese frente a la cámara",
+  "face_more": "Cambie ligeramente el ángulo y capture de nuevo",
+  "face_done": "Registro de reconocimiento facial completado ✓",
+  "face_error": "No se puede usar la cámara",
+  "lbl_face_capture": "📸 Capturar",
+  "lbl_face_reset": "Reiniciar",
+  "lbl_face_progress": "Capturado: {n} / {total}"
 }

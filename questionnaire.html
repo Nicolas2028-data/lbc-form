@@ -997,6 +997,36 @@
       </div>
     </div>
 
+    <!-- ═══ 5.5. 顔認証登録（初回・18歳以上・オプトイン） ═══ -->
+    <div id="faceAuthSection" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">🎥</span><span id="t_face_auth">顔認証(次回のご来院を簡単に)</span></div>
+        <p class="section-hint" id="t_face_auth_desc">次回のご来院時、電話番号入力なしでお顔だけで本人確認できるようにします。任意でご登録いただけます。</p>
+        <div class="form-group" style="margin-top:12px">
+          <label class="check-item consent-agree-check" style="white-space:normal">
+            <input type="checkbox" id="faceAuthConsent" onchange="onFaceAuthConsentChange()">
+            <span id="lbl_face_auth_consent">顔認証に協力します(任意)</span>
+          </label>
+        </div>
+        <div id="faceAuthCapture" style="display:none; margin-top:16px; text-align:center">
+          <video id="faceAuthVideo" width="320" height="240" autoplay muted playsinline
+                 style="border-radius:8px; background:#000; max-width:100%; height:auto"></video>
+          <div id="faceAuthStatus" style="margin-top:8px; font-size:0.9rem; color:var(--text-sub)"></div>
+          <div id="faceAuthProgress" style="margin-top:8px; font-size:0.85rem; color:var(--text-sub); display:none">
+            <span id="lbl_face_progress">撮影済み: 0 / 3 枚</span>
+          </div>
+          <button type="button" class="btn-submit" id="faceAuthCaptureBtn" onclick="captureFaceSample()"
+                  style="margin-top:12px; display:none">
+            <span id="lbl_face_capture">📸 撮影</span>
+          </button>
+          <button type="button" class="btn-back" id="faceAuthReset" onclick="resetFaceAuth()"
+                  style="margin-top:8px; width:100%; display:none">
+            <span id="lbl_face_reset">やり直す</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══ 6. 同意事項（常に表示） ═══ -->
     <div id="consentSection" style="display:none">
       <div class="card">
@@ -1095,6 +1125,7 @@ const Q = {
   customerId: null,
   patientNum: null,
   lookupCandidates: [],
+  faceEmbedding: '',    // 顔認証 Phase 1: 平均化した 128次元 float 配列(JSON文字列)
 };
 
 /* ============================================================
@@ -1234,6 +1265,13 @@ function applyTexts() {
   set('lbl_face_q', l.lbl_face_q);
   set('lbl_face_ok', l.lbl_face_ok);
   set('lbl_face_no', l.lbl_face_no);
+  // Face Auth Phase 1 (2026-09-06)
+  set('t_face_auth', l.t_face_auth);
+  set('t_face_auth_desc', l.t_face_auth_desc);
+  set('lbl_face_auth_consent', l.lbl_face_auth_consent);
+  set('lbl_face_capture', l.lbl_face_capture);
+  set('lbl_face_reset', l.lbl_face_reset);
+  updateFaceProgress();
   set('t_s5', l.t_s5);
   set('consent_1', l.consent_1); set('consent_1_expand', l.consent_1_expand);
   const cb1 = document.getElementById('consent_1_body'); if (cb1) cb1.innerHTML = l.consent_1_body;
@@ -1615,6 +1653,11 @@ function showPhase2(visitType, customerId, patientNum, patientName) {
   document.getElementById('qSection').style.display       = 'none';
   document.getElementById('photoSection').style.display   = 'none';
   document.getElementById('consentSection').style.display = 'none';
+  // 顔認証セクション(初回来院 + 18歳以上 の場合のみ calcAge 経由で再表示)
+  const _faceAuthSec = document.getElementById('faceAuthSection');
+  if (_faceAuthSec) _faceAuthSec.style.display = 'none';
+  if (typeof stopFaceAuthCamera === 'function') stopFaceAuthCamera();
+  Q.faceEmbedding = '';
 
   if (visitType === 'first') {
     document.getElementById('firstBanner').style.display   = 'flex';
@@ -1662,13 +1705,22 @@ function calcAge() {
   const m = parseInt(document.getElementById('dob_m').value);
   const d = parseInt(document.getElementById('dob_d').value);
   const badge = document.getElementById('ageBadge');
-  if (!y || !m || !d || y < 1930 || y > new Date().getFullYear()) { badge.style.display = 'none'; return; }
+  if (!y || !m || !d || y < 1930 || y > new Date().getFullYear()) {
+    badge.style.display = 'none';
+    if (typeof updateFaceAuthVisibility === 'function') updateFaceAuthVisibility();
+    return;
+  }
   const today = new Date();
   let age = today.getFullYear() - y;
   if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
-  if (age < 0 || age > 130) { badge.style.display = 'none'; return; }
+  if (age < 0 || age > 130) {
+    badge.style.display = 'none';
+    if (typeof updateFaceAuthVisibility === 'function') updateFaceAuthVisibility();
+    return;
+  }
   badge.textContent = age + (Q.lang === 'ja' ? '歳' : ' y.o.');
   badge.style.display = 'inline-block';
+  if (typeof updateFaceAuthVisibility === 'function') updateFaceAuthVisibility();
 }
 
 /* ============================================================
@@ -2077,6 +2129,7 @@ async function submitQuestionnaire() {
     consentDate:    today,
     photoConsent:   document.querySelector('input[name="photoConsent"]:checked')?.value || '',
     facePreference: document.querySelector('input[name="facePreference"]:checked')?.value || '',
+    faceEmbedding:  Q.faceEmbedding || '',
     env:            CONFIG.ENV_PARAM,
   };
 
@@ -2244,6 +2297,171 @@ function toast(msg, type = '') {
   el.classList.add('show');
   clearTimeout(Q.toastTm);
   Q.toastTm = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ============================================================
+   FACE AUTH — Phase 1: 初回来院時の顔登録(オプトイン、18歳以上)
+   ============================================================ */
+const FACE_AUTH = {
+  scriptUrl:  'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js',
+  modelBase:  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights',
+  totalSamples: 3,
+  scriptLoaded: false,
+  modelsLoaded: false,
+  stream: null,
+  samples: [],
+  detecting: false,
+};
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    if ([...document.scripts].some(s => s.src === src)) return resolve();
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('script load failed: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function loadFaceApiOnce() {
+  if (!FACE_AUTH.scriptLoaded) {
+    await loadScriptOnce(FACE_AUTH.scriptUrl);
+    FACE_AUTH.scriptLoaded = true;
+  }
+  if (!FACE_AUTH.modelsLoaded) {
+    await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_AUTH.modelBase);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_AUTH.modelBase);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_AUTH.modelBase);
+    FACE_AUTH.modelsLoaded = true;
+  }
+}
+
+function isFaceAuthEligible() {
+  // 18 歳以上のみ登録許可(Phase 1 決定事項)
+  const y = parseInt(document.getElementById('dob_y')?.value);
+  const m = parseInt(document.getElementById('dob_m')?.value);
+  const d = parseInt(document.getElementById('dob_d')?.value);
+  if (!y || !m || !d) return false;
+  const t = new Date();
+  let age = t.getFullYear() - y;
+  if (t.getMonth() + 1 < m || (t.getMonth() + 1 === m && t.getDate() < d)) age--;
+  return age >= 18;
+}
+
+function updateFaceAuthVisibility() {
+  const sec = document.getElementById('faceAuthSection');
+  if (!sec) return;
+  const eligible = Q.visitType === 'first' && isFaceAuthEligible();
+  const currentlyVisible = sec.style.display !== 'none';
+  sec.style.display = eligible ? 'block' : 'none';
+  if (!eligible && currentlyVisible) {
+    stopFaceAuthCamera();
+    Q.faceEmbedding = '';
+    FACE_AUTH.samples = [];
+    const cb = document.getElementById('faceAuthConsent');
+    if (cb) cb.checked = false;
+    const cap = document.getElementById('faceAuthCapture');
+    if (cap) cap.style.display = 'none';
+  }
+}
+
+function updateFaceProgress() {
+  const el = document.getElementById('lbl_face_progress');
+  if (!el) return;
+  const template = L('lbl_face_progress') || '撮影済み: {n} / {total} 枚';
+  el.textContent = template.replace('{n}', FACE_AUTH.samples.length).replace('{total}', FACE_AUTH.totalSamples);
+}
+
+function stopFaceAuthCamera() {
+  if (FACE_AUTH.stream) {
+    FACE_AUTH.stream.getTracks().forEach(t => t.stop());
+    FACE_AUTH.stream = null;
+  }
+}
+
+async function onFaceAuthConsentChange() {
+  const consent = document.getElementById('faceAuthConsent').checked;
+  const captureBox = document.getElementById('faceAuthCapture');
+  const status = document.getElementById('faceAuthStatus');
+  if (!consent) {
+    stopFaceAuthCamera();
+    captureBox.style.display = 'none';
+    Q.faceEmbedding = '';
+    FACE_AUTH.samples = [];
+    return;
+  }
+  captureBox.style.display = 'block';
+  status.textContent = L('face_loading') || 'モデルを読み込み中...';
+  document.getElementById('faceAuthCaptureBtn').style.display = 'none';
+  document.getElementById('faceAuthProgress').style.display = 'none';
+  document.getElementById('faceAuthReset').style.display = 'none';
+  try {
+    await loadFaceApiOnce();
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+    FACE_AUTH.stream = stream;
+    const video = document.getElementById('faceAuthVideo');
+    video.srcObject = stream;
+    await new Promise(res => (video.onloadedmetadata = res));
+    status.textContent = L('face_ready') || 'カメラの準備ができました。「撮影」ボタンを押してください';
+    document.getElementById('faceAuthCaptureBtn').style.display = 'inline-block';
+    document.getElementById('faceAuthProgress').style.display = 'block';
+    document.getElementById('faceAuthReset').style.display = 'block';
+    updateFaceProgress();
+  } catch (e) {
+    console.error('face auth setup failed', e);
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+    document.getElementById('faceAuthConsent').checked = false;
+    captureBox.style.display = 'none';
+    stopFaceAuthCamera();
+  }
+}
+
+async function captureFaceSample() {
+  if (FACE_AUTH.detecting) return;
+  FACE_AUTH.detecting = true;
+  const video = document.getElementById('faceAuthVideo');
+  const status = document.getElementById('faceAuthStatus');
+  const btn = document.getElementById('faceAuthCaptureBtn');
+  btn.disabled = true;
+  status.textContent = L('face_detecting') || '検出中...';
+  try {
+    const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+    const det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+    if (!det) {
+      status.textContent = L('face_not_found') || '顔が検出できませんでした。カメラの前に顔を映してください';
+      return;
+    }
+    FACE_AUTH.samples.push(Array.from(det.descriptor));
+    updateFaceProgress();
+    if (FACE_AUTH.samples.length >= FACE_AUTH.totalSamples) {
+      // 平均化して 128次元 float 配列に
+      const avg = new Array(128).fill(0);
+      for (const s of FACE_AUTH.samples) for (let i = 0; i < 128; i++) avg[i] += s[i];
+      for (let i = 0; i < 128; i++) avg[i] /= FACE_AUTH.samples.length;
+      Q.faceEmbedding = JSON.stringify(avg);
+      status.textContent = L('face_done') || '顔認証の登録が完了しました ✓';
+      btn.style.display = 'none';
+      stopFaceAuthCamera();
+    } else {
+      status.textContent = L('face_more') || '角度を少し変えて再度撮影してください';
+    }
+  } catch (e) {
+    console.error('capture failed', e);
+    status.textContent = (L('face_error') || 'カメラを利用できません') + ': ' + (e.message || e);
+  } finally {
+    FACE_AUTH.detecting = false;
+    btn.disabled = false;
+  }
+}
+
+function resetFaceAuth() {
+  FACE_AUTH.samples = [];
+  Q.faceEmbedding = '';
+  stopFaceAuthCamera();
+  document.getElementById('faceAuthConsent').checked = false;
+  document.getElementById('faceAuthCapture').style.display = 'none';
+  const s = document.getElementById('faceAuthStatus'); if (s) s.textContent = '';
 }
 </script>
 </body>

@@ -163,5 +163,18 @@
   "err_srv": "サーバーエラーが発生しました。",
   "err_lookup": "照合中にエラーが発生しました。再度お試しください。",
   "e_photoConsent": "撮影同意を選択してください",
-  "e_facePreference": "顔出しの希望を選択してください"
+  "e_facePreference": "顔出しの希望を選択してください",
+  "t_face_auth": "顔認証(次回のご来院を簡単に)",
+  "t_face_auth_desc": "次回のご来院時、電話番号入力なしでお顔だけで本人確認できるようにします。任意でご登録いただけます。",
+  "lbl_face_auth_consent": "顔認証に協力します(任意)",
+  "face_loading": "モデルを読み込み中...",
+  "face_ready": "カメラの準備ができました。「撮影」ボタンを押してください",
+  "face_detecting": "検出中...",
+  "face_not_found": "顔が検出できませんでした。カメラの前に顔を映してください",
+  "face_more": "角度を少し変えて再度撮影してください",
+  "face_done": "顔認証の登録が完了しました ✓",
+  "face_error": "カメラを利用できません",
+  "lbl_face_capture": "📸 撮影",
+  "lbl_face_reset": "やり直す",
+  "lbl_face_progress": "撮影済み: {n} / {total} 枚"
 }

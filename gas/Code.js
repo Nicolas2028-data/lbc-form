@@ -1700,6 +1700,83 @@ function syncCredit(ss, cfg) {
 }
 
 /* ============================================================
+   バックアップ (REL-H4 対応 2026-09-06)
+   ============================================================ */
+
+// 週次バックアップ: LBC台帳を LBC整体院/99_バックアップ/ に日付付きコピー
+//   - ルカスに editor 権限を付与(Nicolas アカウント消失時にもアクセス可能)
+//   - 直近 12 世代を保持、それ以前は自動削除
+//   - トリガー: 毎週日曜 3:00 JST(installTriggers で設定)
+function backupLedgerToLucas() {
+  var LUCAS_EMAIL = 'kakimorilucas@gmail.com';
+  var BACKUP_FOLDER_NAME = '99_バックアップ';
+  var KEEP_WEEKS = 12;
+
+  var cfg = getConfig();
+  if (!cfg.LEDGER_SPREADSHEET_ID) {
+    Logger.log('❌ backupLedgerToLucas: LEDGER_SPREADSHEET_ID 未設定');
+    return { success: false, error: 'no_ledger_id' };
+  }
+
+  try {
+    var ledgerFile = DriveApp.getFileById(cfg.LEDGER_SPREADSHEET_ID);
+    var opFolder = ledgerFile.getParents().hasNext() ? ledgerFile.getParents().next() : null;
+    if (!opFolder) throw new Error('Ledger has no parent folder');
+    var rootFolder = opFolder.getParents().hasNext() ? opFolder.getParents().next() : opFolder;
+
+    // バックアップフォルダを取得 or 作成
+    var it = rootFolder.getFoldersByName(BACKUP_FOLDER_NAME);
+    var backupFolder = it.hasNext() ? it.next() : rootFolder.createFolder(BACKUP_FOLDER_NAME);
+
+    // ルカスに editor 権限を付与(冗長でも念のため毎回叩く)
+    try { backupFolder.addEditor(LUCAS_EMAIL); } catch(shareErr) {
+      Logger.log('backupLedgerToLucas: folder share warning: ' + shareErr.message);
+    }
+
+    // コピー作成(日付付きファイル名)
+    var dateStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+    var copyName = 'LBC台帳_' + dateStr;
+    var copy = ledgerFile.makeCopy(copyName, backupFolder);
+
+    // コピー自体にもルカス editor 付与
+    try { copy.addEditor(LUCAS_EMAIL); } catch(shareErr2) {
+      Logger.log('backupLedgerToLucas: file share warning: ' + shareErr2.message);
+    }
+
+    // ローテーション: LBC台帳_YYYY-MM-DD 形式のファイルを世代管理
+    var oldFiles = backupFolder.getFiles();
+    var backups = [];
+    while (oldFiles.hasNext()) {
+      var f = oldFiles.next();
+      if (/^LBC台帳_\d{4}-\d{2}-\d{2}$/.test(f.getName())) {
+        backups.push({ file: f, name: f.getName() });
+      }
+    }
+    backups.sort(function(a, b) { return b.name.localeCompare(a.name); }); // 新しい順
+    var trashed = 0;
+    for (var i = KEEP_WEEKS; i < backups.length; i++) {
+      backups[i].file.setTrashed(true);
+      Logger.log('  古いバックアップを削除: ' + backups[i].name);
+      trashed++;
+    }
+
+    Logger.log('✅ backupLedgerToLucas: ' + copyName + ' 作成完了 (総 ' + backups.length + ' 世代、' + trashed + ' 削除)');
+    return {
+      success: true,
+      backupName: copyName,
+      backupId: copy.getId(),
+      backupFolderId: backupFolder.getId(),
+      totalGenerations: Math.min(backups.length, KEEP_WEEKS),
+      trashedCount: trashed,
+    };
+  } catch(e) {
+    Logger.log('❌ backupLedgerToLucas error: ' + e.message);
+    try { notifyError('backupLedgerToLucas', e); } catch(_) {}
+    return { success: false, error: e.message };
+  }
+}
+
+/* ============================================================
    トリガー管理
    ============================================================ */
 
@@ -1729,15 +1806,19 @@ function installTriggers() {
   ScriptApp.newTrigger('sendDailySummary')
     .timeBased().atHour(8).everyDays(1).create();
 
+  // 4. 週次バックアップ: 毎週日曜 3時 (2026-09-06 追加)
+  ScriptApp.newTrigger('backupLedgerToLucas')
+    .timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+
   // セーフティチェック: 想定トリガー数を超えたら警告 (2026-09-06 追加)
   var after = ScriptApp.getProjectTriggers().length;
-  var expected = cfg.LEDGER_SPREADSHEET_ID ? 3 : 2;
+  var expected = cfg.LEDGER_SPREADSHEET_ID ? 4 : 3;
   if (after !== expected) {
     var msg = 'installTriggers: 想定外のトリガー数(想定 ' + expected + ' / 実測 ' + after + ')';
     Logger.log('⚠️ ' + msg);
     try { notifyError('installTriggers', new Error(msg)); } catch(e) {}
   }
-  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary)');
+  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary + backupLedgerToLucas)');
 
   // production 設定の整合性チェック (REL-H5 2026-09-06)
   try { assertProductionConfig(); } catch(e) { Logger.log('assertProductionConfig error: ' + e.message); }

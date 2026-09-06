@@ -740,6 +740,38 @@
       </div>
     </div>
 
+    <!-- 新規客向け: 次回以降の認証方法選択カード(初めてを選ぶと表示) -->
+    <div class="card" id="authPrefChoiceCard" style="text-align:center;display:none">
+      <div class="card-title" style="justify-content:center;border-bottom:none;padding-bottom:0;margin-bottom:10px">
+        <span id="t_auth_pref_title">次回以降の来院確認は?</span>
+      </div>
+      <p class="section-hint" id="t_auth_pref_desc" style="margin-bottom:20px">
+        どちらで本人確認を行いたいですか?(あとで変更できます)
+      </p>
+      <div style="display:flex;gap:12px">
+        <button type="button" onclick="chooseAuthPref('face')"
+                style="flex:1;padding:22px 12px;font-size:1rem;font-weight:600;background:var(--primary);color:var(--white);border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:background 0.15s,transform 0.1s;display:flex;flex-direction:column;align-items:center;gap:6px;line-height:1.3">
+          <span style="font-size:1.7rem">📸</span>
+          <span id="t_auth_pref_face">顔で確認</span>
+          <span style="font-size:0.72rem;font-weight:400;opacity:0.85;line-height:1.3">
+            <span id="t_auth_pref_face_sub">早くて手ぶらでも OK</span>
+          </span>
+        </button>
+        <button type="button" onclick="chooseAuthPref('phone')"
+                style="flex:1;padding:22px 12px;font-size:1rem;font-weight:600;background:var(--white);color:var(--primary);border:1.5px solid var(--primary);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:6px;line-height:1.3">
+          <span style="font-size:1.7rem">📞</span>
+          <span id="t_auth_pref_phone">電話番号で確認</span>
+          <span style="font-size:0.72rem;font-weight:400;opacity:0.85;line-height:1.3">
+            <span id="t_auth_pref_phone_sub">従来通り</span>
+          </span>
+        </button>
+      </div>
+      <button type="button" onclick="backToVisitChoice()"
+              style="display:block;width:100%;margin-top:12px;padding:10px;background:transparent;color:var(--text-muted);border:none;font-size:0.85rem;cursor:pointer;font-family:inherit">
+        <span id="t_back_to_visit_choice_2">← 選択に戻る</span>
+      </button>
+    </div>
+
     <!-- 顔認証で来院確認カード(既存患者向け、初期非表示) -->
     <div class="card" id="faceLoginCard" style="text-align:center;display:none">
       <div class="card-title" style="justify-content:center"><span id="t_login_choice">どちらで来院確認しますか?</span></div>
@@ -1342,6 +1374,7 @@ const Q = {
   lookupCandidates: [],
   faceEmbedding: '',    // 顔認証 Phase 1: 平均化した 128次元 float 配列(JSON文字列)
   visitTypeChoice: null, // 'first' | 'return' | null(未選択)
+  authPrefChoice: null,  // 'face' | 'phone' | null(初回来院客の次回以降認証方法)
 };
 
 /* ============================================================
@@ -1697,18 +1730,20 @@ function chooseVisitType(type) {
   // type: 'first'(初めて) or 'return'(2回目以降)
   Q.visitTypeChoice = type;
   document.getElementById('visitTypeChoiceCard').style.display = 'none';
-  document.getElementById('phoneCard').style.display = '';
-  document.getElementById('lookupBtnCard').style.display = 'block';
 
   if (type === 'first') {
-    // 新規: 顔認証カード非表示、氏名フィールドを即座に開示、電話番号は下に残す
-    const faceLoginCard = document.getElementById('faceLoginCard');
-    if (faceLoginCard) faceLoginCard.style.display = 'none';
-    revealNameFieldsForFirstVisit();
+    // 新規: 次に「次回以降の認証方法」選択カードを表示
+    document.getElementById('authPrefChoiceCard').style.display = '';
+    // 顔認証カード、電話番号カードは authPref 選択後まで非表示
+    document.getElementById('faceLoginCard').style.display = 'none';
+    document.getElementById('phoneCard').style.display = 'none';
+    document.getElementById('lookupBtnCard').style.display = 'none';
   } else {
     // 既存: 顔認証カード表示、電話番号入力のみ(氏名は非表示)
-    const faceLoginCard = document.getElementById('faceLoginCard');
-    if (faceLoginCard) faceLoginCard.style.display = '';
+    document.getElementById('authPrefChoiceCard').style.display = 'none';
+    document.getElementById('phoneCard').style.display = '';
+    document.getElementById('lookupBtnCard').style.display = 'block';
+    document.getElementById('faceLoginCard').style.display = '';
     Q.nameFieldsVisible = false;
     document.getElementById('phoneGroup').style.display = '';
     document.getElementById('p1NameGroup').style.display = 'none';
@@ -1718,11 +1753,27 @@ function chooseVisitType(type) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function chooseAuthPref(pref) {
+  // pref: 'face'(顔認証希望) or 'phone'(電話番号のみ)
+  Q.authPrefChoice = pref;
+  document.getElementById('authPrefChoiceCard').style.display = 'none';
+  document.getElementById('phoneCard').style.display = '';
+  document.getElementById('lookupBtnCard').style.display = 'block';
+  revealNameFieldsForFirstVisit();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // 顔認証希望なら face-api プリロードを念のため確実に開始
+  if (pref === 'face' && typeof preloadFaceApiInBackground === 'function') {
+    preloadFaceApiInBackground();
+  }
+}
+
 function backToVisitChoice() {
   Q.visitTypeChoice = null;
+  Q.authPrefChoice = null;
   Q.nameFieldsVisible = false;
   Q.foundPatient = null;
   document.getElementById('visitTypeChoiceCard').style.display = '';
+  document.getElementById('authPrefChoiceCard').style.display = 'none';
   document.getElementById('phoneCard').style.display = 'none';
   document.getElementById('lookupBtnCard').style.display = 'none';
   document.getElementById('faceLoginCard').style.display = 'none';
@@ -2710,7 +2761,9 @@ function isFaceAuthEligible() {
 function updateFaceAuthVisibility() {
   const sec = document.getElementById('faceAuthSection');
   if (!sec) return;
-  const eligible = Q.visitType === 'first' && isFaceAuthEligible();
+  // 新規客が「顔で確認」を選んだ場合のみ表示(電話番号を選んだら非表示)
+  const preferredFace = Q.authPrefChoice === 'face';
+  const eligible = Q.visitType === 'first' && preferredFace && isFaceAuthEligible();
   const currentlyVisible = sec.style.display !== 'none';
   sec.style.display = eligible ? 'block' : 'none';
   if (!eligible && currentlyVisible) {
@@ -2848,6 +2901,13 @@ function resetFaceAuth() {
       set('t_visit_first', l.t_visit_first);
       set('t_visit_returning', l.t_visit_returning);
       set('t_back_to_visit_choice', l.t_back_to_visit_choice);
+      set('t_back_to_visit_choice_2', l.t_back_to_visit_choice);
+      set('t_auth_pref_title', l.t_auth_pref_title);
+      set('t_auth_pref_desc', l.t_auth_pref_desc);
+      set('t_auth_pref_face', l.t_auth_pref_face);
+      set('t_auth_pref_face_sub', l.t_auth_pref_face_sub);
+      set('t_auth_pref_phone', l.t_auth_pref_phone);
+      set('t_auth_pref_phone_sub', l.t_auth_pref_phone_sub);
     } catch(_) {}
   };
 })();

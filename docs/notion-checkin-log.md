@@ -34,7 +34,7 @@ GAS エディタ → プロジェクトの設定 → スクリプトプロパテ
 | 顧客名 | Title | Sheet の customer_name |
 | 状態 | Select | 🔴 未記録 / ✅ 済 / ⚫ 施術なし |
 | 来店 | Date (datetime) | checkin_at |
-| 経過 | Formula | 🟢 本日 / 🟡 1日経過 / 🔴 N日経過 |
+| 経過 | Formula | 🟢 本日 / 🟡 1日経過 / 🟠 2〜6日経過 / 🔴 7日以上経過 |
 | 📝 記録する | URL | 事前入力済み施術記録シート URL |
 | メモ | Rich Text | no-show 理由等 |
 | 診察番号 | Rich Text | customer_id (P001形式) |
@@ -54,6 +54,15 @@ GAS エディタ → プロジェクトの設定 → スクリプトプロパテ
 **「📅 今日の来店」ビュー** は view DSL が relative date filter(today)を
 サポートしないため未作成。「📊 全履歴」で日付降順で今日のレコードが先頭に来る。
 必要ならルカスと Nicolas で Notion UI から手動追加可能。
+
+## 経過 Formula の実装ノート (2026-09-26 修正)
+
+初版の `dateBetween(now(), 来店, "days")` は「完全な24時間経過」で日数を数えるため、
+25日夜(JST)〜26日朝の患者が「🟢 本日」表示になるバグがあった。
+
+修正版は `parseDate(formatDate(..., "YYYY-MM-DD"))` で **カレンダー日** に正規化してから
+`dateBetween` で差分を取る。formatDate は Notion ワークスペースのタイムゾーンを使うため、
+LBC ワークスペースが JST 設定である前提で JST カレンダー日で計算される。
 
 ## ダッシュボードページ再構成 (2026-09-26)
 

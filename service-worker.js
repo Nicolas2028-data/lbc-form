@@ -1,8 +1,10 @@
-// LBC Care Service Worker (v1 - 2026-09-06)
+// LBC Care Service Worker (v2 - 2026-09-26 顔認証廃止 + 来店ログ機能追加)
 // 目的: 静的アセット(HTML/JS/CSS/JSON)を network-first + cache fallback で提供し、
 //       iPad で offline 中も UI が起動できるようにする(送信は online に戻ってから)。
 
-const CACHE_NAME = 'lbc-static-v1';
+// CACHE_NAME を bump することで既存 PWA インストール済端末が
+// 古い questionnaire.html (顔認証UI付き) をキャッシュから返さないようにする
+const CACHE_NAME = 'lbc-static-v2';
 const STATIC_ASSETS = [
   './',
   './questionnaire.html',

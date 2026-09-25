@@ -922,10 +922,13 @@ var URL_PREFILL = (function() {
     var qs = new URLSearchParams(window.location.search);
     var cid = qs.get('customer_id');
     if (!cid) return null;
+    // trim + 大文字化(コピペ時の余計な空白と case ずれを吸収)(2026-09-26 修正)
+    var normId = String(cid).trim().toUpperCase();
+    if (!normId) return null;
     return {
-      customerId: cid,
-      name:       qs.get('name') || '',
-      phone:      qs.get('phone') || '',
+      customerId: normId,
+      name:       String(qs.get('name') || '').trim(),
+      phone:      String(qs.get('phone') || '').trim(),
     };
   } catch (e) { return null; }
 })();
@@ -1009,9 +1012,11 @@ async function loadPatients() {
 
     // URL パラメータで指定された患者を自動選択(Notion 未記録リストからの導線)
     if (URL_PREFILL && URL_PREFILL.customerId) {
+      // 大文字化して比較(URL_PREFILL 側は既に upper-cased 済み)
       var target = allPatients.find(function(p) {
-        return String(p.customerId) === String(URL_PREFILL.customerId) ||
-               String(p.patientNum) === String(URL_PREFILL.customerId);
+        var cid = String(p.customerId || '').trim().toUpperCase();
+        var pnum = String(p.patientNum || '').trim().toUpperCase();
+        return cid === URL_PREFILL.customerId || pnum === URL_PREFILL.customerId;
       });
       if (target) {
         var idx = allPatients.indexOf(target);
@@ -1424,9 +1429,10 @@ let _lastSubmitTs = 0;
 
 async function submitRecord() {
   const now = Date.now();
-  if (now - _lastSubmitTs < 500) return; // 500ms 以内の連打を破棄
-  _lastSubmitTs = now;
+  // 2026-09-26 修正: _lastSubmitTs は「実際に送信ネットワーク処理を開始する直前」に更新する
+  //  (以前は validation 前に更新していたため、error で戻ってすぐ再クリックすると 500ms 未満で silent drop されていた)
   if (S.submitting) return;
+  if (now - _lastSubmitTs < 500) return; // 500ms 以内の連打を破棄
 
   // 施術有無トグル(2026-09-26 追加)
   const attended = (document.querySelector('input[name="attended"]:checked')?.value) !== 'no';
@@ -1450,8 +1456,20 @@ async function submitRecord() {
     if (!noShowReason) {
       showErr('e_noShowReason', '理由を入力してください', 'noShowReason'); ok = false;
     } else clearErr('e_noShowReason', 'noShowReason');
+    // no-show は集計対象外になる重要オペレーションなので confirm を出す(2026-09-26 追加)
+    if (ok) {
+      var noShowConfirmMsg = S.patientName + ' 様の記録を「⚫ 施術を受けなかった (no-show)」として送信します。\n\n'
+        + '理由: ' + noShowReason + '\n\n'
+        + '売上・来院数の集計対象からは除外されます。よろしいですか?';
+      if (!confirm(noShowConfirmMsg)) {
+        return; // ユーザーがキャンセル → 送信中断、_lastSubmitTs は更新しない(即再送信可)
+      }
+    }
   }
   if (!ok) return;
+
+  // ここで実際の送信処理に入る → タイムスタンプ更新
+  _lastSubmitTs = Date.now();
 
   // 月2回コース系は GAS に 'monthly2' として送る
   const gasId = attended ? (courseId === 'monthly2_2nd' ? 'monthly2' : courseId) : null;
@@ -1539,14 +1557,15 @@ function showSuccess(courseId, amount, attended, noShowReason) {
   var titleEl = document.querySelector('.success-title');
   if (titleEl) titleEl.textContent = attended ? '✅ 施術記録を保存しました' : '⚫ no-show を記録しました';
 
+  // 全ての文字列補間は escHtml でエスケープ(2026-09-26 XSS対策強化)
   const details = [
-    '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）',
+    '<strong>' + escHtml(S.patientName || '') + ' 様</strong>（' + escHtml(String(S.patientNum || '')) + '）',
   ];
   if (attended) {
-    const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : courseId;
-    details.push(courseName + '　¥' + amount.toLocaleString());
-    if (S.referralApplied && S.referrerName) details.push('紹介割引適用（' + S.referrerName + ' さん +¥1,000クレジット）');
-    if (S.creditUsed > 0) details.push('クレジット使用 ¥' + S.creditUsed.toLocaleString());
+    const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : (courseId || '');
+    details.push(escHtml(courseName) + '　¥' + Number(amount || 0).toLocaleString());
+    if (S.referralApplied && S.referrerName) details.push('紹介割引適用（' + escHtml(S.referrerName) + ' さん +¥1,000クレジット）');
+    if (S.creditUsed > 0) details.push('クレジット使用 ¥' + Number(S.creditUsed).toLocaleString());
   } else {
     details.push('理由: ' + escHtml(noShowReason || ''));
     details.push('<span style="color:var(--text-sub);font-size:0.9em">売上・来院数の集計対象からは除外されます</span>');

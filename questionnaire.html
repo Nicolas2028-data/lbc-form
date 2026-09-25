@@ -2228,10 +2228,10 @@ function clearErr(id, inputId) {
 let _lastQuSubmitTs = 0;
 
 async function submitQuestionnaire() {
-  const nowTs = Date.now();
-  if (nowTs - _lastQuSubmitTs < 500) return; // 500ms 以内の連打を破棄
-  _lastQuSubmitTs = nowTs;
+  // 2026-09-26 修正: _lastQuSubmitTs は「validation を通過して実送信に入る直前」に更新する
+  //  (validation 前に更新していたため、入力ミス→修正→即再送信が silent drop されていた)
   if (Q.submitting) return;
+  if (Date.now() - _lastQuSubmitTs < 500) return; // 500ms 以内の連打を破棄
   if (!validate()) {
     document.querySelector('.field-error.visible')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     toast(Q.lang === 'ja' ? '未入力・エラーの項目を確認してください'
@@ -2239,6 +2239,7 @@ async function submitQuestionnaire() {
         : 'Verifique os campos com erro', 'error');
     return;
   }
+  _lastQuSubmitTs = Date.now();
 
   Q.submitting = true;
   document.getElementById('submitBtn').disabled = true;

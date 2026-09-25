@@ -544,9 +544,12 @@ function appendCheckinLog(cfg, customerId, customerName, phoneNormalized, entryT
 }
 
 // 施術記録受信時に来店ログの recorded_at を更新
-//  同日・同 customer_id・recorded_at 空 の行を古い順で 1件マッチ
+//  マッチ戦略(2026-09-26 更新):
+//   1. 同日・同 customer_id・recorded_at 空 の行を古い順に検索
+//   2. 見つからない場合、過去7日以内の未記録行(同 customer_id)を古い順に検索
+//      → 「昨日来店、今朝ルカスが記録」等の遅延記録シナリオに対応
+//   3. それでも見つからない場合、auto_backfill で 1件追加 + 通知メール
 //  status: 'recorded' (施術完了) or 'no_show' (施術なし)
-//  マッチしなければ auto_backfill で 1件追加 + 通知メール
 //  失敗しても呼び出し側の主フロー(施術記録送信)を止めない
 function updateCheckinLogOnRecord(cfg, recordId, customerId, treatmentDate, status, noShowReason) {
   try {
@@ -564,13 +567,36 @@ function updateCheckinLogOnRecord(cfg, recordId, customerId, treatmentDate, stat
     }
     var vals = sheet.getRange(2, 1, last - 1, 16).getValues();
     var now = nowISO();
+
+    // 過去7日の範囲(遅延記録シナリオ用)
+    var sevenDaysAgoMs = new Date(targetDate + 'T00:00:00').getTime() - 7 * 24 * 60 * 60 * 1000;
+    var sevenDaysAgoStr = fmtDate(new Date(sevenDaysAgoMs));
+
+    var sameDayIdx = -1;      // 同日マッチ優先
+    var recentIdx = -1;       // 過去7日以内マッチ(fallback)
+    var recentIdxDate = null; // fallback の checkin_date
+
     for (var i = 0; i < vals.length; i++) {
       var r = vals[i];
       if (String(r[CL.customer_id]) !== String(customerId)) continue;
-      if (toDateStr(r[CL.checkin_date]) !== targetDate) continue;
       if (String(r[CL.recorded_at] || '') !== '') continue;
-      // マッチ → 更新
-      var rowIndex = i + 2;
+      var rDate = toDateStr(r[CL.checkin_date]);
+      if (!rDate) continue;
+      if (rDate === targetDate) {
+        // 同日マッチ → 最古を採用
+        if (sameDayIdx === -1) sameDayIdx = i;
+      } else if (rDate >= sevenDaysAgoStr && rDate <= targetDate) {
+        // 過去7日以内マッチ → 最も古い日付を優先
+        if (!recentIdxDate || rDate < recentIdxDate) {
+          recentIdx = i;
+          recentIdxDate = rDate;
+        }
+      }
+    }
+
+    var matchIdx = sameDayIdx !== -1 ? sameDayIdx : recentIdx;
+    if (matchIdx !== -1) {
+      var rowIndex = matchIdx + 2;
       sheet.getRange(rowIndex, CL.recorded_at + 1).setValue(now);
       sheet.getRange(rowIndex, CL.record_id + 1).setValue(String(recordId || ''));
       sheet.getRange(rowIndex, CL.status + 1).setValue(status || 'recorded');
@@ -580,7 +606,8 @@ function updateCheckinLogOnRecord(cfg, recordId, customerId, treatmentDate, stat
       sheet.getRange(rowIndex, CL.updated_at + 1).setValue(now);
       sheet.getRange(rowIndex, CL.synced_at + 1).setValue(''); // 再同期対象に
       incSyncCounter(ss);
-      return { success: true, matched: true };
+      var wasLate = (sameDayIdx === -1);
+      return { success: true, matched: true, wasLate: wasLate };
     }
     // マッチなし → auto_backfill
     _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDate, status, noShowReason);
@@ -1253,6 +1280,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
 
   // 冪等性チェック: 同一 requestId が既に成功済みなら即返す
   //  走査範囲: 直近 5000 行(約 100 日分。約 2週間の offline 退避 → 再送を許容)
+  //  成功判定: 'ok' (施術完了) と 'no_show' (施術なし記録) の両方を許容 (2026-09-26 修正)
   if (data.requestId) {
     var logSheet = ss.getSheetByName('アクセスログ');
     if (logSheet) {
@@ -1260,9 +1288,11 @@ function handleSubmitTreatmentRecord(data, cfg) {
       var start   = Math.max(1, logVals.length - 5000);
       for (var li = logVals.length - 1; li >= start; li--) {
         if (String(logVals[li][AL.request_id]) === String(data.requestId) &&
-            String(logVals[li][AL.action])     === 'submitTreatmentRecord' &&
-            String(logVals[li][AL.result])     === 'ok') {
-          return { success: true, duplicate: true };
+            String(logVals[li][AL.action])     === 'submitTreatmentRecord') {
+          var prevRes = String(logVals[li][AL.result]);
+          if (prevRes === 'ok' || prevRes === 'no_show') {
+            return { success: true, duplicate: true };
+          }
         }
       }
     }
@@ -2076,19 +2106,26 @@ function syncCheckinLog(ss, cfg) {
       Logger.log('syncCheckinLog: row ' + rowIndex + ' checkin_id 空 — スキップ');
       continue;
     }
+    // 防御: checkin_at 空の行は Notion API が 400 を返すためスキップして通知(2026-09-26 追加)
+    var checkinAtRaw = r[CL.checkin_at];
+    if (!checkinAtRaw) {
+      Logger.log('syncCheckinLog: row ' + rowIndex + ' checkin_at 空 — スキップ');
+      continue;
+    }
 
     try {
       // checkin_id で既存ページ検索(upsert)
       var pageId = _findCheckinPageByCheckinId(cfg, checkinId);
 
-      var checkinAtRaw = r[CL.checkin_at];
       var checkinIso = (checkinAtRaw instanceof Date) ? checkinAtRaw.toISOString() : String(checkinAtRaw);
+      // 顧客名は Notion title の 2000文字上限に収まるよう安全側で truncate (2026-09-26 追加)
+      var custName = String(r[CL.customer_name] || '(名前なし)').slice(0, 1900);
       var props = {
-        '顧客名':      { title: [{ text: { content: String(r[CL.customer_name] || '(名前なし)') } }] },
+        '顧客名':      { title: [{ text: { content: custName } }] },
         '状態':        { select: { name: _checkinStatusLabel(String(r[CL.status])) } },
         '来店':        { date: { start: checkinIso } },
         '📝 記録する': { url: String(r[CL.treatment_record_url] || '') || null },
-        'メモ':        richText(String(r[CL.no_show_reason] || '')),
+        'メモ':        richText(String(r[CL.no_show_reason] || '').slice(0, 1900)),
         '診察番号':    richText(String(r[CL.customer_id] || '')),
         'checkin_id':  richText(checkinId),
       };
@@ -2120,6 +2157,9 @@ function syncCheckinLog(ss, cfg) {
 }
 
 // checkin_id で Notion 来店ログ DB を検索して page ID を返す(見つからなければ null)
+//  2026-09-26: rate_limit / 5xx 系の一時エラーは throw せず null 返しで caller に「新規作成扱い」させる
+//  → error_count が 5 に届いて永続スキップされる問題を回避
+//  → 万一 duplicate page ができても、次サイクルで query が成功したら既存 page を patch するので回復可能
 function _findCheckinPageByCheckinId(cfg, checkinId) {
   try {
     var res = notionPost(cfg, '/databases/' + cfg.NOTION_CHECKIN_DB_ID + '/query', {
@@ -2132,8 +2172,15 @@ function _findCheckinPageByCheckinId(cfg, checkinId) {
     if (res && res.results && res.results.length > 0) return res.results[0].id;
     return null;
   } catch (e) {
-    Logger.log('_findCheckinPageByCheckinId error checkinId=' + checkinId + ': ' + e.message);
-    throw e; // 呼び出し元で error_count 加算
+    var msg = String(e.message || '');
+    // 一時エラー(429 rate_limited / 5xx / timeout) → throw せず null で fallback
+    if (/429|rate_limited|500|502|503|504|timeout/i.test(msg)) {
+      Logger.log('_findCheckinPageByCheckinId transient error, fallback to create: ' + msg);
+      return null;
+    }
+    // 恒久エラー(400 bad request, 401 unauthorized, 404 not found DB) → throw
+    Logger.log('_findCheckinPageByCheckinId permanent error checkinId=' + checkinId + ': ' + msg);
+    throw e;
   }
 }
 

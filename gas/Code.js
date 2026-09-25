@@ -127,6 +127,36 @@ function doGet(e) {
       if (!authDR.ok) return jsonRes({ success: false, error: authDR.error, remainingSec: authDR.remainingSec });
       return jsonRes(getDetailedReport(p.date || null));
     }
+    // 来店ログ関連の管理エンドポイント (2026-09-26 追加)
+    // 認証: STAFF_PASSWORD 必須(既存の run* エンドポイントと同じセキュリティレベル)
+    if (p.action === 'runCheckinLogStatus') {
+      var authCS = verifyStaffPassword(p.pw, cfg);
+      if (!authCS.ok) return jsonRes({ success: false, error: authCS.error, remainingSec: authCS.remainingSec });
+      return jsonRes(checkinLogStatusReport(cfg));
+    }
+    if (p.action === 'runCheckinLogEnsure') {
+      var authCE = verifyStaffPassword(p.pw, cfg);
+      if (!authCE.ok) return jsonRes({ success: false, error: authCE.error, remainingSec: authCE.remainingSec });
+      return jsonRes(ensureCheckinLogSheet());
+    }
+    if (p.action === 'runCheckinLogBackfill') {
+      var authCB = verifyStaffPassword(p.pw, cfg);
+      if (!authCB.ok) return jsonRes({ success: false, error: authCB.error, remainingSec: authCB.remainingSec });
+      var mode = String(p.mode || 'dry');
+      if (mode !== 'dry' && mode !== 'commit') {
+        return jsonRes({ success: false, error: 'mode must be "dry" or "commit"' });
+      }
+      var result = _backfillCheckinLogImpl(mode === 'dry');
+      return jsonRes({ success: true, mode: mode, result: result });
+    }
+    if (p.action === 'runCheckinLogSync') {
+      var authCY = verifyStaffPassword(p.pw, cfg);
+      if (!authCY.ok) return jsonRes({ success: false, error: authCY.error, remainingSec: authCY.remainingSec });
+      // 手動で syncCheckinLog を実行(1分毎トリガーを待たない場合)
+      var ss = getLedger(cfg);
+      var synced = syncCheckinLog(ss, cfg);
+      return jsonRes({ success: true, synced: synced });
+    }
     // dev* エンドポイント: 2 段構えの保護 (2026-09-06 強化)
     //  - 1段目: cfg._env === 'staging' (production の場合は resolveEnv が null 返却で無効化)
     //  - 2段目: STAFF_PASSWORD 認証 (verifyStaffPassword でブルートフォース保護付き)
@@ -3745,6 +3775,63 @@ function backfillCheckinLogDryRun() {
 
 function backfillCheckinLogRun() {
   return _backfillCheckinLogImpl(false);
+}
+
+// 来店ログの状態レポート(タブ存在、行数、Notion sync 状態、未同期件数)
+function checkinLogStatusReport(cfg) {
+  cfg = cfg || getConfig();
+  var report = {
+    env:                 cfg._env || 'production',
+    has_notion_db_id:    !!cfg.NOTION_CHECKIN_DB_ID,
+    notion_db_id:        cfg.NOTION_CHECKIN_DB_ID || '(未設定)',
+    checkin_log_tab:     'missing',
+    total_rows:          0,
+    unsynced_rows:       0,
+    stuck_rows:          0,
+    status_breakdown:    { received: 0, recorded: 0, no_show: 0, unknown: 0 },
+    sample_recent:       [],
+  };
+  try {
+    var ss = getLedger(cfg);
+    var sh = ss.getSheetByName('来店ログ');
+    if (!sh) {
+      report.checkin_log_tab = 'MISSING - call runCheckinLogEnsure to create';
+      return report;
+    }
+    report.checkin_log_tab = 'exists';
+    var last = sh.getLastRow();
+    if (last < 2) {
+      report.hint = '来店ログタブは存在するが 0 件。バックフィルするなら runCheckinLogBackfill を呼んでください';
+      return report;
+    }
+    var rows = sh.getRange(2, 1, last - 1, 16).getValues();
+    report.total_rows = rows.length;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var syncedAt = r[CL.synced_at];
+      if (!syncedAt || syncedAt === '') report.unsynced_rows++;
+      if (Number(r[CL.error_count] || 0) >= 5) report.stuck_rows++;
+      var st = String(r[CL.status] || '');
+      if (report.status_breakdown[st] !== undefined) report.status_breakdown[st]++;
+      else report.status_breakdown.unknown++;
+    }
+    // 直近 5件のサマリ
+    var start = Math.max(0, rows.length - 5);
+    for (var j = rows.length - 1; j >= start; j--) {
+      var rr = rows[j];
+      report.sample_recent.push({
+        customer_id:   String(rr[CL.customer_id] || ''),
+        customer_name: String(rr[CL.customer_name] || ''),
+        checkin_date:  toDateStr(rr[CL.checkin_date]),
+        status:        String(rr[CL.status] || ''),
+        recorded:      !!rr[CL.recorded_at],
+        synced:        !!rr[CL.synced_at],
+      });
+    }
+  } catch (e) {
+    report.error = e.message;
+  }
+  return report;
 }
 
 // 来店ログ タブが本番シートに存在するかを確認する軽量ヘルパー

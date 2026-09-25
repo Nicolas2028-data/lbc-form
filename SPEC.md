@@ -72,7 +72,8 @@
 | M | created_at | ISO8601 | |
 | N | updated_at | ISO8601 | onEdit / スクリプトが更新 |
 | O | synced_at | ISO8601 | 同期トリガーが更新 |
-| P | face_embedding | JSON文字列 | 顔認証 128次元 float 配列(2026-09-06 追加、Phase 1)。Notion 同期対象外。生顔画像は保存しない |
+| P | face_embedding | (廃止) | **2026-09-26 に顔認証機能廃止。列は物理削除せず空文字化で運用。新規追記時は空文字を書き、既存行の値は保持(将来削除時に一括クリア)。GAS からは参照しない。列インデックス保持のためスキーマは残置** |
+| Q | face_reg_declined | (廃止) | **2026-09-26 廃止。同上、空文字化で運用** |
 
 ### 2.2 タブ: `施術台帳` (追記専用)
 
@@ -111,19 +112,51 @@
 
 **業務ルールの実装(現行コードに欠落):** ①紹介による grant は同一紹介者につき**最大3件**まで(grant 前に該当顧客の紹介 grant 行数を数え、上限到達時は付与せず理由をレスポンスとログに残す)。②use は残高超過をエラーにする(現行の `useCredit` は超過分を黙って切り捨てており、これを踏襲しない)。
 
-### 2.4 タブ: `アクセスログ` (追記専用)
+### 2.4 タブ: `来店ログ` (追記専用・限定編集許容)
+
+2026-09-26 追加。問診票送信を「本日来店」のシグナルとして記録し、Notion 側で「未記録リスト」を可視化する。
+
+| 列 | 名前 | 型/形式 | 備考 |
+|----|------|---------|------|
+| A | checkin_id | UUID | 主キー・冪等性キー。GAS の Utilities.getUuid() で発行 |
+| B | customer_id | P001形式 | 顧客ID |
+| C | customer_name | text | 照合時点の氏名スナップショット(Notion 表示用) |
+| D | phone_normalized | text | 正規化済み電話番号(4.2) |
+| E | checkin_at | ISO8601 | 来店(問診票送信)時刻 |
+| F | checkin_date | yyyy-MM-dd | 来店日(同日マッチ用) |
+| G | entry_type | initial/revisit/auto_backfill | 初回問診票 / 再来院照合 / 施術記録先行時の自動補完 |
+| H | status | received/recorded/no_show | 受付済 / 記録済 / 施術なし |
+| I | recorded_at | ISO8601 | 施術記録受信時刻(空=未記録) |
+| J | record_id | UUID | 対応する施術台帳の entry_id(recorded 時のみ) |
+| K | no_show_reason | text | 施術を受けなかった理由(status=no_show 時のみ) |
+| L | treatment_record_url | text | ルカスがワンタップで施術記録シートを開けるよう事前入力済みURLを保存 |
+| M | updated_at | ISO8601 | onEdit / スクリプトが更新 |
+| N | synced_at | ISO8601 | 同期トリガーが更新 |
+| O | notes | text | 予備 |
+| P | error_count | number | 同期失敗カウンタ。他の追記タブと同じ 5 回連続失敗スキップ機構(3章) |
+
+**編集ルール:**
+- 追記専用が原則だが、recorded_at / record_id / status / no_show_reason / updated_at の更新は「集計対象フラグ更新」(2.2 の M 列と同じく)相当の限定編集として許容する
+- customer_id / customer_name / phone_normalized / checkin_at / checkin_date / entry_type / treatment_record_url は書き換え禁止
+- 訂正モード(赤伝)実行時、来店ログの recorded_at は維持する(施術は行われた事実として扱う。金銭のみ赤伝で相殺)
+
+**マッチ規則(updateCheckinLogOnRecord):**
+- 施術記録受信時、同日(checkin_date == 施術日)・同 customer_id・recorded_at が空のレコードを古い順に検索して 1件更新する
+- 見つからない場合は entry_type=auto_backfill で新規追加 + NOTIFY_EMAIL に通知(問診票を出さずに施術記録された運用逸脱の検知)
+
+### 2.5 タブ: `アクセスログ` (追記専用)
 
 全 doPost/doGet 呼び出しを1行ずつ記録: timestamp, action, 冪等性キー, 結果(ok/error/duplicate/auth_fail), エラー概要, 処理時間ms。個人情報の生値(名前・電話全桁)は書かない(customer_id と電話下4桁まで)。
 
-### 2.5 タブ: `_sync` (システム用・1セル運用)
+### 2.6 タブ: `_sync` (システム用・1セル運用)
 
 `A1` = 未同期件数カウンタ(受付が書き込み時にインクリメント、同期完了時に再計算)。同期トリガーは冒頭でこのセルだけ読み、0 なら即終了する(早期リターン。1分毎トリガーをクォータ内に収める要)。
 
 **フェイルセーフ:** カウンタは同時実行でずれうるヒントに過ぎない。毎時 0 分の実行回(または `B1` に前回全走査時刻を持ち 60 分経過時)は、カウンタが 0 でも全タブの `updated_at > synced_at` 走査を必ず実行し、取りこぼしを回収してカウンタを再計算する。
 
-### 2.6 シート保護
+### 2.7 シート保護
 
-- `施術台帳` `クレジット台帳` `アクセスログ` `_sync`: タブ保護を設定。**注意:** シート保護はオーナー自身の編集を阻止できない(Google の仕様)。これは誤編集への警告ガードレールであり、ハードな防御ではないことを前提とする
+- `施術台帳` `クレジット台帳` `来店ログ` `アクセスログ` `_sync`: タブ保護を設定。**注意:** シート保護はオーナー自身の編集を阻止できない(Google の仕様)。これは誤編集への警告ガードレールであり、ハードな防御ではないことを前提とする
 - `顧客マスタ`: ニコラスの手動編集を許可。編集行の `updated_at` を現在時刻に更新する onEdit を実装(複数行ペースト対応: e.range の全行を処理)
 - **onEdit はインストーラブルトリガーで作ること。** 本 GAS はシートに紐付かないスタンドアロンの Web アプリのため、単純トリガー(関数名 onEdit)は発火しない。`ScriptApp.newTrigger('onLedgerEdit').forSpreadsheet(LEDGER_SPREADSHEET_ID).onEdit().create()` で明示的に設置する(セットアップ関数 `installTriggers()` に集約し、同期トリガー・日次トリガーもここで一括設置)
 
@@ -141,6 +174,7 @@
 - **クレジット残高:** 顧客の Notion ページの残高プロパティは、同期時にクレジット台帳の SUM を書き込む(Notion 側で計算しない)
 - **エラー処理:** 行単位で try/catch。失敗行は synced_at を書かず次回リトライ。失敗回数は各タブに `sync_error_count` 列を追加して行内で管理し、5 回連続失敗したらエラー通知メールを送って以降スキップ(count>=5 を抽出条件から除外。無限リトライでトリガーを詰まらせない)。手動対応後は count を 0 に戻せば再同期される
 - **レート制限:** Notion API 呼び出し間に Utilities.sleep(350) を挟む(3req/s 遵守)
+- **来店ログ DB (2026-09-26 追加):** `来店ログ` タブから Notion `来店ログ` DB に upsert。`checkin_id` を Notion 側の隠し Text プロパティに保存して upsert キーに使う。status → Notion Status ラベル(received→🔴未記録 / recorded→✅済 / no_show→⚫施術なし)。recorded_at 更新後は同期対象になる(updated_at > synced_at で検出)。この DB を除去したい場合はスクリプトプロパティ `NOTION_CHECKIN_DB_ID` を空にすれば同期をスキップ
 
 ---
 
@@ -215,6 +249,19 @@
    - 過去日の訂正は UI 化しない(ニコラスがシートに赤伝行を手動追記する運用)
 2. **認可:** 全 API 呼び出しに password を同梱(4.5 準拠)
 3. **冪等性:** 5.1-4 と同じ requestId 方式
+4. **施術有無トグル (2026-09-26 追加):**
+   - 患者選択後、記録入力の最上部に「✅ 施術を受けた / ⚫ 施術を受けなかった」のラジオボタンを配置
+   - 「受けなかった」選択時: 施術コース・売上金額・支払い方法・施術メモの各フィールドを非表示にし、「理由」テキストエリア(必須)を表示
+   - 送信ペイロードに `attended: true|false` と `noShowReason: string` を追加
+   - GAS 側処理(handleSubmitTreatmentRecord):
+     - `attended=false` の場合: 施術台帳に status=no_show, 集計対象=FALSE, 売上金額=0 で 1行追記
+     - `attended=true` の場合: 従来通り status=completed で追記
+   - 来店ログの `updateCheckinLogOnRecord` を呼んで recorded_at / status / no_show_reason を更新
+5. **URL パラメータ事前入力 (2026-09-26 追加):**
+   - `?customer_id=P001&name=山田太郎&phone=09012345678` を受け取り、患者選択と検索欄をスキップして直接記録画面を表示できるようにする
+   - ルカスが Notion の「📝 記録する」リンクから直接該当患者の記録画面に入れる導線
+   - スタッフパスワード認証は URL パラメータ有無に関わらず必須(認可はサーバー側 4.5)
+6. **送信後メッセージ (2026-09-26 変更):** 「✅ 記録しました。1分以内に Notion に反映されます」に統一(記録漏れリスト側の消滅までルカスに待ってもらう案内)
 
 ### 5.3 i18n 分離(最終フェーズ)
 
@@ -245,6 +292,8 @@
 | `ENV` | `production` / `staging` |
 | `STAGING_*` | ステージング用の各ID(下記 8) |
 | 既存: `NOTION_TOKEN` `CUSTOMER_DB_ID` `KARTE_DB_ID` `STAFF_PASSWORD` | 継続使用 |
+| `NOTION_CHECKIN_DB_ID` (2026-09-26 追加) | 本番の Notion 来店ログ DB(データソース)ID。空文字ならその環境で来店ログ同期をスキップ |
+| `STAGING_NOTION_CHECKIN_DB_ID` (2026-09-26 追加) | staging の Notion 来店ログ DB(データソース)ID |
 
 コード内では `getConfig()` 1関数に集約し、`ENV` に応じて本番/ステージングの ID セットを返す。ID を直書きしない。
 
@@ -290,50 +339,27 @@
 
 ---
 
-## 11.5. 顔認証(次期機能)の設計原則 (REL-H6 2026-09-06 追記)
+## 11.5. 顔認証機能の廃止 (2026-09-26)
 
-`face-auth-test.html` にプロトタイプあり。本格実装時は以下の**7原則**を守ること。
+Phase A〜D で実装した顔認証機能は **2026-09-26 に全廃止**した。
 
-### 11.5.1 既存パイプラインを絶対に汚染しない
+**廃止理由:**
+- 月6〜12人規模に対して 128次元 embedding + Kiosk 4連タップ unlock は過剰
+- ルカスから「2回目以降は Notion で自分がお客様情報を見るついでに記録できた方がお客様の手間も少ない」との要望
+- 電話番号+氏名照合(Step 2-3 で実装済み)で運用上十分
 
-顔認証は「照合層」で完結し、書き込みパイプライン(問診・施術・クレジット)には一切の追加負荷をかけないこと:
+**廃止した機能:**
+- questionnaire.html: 顔登録同意カード / 顔認証照合モーダル / Kiosk 4連タップ unlock / face-api.js CDN
+- treatment-record.html: 顔認証関連なし
+- gas/Code.js: handleGetFaceEmbeddings / handleMatchFace / doPost 分岐
+- i18n: face_* キー全般
+- ファイル: face-auth-test.html / palm-auth-test.html
 
-- 顔認証は **別 doPost アクション**(例: `faceMatch`)として実装。既存の `submitAll` / `submitQuestionnaire` / `submitTreatmentRecord` の呼び出しフローに組み込まない
-- 顔認証の類似度計算・embedding 比較は**フロント側(iPad ブラウザ内)で完結**させ、GAS には最終的な customerId 候補のみを送る
-- Notion API・Sheets API を新たに追加で叩かないこと(既存のレート制限を圧迫しないため)
+**残存物(意図的):**
+- customers タブの `face_embedding` (P列) / `face_reg_declined` (Q列) は列インデックス保持のため空文字化で運用。GAS からは参照しない
+- 既存の embedding 値はしばらく保持(将来削除時に一括クリア。個人情報保護観点で削除するタイミングは Nicolas 判断)
 
-### 11.5.2 データ保管の設計
-
-- **生の顔画像は保存しない**。フロント側で embedding(128 次元 float 配列等)を生成して破棄
-- embedding は顧客マスタに1列追加(例: `face_embedding` = JSON 文字列)。既存の Notion 同期対象からは除外
-- 保持期間は Nicolas 相談のうえ、同意撤回時の削除フローに組み込む
-
-### 11.5.3 オプトアウト必須
-
-- 顔認証を「使わない」選択肢を必ず残す(既存の電話番号照合を維持)
-- 患者が顔認証データの削除を依頼できるフロー(問診票の同意項目に明記)
-
-### 11.5.4 誤認識時のフォールバック
-
-- 類似度スコアが閾値未満のときは自動照合を打ち切り、「候補が見つかりました。本人ですか?」の確認ステップ
-- 電話番号照合フローに戻せる UI
-
-### 11.5.5 プライバシー審査
-
-- 実装完了時に security エージェント(`.claude/agents/security.md`)による設計レビューを必ず通す
-- 患者向け同意文を 3言語(ja/es/pt)で用意
-
-### 11.5.6 段階的リリース
-
-- staging で 10 人程度の実データで検証(誤認識率・処理時間を計測)
-- 本番投入は installTriggers に影響が出ないことを確認してから
-
-### 11.5.7 GAS 実行時間制限を意識
-
-- 6分制限がある。embedding 比較を GAS 側で走らせるなら 100 件程度が上限
-- 現状 30 名規模なら OK。将来的な患者数増加時は「フロント側で全照合」に移行
-
-**詳細タスクは `.steering/YYYYMMDD-face-auth/` で `/new-work face-auth` から起票すること。**
+**代替機能:** 来店ログ + Notion 未記録リストダッシュボード(SPEC 2.4 参照)
 
 ## 12. やらないこと(明示)
 

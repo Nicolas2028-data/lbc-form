@@ -36,7 +36,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // GAS API・face-api CDN・cdn.jsdelivr は絶対にキャッシュしない(常に network)
+  // GAS API・cdn.jsdelivr (chart.js) は絶対にキャッシュしない(常に network)
   if (url.hostname === 'script.google.com' ||
       url.hostname === 'cdn.jsdelivr.net' ||
       url.hostname.endsWith('.google.com') ||

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>LBC 顔認証廃止と来店フロー刷新 — 図解</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    background: #e8ebee;
+    padding: 20px 0;
+    color: #1b1b1b;
+  }
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: white;
+    padding: 12px 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 100;
+    font-size: 13px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .nav strong { color: #1b5e4f; margin-right: 16px; }
+  .nav a { color: #2ea78e; text-decoration: none; padding: 4px 10px; border-radius: 4px; }
+  .nav a:hover { background: #e0f4ef; }
+  .slides {
+    margin-top: 64px;
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    background: white;
+    margin: 30px auto;
+    padding: 40px 56px 32px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    page-break-after: always;
+  }
+  .slide-num {
+    position: absolute;
+    top: 20px;
+    right: 32px;
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 1px;
+  }
+  .slide-cat {
+    font-size: 13px;
+    color: #2ea78e;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+  }
+  .slide-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1b5e4f;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .slide-lead {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.6;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #f0f0f0;
+  }
+  .slide-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .footer {
+    position: absolute;
+    bottom: 12px;
+    left: 56px;
+    right: 56px;
+    font-size: 10px;
+    color: #aaa;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #eee;
+    padding-top: 6px;
+  }
+
+  /* === Layout types === */
+  /* 並列 (parallel) */
+  .parallel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; width: 100%; }
+  .parallel-card {
+    background: #f7faf9;
+    border-top: 4px solid #2ea78e;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+  }
+  .parallel-card .num {
+    font-size: 12px;
+    color: #2ea78e;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .parallel-card .head {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1b5e4f;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .parallel-card .desc {
+    font-size: 12.5px;
+    color: #444;
+    line-height: 1.65;
+  }
+
+  /* 対比 (contrast) */
+  .contrast { display: grid; grid-template-columns: 1fr 60px 1fr; gap: 12px; width: 100%; align-items: stretch; }
+  .contrast-col { padding: 24px 22px; display: flex; flex-direction: column; }
+  .contrast-before { background: #fff5f5; border: 1px solid #ffd0d0; }
+  .contrast-after  { background: #ecf7f4; border: 2px solid #2ea78e; }
+  .contrast-arrow  { display: flex; align-items: center; justify-content: center; font-size: 40px; color: #2ea78e; }
+  .contrast-label {
+    font-size: 12px; font-weight: 700; letter-spacing: 2px; margin-bottom: 12px;
+  }
+  .contrast-before .contrast-label { color: #c53030; }
+  .contrast-after  .contrast-label { color: #2ea78e; }
+  .contrast-item { font-size: 13.5px; padding: 8px 0; border-bottom: 1px dashed #ddd; line-height: 1.5; }
+  .contrast-item:last-child { border-bottom: none; }
+
+  /* プロセス (process) */
+  .process { display: flex; align-items: stretch; width: 100%; gap: 8px; }
+  .process-step {
+    flex: 1;
+    background: white;
+    border: 2px solid #2ea78e;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .process-step .num-badge {
+    background: #2ea78e; color: white;
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .process-step .actor { font-size: 10.5px; color: #888; margin-bottom: 4px; }
+  .process-step .action { font-size: 13.5px; font-weight: 700; color: #1b5e4f; line-height: 1.35; margin-bottom: 6px; }
+  .process-step .detail { font-size: 11px; color: #555; line-height: 1.5; }
+  .process-arrow {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #2ea78e; flex-shrink: 0; width: 20px;
+  }
+
+  /* Notion mockup */
+  .notion-mock {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 24px 28px;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  }
+  .notion-cover { height: 40px; background: linear-gradient(90deg, #2ea78e, #1b5e4f); border-radius: 4px; margin-bottom: 12px; }
+  .notion-title { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+  .notion-callout {
+    background: #fef9e7;
+    border-left: 5px solid #f0b400;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+  .notion-callout .today-title { font-size: 14px; font-weight: 700; }
+  .notion-callout .stat { text-align: center; }
+  .notion-callout .stat .n { font-size: 24px; font-weight: 700; }
+  .notion-callout .stat.red .n { color: #c53030; }
+  .notion-callout .stat.green .n { color: #2ea78e; }
+  .notion-callout .stat.gray .n { color: #888; }
+  .notion-callout .stat .lbl { font-size: 10.5px; color: #555; }
+
+  .notion-section-title { font-size: 15px; font-weight: 700; color: #1b5e4f; margin: 14px 0 8px; }
+  .kanban { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .kanban-col { background: #f6f8fa; border-radius: 6px; padding: 8px; }
+  .kanban-col-title { font-size: 12px; font-weight: 700; padding: 4px 6px; border-radius: 3px; margin-bottom: 6px; }
+  .kanban-col.today .kanban-col-title  { background: #d4f3e9; color: #1b5e4f; }
+  .kanban-col.yellow .kanban-col-title { background: #fef9e7; color: #8b6d00; }
+  .kanban-col.red .kanban-col-title    { background: #ffe0e0; color: #c53030; }
+  .kanban-card {
+    background: white; padding: 8px 10px; margin-bottom: 6px;
+    border-radius: 4px; border: 1px solid #e0e0e0;
+  }
+  .kanban-card .name { font-size: 12px; font-weight: 700; }
+  .kanban-card .time { font-size: 10.5px; color: #666; }
+  .kanban-card .btn {
+    display: inline-block; margin-top: 4px;
+    background: #2ea78e; color: white; padding: 2px 8px;
+    border-radius: 3px; font-size: 10px;
+  }
+
+  /* Roadmap (phase) */
+  .roadmap { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .roadmap-row {
+    display: grid;
+    grid-template-columns: 80px 240px 1fr 100px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f7faf9;
+    border-left: 4px solid #2ea78e;
+  }
+  .roadmap-row.critical { background: #fff5f5; border-left-color: #c53030; }
+  .roadmap-phase { font-size: 12px; font-weight: 700; color: #2ea78e; }
+  .roadmap-name  { font-size: 14px; font-weight: 700; color: #1b5e4f; }
+  .roadmap-desc  { font-size: 12px; color: #555; line-height: 1.45; }
+  .roadmap-time  { font-size: 11px; color: #888; text-align: right; }
+
+  /* Diagram box */
+  .diagram-scene {
+    display: grid;
+    grid-template-columns: 220px 1fr 220px;
+    gap: 24px;
+    width: 100%;
+    align-items: center;
+  }
+  .actor-box {
+    background: white;
+    border: 2px solid #1b5e4f;
+    padding: 16px 12px;
+    text-align: center;
+    border-radius: 8px;
+  }
+  .actor-box .emoji { font-size: 32px; }
+  .actor-box .name { font-size: 14px; font-weight: 700; margin-top: 4px; }
+  .actor-box .role { font-size: 11px; color: #666; }
+
+  /* Matrix */
+  .matrix { width: 100%; border-collapse: collapse; }
+  .matrix th, .matrix td { padding: 10px 14px; border: 1px solid #e0e0e0; font-size: 13px; text-align: left; vertical-align: top; }
+  .matrix th { background: #2ea78e; color: white; font-weight: 700; }
+  .matrix tr:nth-child(even) td { background: #f7faf9; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+  .badge.red { background: #ffe0e0; color: #c53030; }
+  .badge.green { background: #d4f3e9; color: #1b5e4f; }
+  .badge.gray { background: #e8e8e8; color: #555; }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .nav { display: none; }
+    .slide { margin: 0; box-shadow: none; page-break-after: always; }
+    .slides { margin-top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <strong>📋 LBC 顔認証廃止と来店フロー刷新</strong>
+  <a href="#s1">① 全体像</a>
+  <a href="#s2">② Before / After</a>
+  <a href="#s3">③ 新データフロー</a>
+  <a href="#s4">④ Notion 見せ方</a>
+  <a href="#s5">⑤ 削除 vs 追加</a>
+  <a href="#s6">⑥ 実装ロードマップ</a>
+  <a href="#s7">⑦ 破綻対応</a>
+  <a href="requirements.html">要求</a>
+  <a href="design.html">設計</a>
+  <a href="tasklist.html">タスク</a>
+</div>
+
+<div class="slides">
+
+<!-- ============================================================ -->
+<!-- Slide 1: 全体像(並列型)-->
+<!-- ============================================================ -->
+<div class="slide" id="s1">
+  <div class="slide-num">01 / 07</div>
+  <div class="slide-cat">全体像</div>
+  <div class="slide-title">今回の刷新は「引く1つ・足す3つ」の4つの変更で構成される</div>
+  <div class="slide-lead">顔認証を全廃止し、代わりに「来店ログ」「施術有無トグル」「Notion 派手ダッシュボード」の3つで、書き忘れゼロ運用を実現する。</div>
+  <div class="slide-body">
+    <div class="parallel">
+      <div class="parallel-card" style="border-top-color: #c53030;">
+        <div class="num" style="color:#c53030;">① 削除</div>
+        <div class="head">顔認証を全廃止する</div>
+        <div class="desc">
+          Phase A〜D の顔認証機能を全て削除。<br>
+          電話番号 + 氏名照合に一本化する。<br><br>
+          Kiosk 4連タップ・face-api.js CDN も撤去。
+        </div>
+      </div>
+      <div class="parallel-card">
+        <div class="num">② 追加</div>
+        <div class="head">来店ログを新設する</div>
+        <div class="desc">
+          問診票送信時に「本日来店」として台帳に記録。<br>
+          独立タブなので既存の赤伝ロジックと干渉しない。
+        </div>
+      </div>
+      <div class="parallel-card">
+        <div class="num">③ 追加</div>
+        <div class="head">施術有無トグルを付ける</div>
+        <div class="desc">
+          施術記録シートの最上部にラジオボタン。<br>
+          「受けた / 受けなかった」を明示。<br><br>
+          no-show の理由もデータとして残す。
+        </div>
+      </div>
+      <div class="parallel-card">
+        <div class="num">④ 追加</div>
+        <div class="head">Notion を派手にする</div>
+        <div class="desc">
+          TODAY サマリ + Board View カンバン。<br>
+          未記録が「本日 / 1日経過 / 2日以上」の3列で見える。<br><br>
+          古い書き忘れが赤く目立つ。
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Slide 2: Before / After(対比型)-->
+<!-- ============================================================ -->
+<div class="slide" id="s2">
+  <div class="slide-num">02 / 07</div>
+  <div class="slide-cat">Before / After</div>
+  <div class="slide-title">ルカスの手間と「記録忘れ」を、Notion の可視化で解決する</div>
+  <div class="slide-lead">現状は「顔認証で本人特定 → その後は個別対応」で漏れが検知できない。新運用は「問診票=来店シグナル → Notion で未記録が一覧化」される。</div>
+  <div class="slide-body">
+    <div class="contrast">
+      <div class="contrast-col contrast-before">
+        <div class="contrast-label">現状 (Before)</div>
+        <div class="contrast-item">📸 <strong>顔認証</strong>で本人確認(iPad Kiosk 4連タップ + face-api.js)</div>
+        <div class="contrast-item">📱 電話番号入力でも本人確認</div>
+        <div class="contrast-item">📝 記録は術後に施術記録シートを開いて手入力</div>
+        <div class="contrast-item" style="color:#c53030;font-weight:700;">❌ 記録忘れが発生しても気づかない</div>
+        <div class="contrast-item" style="color:#c53030;font-weight:700;">❌ no-show の理由が残らない</div>
+        <div class="contrast-item" style="color:#c53030;font-weight:700;">❌ 顔認証 UI/コードが複雑</div>
+      </div>
+      <div class="contrast-arrow">→</div>
+      <div class="contrast-col contrast-after">
+        <div class="contrast-label">刷新後 (After)</div>
+        <div class="contrast-item">📱 <strong>電話番号 + 氏名</strong>で本人確認(顔認証は廃止)</div>
+        <div class="contrast-item">✅ 問診票送信 = 「本日来店」として自動記録</div>
+        <div class="contrast-item">🔗 Notion のカルテから施術記録シートへ<strong>ワンクリック</strong>(名前・電話事前入力)</div>
+        <div class="contrast-item" style="color:#2ea78e;font-weight:700;">✅ 未記録リストで書き忘れが一目瞭然</div>
+        <div class="contrast-item" style="color:#2ea78e;font-weight:700;">✅ no-show も理由付きで記録</div>
+        <div class="contrast-item" style="color:#2ea78e;font-weight:700;">✅ コードもシンプル化</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Slide 3: 新データフロー(プロセス型)-->
+<!-- ============================================================ -->
+<div class="slide" id="s3">
+  <div class="slide-num">03 / 07</div>
+  <div class="slide-cat">新データフロー</div>
+  <div class="slide-title">来院から記録完了まで、5ステップで完結する</div>
+  <div class="slide-lead">シートが正・Notion は表示専用の原則は維持。追加ロジックは「来店ログの書き込み」と「recorded_at の書き戻し」の2つだけ。</div>
+  <div class="slide-body">
+    <div class="process">
+      <div class="process-step">
+        <div class="num-badge">1</div>
+        <div class="actor">👤 患者</div>
+        <div class="action">問診票で電話+氏名を入力</div>
+        <div class="detail">初回は全項目。<br>2回目以降は電話+氏名だけ。</div>
+      </div>
+      <div class="process-arrow">→</div>
+      <div class="process-step">
+        <div class="num-badge">2</div>
+        <div class="actor">⚙️ GAS</div>
+        <div class="action">来店ログに1行追加</div>
+        <div class="detail">status=received<br>recorded_at=空<br>URL事前生成</div>
+      </div>
+      <div class="process-arrow">→</div>
+      <div class="process-step">
+        <div class="num-badge">3</div>
+        <div class="actor">🔄 同期(1分毎)</div>
+        <div class="action">Notion 未記録リストに出現</div>
+        <div class="detail">Board View に🔴カード表示</div>
+      </div>
+      <div class="process-arrow">→</div>
+      <div class="process-step">
+        <div class="num-badge">4</div>
+        <div class="actor">👨‍⚕️ ルカス</div>
+        <div class="action">Notionから記録シートへ</div>
+        <div class="detail">📝 記録するボタンで<br>名前・電話事前入力済み</div>
+      </div>
+      <div class="process-arrow">→</div>
+      <div class="process-step">
+        <div class="num-badge">5</div>
+        <div class="actor">⚙️ GAS</div>
+        <div class="action">recorded_at を書く</div>
+        <div class="detail">同日・同IDの来店ログを検索<br>Notion では✅済に変化</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Slide 4: Notion 見せ方(モックアップ)-->
+<!-- ============================================================ -->
+<div class="slide" id="s4">
+  <div class="slide-num">04 / 07</div>
+  <div class="slide-cat">Notion の見せ方</div>
+  <div class="slide-title">未記録カードが「本日 → 1日経過 → 2日以上」と右に流れて赤くなる</div>
+  <div class="slide-lead">ルカスは Notion ダッシュボードを開いた瞬間に、TODAYサマリと未記録リスト(カンバン)を目に入れる。全部済んでいれば 🎉 が出る。</div>
+  <div class="slide-body">
+    <div class="notion-mock">
+      <div class="notion-cover"></div>
+      <div class="notion-title">🌿 LBC 運用ダッシュボード</div>
+      <div class="notion-callout">
+        <div class="today-title">🔥 TODAY</div>
+        <div class="stat red"><div class="n">3</div><div class="lbl">🔴 未記録</div></div>
+        <div class="stat green"><div class="n">5</div><div class="lbl">✅ 記録済</div></div>
+        <div class="stat gray"><div class="n">1</div><div class="lbl">⚫ 施術なし</div></div>
+      </div>
+      <div class="notion-section-title">🚨 未記録リスト(書き忘れゼロ運用!)</div>
+      <div class="kanban">
+        <div class="kanban-col today">
+          <div class="kanban-col-title">🟢 本日</div>
+          <div class="kanban-card"><div class="name">田中太郎</div><div class="time">10:00</div><div class="btn">📝 記録する</div></div>
+          <div class="kanban-card"><div class="name">佐藤花子</div><div class="time">11:30</div><div class="btn">📝 記録する</div></div>
+        </div>
+        <div class="kanban-col yellow">
+          <div class="kanban-col-title">🟡 1日経過</div>
+          <div class="kanban-card"><div class="name">山田次郎</div><div class="time">昨日 14:00</div><div class="btn">📝 記録する</div></div>
+        </div>
+        <div class="kanban-col red">
+          <div class="kanban-col-title">🔴 2日以上経過</div>
+          <div class="kanban-card"><div class="name">鈴木一郎</div><div class="time">3日前 11:00</div><div class="btn">📝 記録する</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Slide 5: 削除 vs 追加(対比 マトリクス)-->
+<!-- ============================================================ -->
+<div class="slide" id="s5">
+  <div class="slide-num">05 / 07</div>
+  <div class="slide-cat">変更内容の詳細</div>
+  <div class="slide-title">削除は6箇所・追加は5箇所。既存の予約系・シート原則には触らない</div>
+  <div class="slide-lead">CLAUDE.md の絶対ルール(index.html 不可触・シートが正・追記専用)は全て維持したまま実施する。</div>
+  <div class="slide-body">
+    <table class="matrix">
+      <thead>
+        <tr><th style="width:100px;">領域</th><th>削除するもの</th><th>追加するもの</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>フロント<br>(questionnaire)</strong></td>
+          <td><span class="badge red">削除</span> 顔登録同意UI<br><span class="badge red">削除</span> 顔照合ボタン・モーダル<br><span class="badge red">削除</span> Kiosk 4連タップ unlock<br><span class="badge red">削除</span> face-api.js CDN</td>
+          <td><span class="badge green">追加</span> normalizeName で表記揺れ吸収</td>
+        </tr>
+        <tr>
+          <td><strong>フロント<br>(treatment)</strong></td>
+          <td>—</td>
+          <td><span class="badge green">追加</span> 施術有無トグル(受けた/受けなかった)<br><span class="badge green">追加</span> no_show 理由入力欄<br><span class="badge green">追加</span> URL パラメータ事前入力<br><span class="badge green">追加</span> 「1分以内に反映」メッセージ</td>
+        </tr>
+        <tr>
+          <td><strong>GAS</strong></td>
+          <td><span class="badge red">削除</span> handleMatchFace<br><span class="badge red">削除</span> handleGetFaceEmbeddings<br><span class="badge red">削除</span> doPost の顔認証分岐</td>
+          <td><span class="badge green">追加</span> appendCheckinLog()<br><span class="badge green">追加</span> updateCheckinLogOnRecord()<br><span class="badge green">追加</span> normalizeName()<br><span class="badge green">追加</span> 自動補完 + 通知メール</td>
+        </tr>
+        <tr>
+          <td><strong>シート</strong></td>
+          <td><span class="badge red">削除</span> face_embedding 列<br>(物理 or 空文字化を判断)</td>
+          <td><span class="badge green">追加</span> 「来店ログ」タブ (15列)</td>
+        </tr>
+        <tr>
+          <td><strong>Notion</strong></td>
+          <td>—</td>
+          <td><span class="badge green">追加</span> 来店ログ DB<br><span class="badge green">追加</span> Board View カンバン<br><span class="badge green">追加</span> TODAY サマリ callout</td>
+        </tr>
+        <tr>
+          <td><strong>ファイル</strong></td>
+          <td><span class="badge red">削除</span> face-auth-test.html<br><span class="badge red">削除</span> palm-auth-test.html</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Slide 6: 実装ロードマップ(プロセス型・9 Phase)-->
+<!-- ============================================================ -->
+<div class="slide" id="s6">
+  <div class="slide-num">06 / 07</div>
+  <div class="slide-cat">実装ロードマップ</div>
+  <div class="slide-title">「新機能が動くのを見届けてから顔認証を削除」する順序で進める</div>
+  <div class="slide-lead">Phase 4 の顔認証削除を先にやると、来店ログが動かないときに戻せなくなる。必ず新機能 → 削除の順。</div>
+  <div class="slide-body">
+    <div class="roadmap">
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 0</div><div class="roadmap-name">設計文書・スキーマ確定</div><div class="roadmap-desc">SPEC.md 更新、face_embedding 列の扱い決定、docs/manual-lucas.md 準備</div><div class="roadmap-time">3タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 1</div><div class="roadmap-name">来店ログタブ整備</div><div class="roadmap-desc">シートに「来店ログ」タブ新設、15列スキーマ、onEdit トリガー</div><div class="roadmap-time">5タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 2</div><div class="roadmap-name">GAS 側 来店ログ書き込み</div><div class="roadmap-desc">appendCheckinLog / updateCheckinLogOnRecord / normalizeName 実装</div><div class="roadmap-time">7タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 3</div><div class="roadmap-name">施術記録シート改修</div><div class="roadmap-desc">施術有無トグル、URL 事前入力、送信後メッセージ、GAS 側 no_show 対応</div><div class="roadmap-time">7タスク</div></div>
+      <div class="roadmap-row critical"><div class="roadmap-phase" style="color:#c53030;">Phase 4</div><div class="roadmap-name" style="color:#c53030;">顔認証コード一括削除</div><div class="roadmap-desc">HTML / GAS / i18n / SPEC / プロトファイル・grep で削除漏れ確認(Phase 2〜3 が動いてから)</div><div class="roadmap-time">10タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 5</div><div class="roadmap-name">Notion DB & ダッシュボード</div><div class="roadmap-desc">来店ログ DB 作成、3ビュー設定、ダッシュボード再構成(Nicolas 手作業)</div><div class="roadmap-time">7タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 6</div><div class="roadmap-name">同期ロジック拡張</div><div class="roadmap-desc">syncToNotion に来店ログ upsert 追加、_sync セル拡張</div><div class="roadmap-time">4タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 7</div><div class="roadmap-name">staging で15シナリオテスト</div><div class="roadmap-desc">典型フロー・no-show・自動補完・訂正・表記揺れ・複数来店 など網羅</div><div class="roadmap-time">15タスク</div></div>
+      <div class="roadmap-row"><div class="roadmap-phase">Phase 8</div><div class="roadmap-name">本番切替 & 監視</div><div class="roadmap-desc">本番反映、clasp deploy、ルカス口頭説明、切替後1週間監視</div><div class="roadmap-time">8タスク</div></div>
+    </div>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Slide 7: 破綻対応(マトリクス)-->
+<!-- ============================================================ -->
+<div class="slide" id="s7">
+  <div class="slide-num">07 / 07</div>
+  <div class="slide-cat">破綻対応</div>
+  <div class="slide-title">思考実験で15シナリオを回し、破綻パターンは全て対応済み</div>
+  <div class="slide-lead">実装前に想定シーンを網羅。特に「訂正モードとの整合」「表記揺れ」「同期遅延の UX」を事前に潰した。</div>
+  <div class="slide-body">
+    <table class="matrix">
+      <thead>
+        <tr><th style="width:180px;">気になっていた破綻</th><th>対応方針</th><th style="width:80px;">状態</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>no-show が未記録に溜まり続ける</td><td>施術記録シートで「受けなかった + 理由」を明示送信 → 未記録から消える</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>記録の当日忘れ・後日忘れ</td><td>未記録リストを全期間表示(古い順)。ルカスがまとめて処理できる</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>問診票なしで施術された(ルール逸脱)</td><td>GAS が来店ログを自動補完 + 通知メールで一報。ルールは口頭で徹底</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>訂正モード(赤伝)との干渉</td><td>独立タブなので影響なし。訂正しても recorded_at は維持</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>1日2回来店(稀ケース)</td><td>checkin_id (UUID) で個別管理、古い順にマッチ</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>名前の表記揺れ(全角/半角スペース)</td><td>normalizeName() 関数を新設して吸収</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>同期1分遅延でルカスが誤認・二重記録</td><td>送信後 UI に「1分以内に Notion 反映」メッセージ表示</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>顔認証コードの削除漏れ</td><td>Phase 4 の最後に grep で全ファイル横断チェック</td><td><span class="badge green">✅ 対応</span></td></tr>
+        <tr><td>電話番号変更した既存患者(既存の問題)</td><td>今回スコープ外。別 issue 起票を推奨</td><td><span class="badge gray">⏸ 保留</span></td></tr>
+        <tr><td>face_embedding 列の PII 削除方針</td><td>Nicolas 判断(物理削除 or 空文字化)</td><td><span class="badge gray">⏳ 要判断</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer"><span>LBC Care — 顔認証廃止と来店フロー刷新</span><span>2026-09-26</span></div>
+</div>
+
+</div>
+</body>
+</html>

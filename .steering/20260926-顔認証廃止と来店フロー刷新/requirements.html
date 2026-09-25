@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>requirements</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="style.css" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body><div class="nav">📋 <strong>顔認証廃止と来店フロー刷新</strong> &nbsp;|&nbsp; <a href="requirements.html">要求内容</a> <a href="design.html">設計</a> <a href="tasklist.html">タスクリスト</a></div>
+<header id="title-block-header">
+<h1 class="title">requirements</h1>
+</header>
+<h1 id="要求内容--顔認証廃止と来店フロー刷新">要求内容 — 顔認証廃止と来店フロー刷新</h1>
+<p>作成日: 2026-09-26 作業名: 顔認証廃止と来店フロー刷新 起票の背景: ルカスの要望メモ(LBC_要望メモ_ルカス_20260906、2026-09-13 更新)+ LINE でのやりとり(2026-09-09〜09-23)</p>
+<hr />
+<h2 id="何をするか要約">何をするか(要約)</h2>
+<ol type="1">
+<li><strong>顔認証機能を全廃止する</strong> — Phase A〜D で実装した全機能を削除。認証は電話番号+氏名のみに一本化。</li>
+<li><strong>来店ログタブを新設する</strong> — 患者が問診票を送信した時点で「本日来店」として記録。ルカスの記録抜け漏れ防止に使う。</li>
+<li><strong>施術記録シートに「施術有無」トグルを追加する</strong> — no-show を明示的に記録できるようにする(理由入力欄付き)。</li>
+<li><strong>Notion 側にルカス向けの視認性高いダッシュボードを構築する</strong> — 未記録リスト(カンバン形式)+ TODAY サマリ + 状態別カラー表示。</li>
+<li><strong>記録漏れ検知ロジックを追加する</strong> — 全期間の未記録レコードを常時可視化。</li>
+</ol>
+<hr />
+<h2 id="背景">背景</h2>
+<h3 id="顔認証を廃止する理由">顔認証を廃止する理由</h3>
+<ul>
+<li>月6〜12人規模に対して 128次元 embedding + Kiosk 4連タップ unlock は明らかに過剰</li>
+<li>ルカスから「そもそも2回目の来院時には Notion で自分がお客様情報を見るついでに記録できた方がお客様の手間も少ない」と要望</li>
+<li>電話番号+氏名照合(Step 2-3 で実装済み)で運用上十分</li>
+</ul>
+<h3 id="来店ログを新設する理由">来店ログを新設する理由</h3>
+<ul>
+<li>ルカスの主な困りごとは「記録し忘れ」</li>
+<li>予約日 ≠ 来店日(no-show やキャンセルがある)ため、来店確定のシグナルが必要</li>
+<li>既存の問診票送信を「来店の意思表示」として使えば追加 UI が不要</li>
+<li>Notion 上で「未記録リスト」を可視化することで書き忘れゼロ運用を目指す</li>
+</ul>
+<hr />
+<h2 id="変更追加する機能">変更・追加する機能</h2>
+<h3 id="追加">追加</h3>
+<ul>
+<li><strong>来店ログタブ</strong> (<code>来店ログ</code>) をシートに新設
+<ul>
+<li>checkin_id / customer_id / checkin_at / checkin_date / recorded_at / record_id / treatment_record_url / no_show_reason / updated_at / synced_at</li>
+</ul></li>
+<li><strong>Notion 来店ログ DB</strong> を新設(既存 3 DB + 1)
+<ul>
+<li>プロパティ: 状態 (Status)、顧客名 (Title)、来店 (Date)、経過 (Formula)、📝 記録する (URL)、メモ (Text)</li>
+<li>ビュー: 未記録ビュー(Board / カンバン)、今日の来店ビュー(Gallery)、全履歴ビュー(Table)</li>
+</ul></li>
+<li><strong>施術記録シートに「施術有無」トグル</strong>
+<ul>
+<li>「施術を受けた」/「施術を受けなかった」ラジオボタン</li>
+<li>「受けなかった」選択時は施術内容欄を非表示、理由入力欄を表示</li>
+</ul></li>
+<li><strong>問診票送信時の来店ログ書き込み</strong>
+<ul>
+<li>初回問診票: 全項目送信 + 来店ログ 1行追加(status=received)</li>
+<li>再来院問診票: 電話番号+氏名照合成功 → 来店ログ 1行追加</li>
+</ul></li>
+<li><strong>施術記録受信時の recorded_at 更新</strong>
+<ul>
+<li>同日・同 customer_id の来店ログレコードを探して recorded_at と record_id を書く</li>
+<li>該当なしの場合: 来店ログを自動補完(通知メールで一報)</li>
+</ul></li>
+<li><strong>normalizeName() 関数</strong> — 全角半角スペース統一、前後トリム</li>
+<li><strong>送信後 UI メッセージ</strong> — 「✅ 記録しました。1分以内に Notion に反映されます」</li>
+<li><strong>Notion ダッシュボードページ</strong> の再構成
+<ul>
+<li>大型カバー画像 (LBC ブランドカラー)</li>
+<li>TODAY サマリ callout(未記録数を大きく表示)</li>
+<li>未記録リスト Board View(本日 / 1日経過 / 2日以上 の3列)</li>
+<li>今日の来店 Gallery View</li>
+<li>未記録0件時の「🎉 ALL DONE!」callout</li>
+</ul></li>
+</ul>
+<h3 id="削除">削除</h3>
+<ul>
+<li><code>questionnaire.html</code> の顔認証関連 UI 全般(顔登録同意、顔照合ボタン、Kiosk 4連タップ unlock、staff password モーダル、顔認証モーダル)</li>
+<li><code>gas/Code.js</code> の顔認証関連関数
+<ul>
+<li><code>handleGetFaceEmbeddings</code></li>
+<li><code>handleMatchFace</code></li>
+<li><code>handleSaveFaceEmbedding</code>(存在すれば)</li>
+<li><code>handleHasFaceEmbedding</code>(存在すれば)</li>
+<li><code>doPost</code> の顔認証系 action 分岐</li>
+</ul></li>
+<li><code>face-auth-test.html</code>(参考用プロトタイプ)</li>
+<li><code>palm-auth-test.html</code>(参考用プロトタイプ)</li>
+<li><code>i18n/{ja,es,pt}.json</code> の顔認証キー全般</li>
+<li><code>SPEC.md</code> の 11.5 顔認証セクション</li>
+<li><code>customers</code> タブの <code>face_embedding</code> 列(判断: 物理削除 / 空文字化のいずれか。Nicolas 判断)</li>
+</ul>
+<h3 id="変更据え置き">変更(据え置き)</h3>
+<ul>
+<li><strong><code>index.html</code> は一切触らない</strong>(既存原則)</li>
+<li><strong>予約系 API は触らない</strong>(既存原則)</li>
+<li>電話番号+氏名照合ロジックは既存のものを維持(normalizeName の追加のみ)</li>
+</ul>
+<hr />
+<h2 id="受け入れ条件">受け入れ条件</h2>
+<h3 id="顔認証廃止">顔認証廃止</h3>
+<ul class="task-list">
+<li><input type="checkbox" disabled="" />
+全ファイルから顔認証関連コード・UI・文言・SPEC 記述が消えている</li>
+<li><input type="checkbox" disabled="" />
+<code>questionnaire.html</code> を開いても顔認証ボタン・kiosk unlock が表示されない</li>
+<li><input type="checkbox" disabled="" />
+<code>gas/Code.js</code> に顔認証系関数・action 分岐が残っていない</li>
+<li><input type="checkbox" disabled="" />
+<code>face_embedding</code> 列の扱い(削除 or 空文字化)が Nicolas 判断で確定している</li>
+<li><input type="checkbox" disabled="" />
+3言語(ja / es / pt)の翻訳キーからも顔認証関連が消えている</li>
+<li><input type="checkbox" disabled="" />
+顔認証削除後に既存の電話番号+氏名照合フローが動く(staging で確認)</li>
+</ul>
+<h3 id="来店ログ">来店ログ</h3>
+<ul class="task-list">
+<li><input type="checkbox" disabled="" />
+<code>来店ログ</code> タブがシートに存在し、指定スキーマで作成されている</li>
+<li><input type="checkbox" disabled="" />
+初回問診票送信 → 来店ログに1行追加される</li>
+<li><input type="checkbox" disabled="" />
+再来院問診票送信 → 来店ログに1行追加される</li>
+<li><input type="checkbox" disabled="" />
+施術記録シート(施術を受けた)送信 → 該当来店ログの recorded_at が更新される</li>
+<li><input type="checkbox" disabled="" />
+問診票なしで施術記録が送信された → 来店ログが自動補完される + 通知メールが届く</li>
+<li><input type="checkbox" disabled="" />
+no-show(施術を受けなかった)送信 → 台帳に no_show 行 + 来店ログの recorded_at 更新 + no_show_reason 記録</li>
+</ul>
+<h3 id="notion-ダッシュボード">Notion ダッシュボード</h3>
+<ul class="task-list">
+<li><input type="checkbox" disabled="" />
+未記録リスト Board View が「本日 / 1日経過 / 2日以上」の3列で表示される</li>
+<li><input type="checkbox" disabled="" />
+記録完了後 1分以内にビューから該当レコードが消える</li>
+<li><input type="checkbox" disabled="" />
+TODAY サマリに未記録数・記録済み数・施術なし数が表示される</li>
+<li><input type="checkbox" disabled="" />
+未記録リストが空のとき「🎉 ALL DONE!」callout が表示される(または未記録件数が0と目視できる)</li>
+<li><input type="checkbox" disabled="" />
+状態プロパティが色付き Status ラベルで表示される</li>
+<li><input type="checkbox" disabled="" />
+経過日数が Formula で「本日」「1日経過」「N日経過」と表示される</li>
+<li><input type="checkbox" disabled="" />
+「📝 記録する」URL をクリックすると treatment-record.html が名前・電話番号事前入力で開く</li>
+</ul>
+<h3 id="ロジック整合性思考実験で洗い出したもの">ロジック整合性(思考実験で洗い出したもの)</h3>
+<ul class="task-list">
+<li><input type="checkbox" disabled="" />
+訂正モード(赤伝)実行時、来店ログの recorded_at は維持される</li>
+<li><input type="checkbox" disabled="" />
+名前の表記揺れ(全角/半角スペース)で照合失敗しない(normalizeName)</li>
+<li><input type="checkbox" disabled="" />
+施術記録送信後の UI に「1分以内に Notion 反映」表示が出る</li>
+<li><input type="checkbox" disabled="" />
+1日2回来店(稀ケース)で checkin_id が個別発行され、古い順にマッチする</li>
+</ul>
+<hr />
+<h2 id="制約事項">制約事項</h2>
+<ul>
+<li><strong><code>index.html</code>(予約フォーム)は一切触らない</strong></li>
+<li><strong>シートが正の原則を維持</strong> — Notion からの逆同期は一切行わない</li>
+<li><strong>台帳は追記専用</strong> — 来店ログの recorded_at 更新は「集計対象フラグ更新」相当の限定的な既存行編集として許容(SPEC 3.5 と同じ扱い)</li>
+<li><strong>費用制約</strong> — 全て無料枠(GAS / Sheets / Notion)を維持</li>
+<li><strong>STAFF_PASSWORD 認可</strong> — 施術記録・スタッフ系 API は既存通りサーバー側検証必須</li>
+<li><strong>iPad 運用</strong> — 既存 iPad(Safari / Chrome)で動作すること</li>
+<li><strong>3言語対応</strong> — 問診票側は ja / es / pt を維持(施術記録シート・Notion 側は日本語+絵文字のみ)</li>
+</ul>
+<hr />
+<h2 id="nicolas-への確認事項">Nicolas への確認事項</h2>
+<p>以下は 2026-09-26 会話ですでに確定:</p>
+<ol type="1">
+<li><strong>1回目の患者の扱い</strong> → 全項目入力(現行のまま)。問診票送信 = 初回来店 &amp; 記録待ち</li>
+<li><strong>2回目以降の入力項目</strong> → 電話番号+氏名の両方必須</li>
+<li><strong>来店ログの保存場所</strong> → 独立タブ(施術台帳との相乗りではない)</li>
+<li><strong>未記録リストの期間</strong> → 全期間表示(古い書き忘れも見える)</li>
+<li><strong>no-show の扱い</strong> → 施術記録シート内「受けた/受けなかった」トグル + 理由入力</li>
+<li><strong>問診票なしで施術された場合</strong> → 原則NG(現場ルール)、システム的には自動補完で吸収</li>
+<li><strong>Notion 見せ方</strong> → 派手バージョン(カバー画像 + Board View カンバン + TODAY サマリ callout)</li>
+</ol>
+<p>以下は実装フェーズで判断:</p>
+<ul>
+<li><strong><code>face_embedding</code> 列の物理削除 vs 空文字化</strong> → Nicolas 判断(スキーマ変更は CLAUDE.md 上「人間判断」領域)</li>
+<li><strong>予約データ活用</strong>(将来スコープ) → 今回は問診票を来店シグナルとするため、予約データとの突合は将来対応</li>
+</ul>
+<h2 id="今回スコープ外認識のみ">今回スコープ外(認識のみ)</h2>
+<ul>
+<li><strong>電話番号変更した既存患者の名寄せ</strong> — 既存の問題。別 issue として起票を推奨</li>
+<li><strong>予約データからの本日来店予定表示</strong> — 今回は問診票を来店シグナルとする方針</li>
+<li><strong>顔認証データ(既存)の PII 削除方針</strong> — face_embedding 列の扱い決定時にセット判断</li>
+</ul>
+</body>
+</html>

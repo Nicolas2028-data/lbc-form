@@ -1,0 +1,106 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+  color: #24292e;
+  line-height: 1.7;
+  background: #fafbfc;
+}
+h1 {
+  border-bottom: 3px solid #2ea78e;
+  padding-bottom: 10px;
+  color: #1b5e4f;
+}
+h2 {
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 6px;
+  margin-top: 32px;
+  color: #1b5e4f;
+}
+h3 {
+  color: #2ea78e;
+  margin-top: 24px;
+}
+h4 {
+  color: #444;
+}
+code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #d6336c;
+}
+pre {
+  background: #1e2530;
+  color: #e4e6eb;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+  background: white;
+}
+th, td {
+  border: 1px solid #e1e4e8;
+  padding: 8px 12px;
+  text-align: left;
+}
+th {
+  background: #2ea78e;
+  color: white;
+  font-weight: 600;
+}
+tr:nth-child(even) {
+  background: #f6f8fa;
+}
+blockquote {
+  border-left: 4px solid #2ea78e;
+  padding-left: 16px;
+  color: #586069;
+  margin: 16px 0;
+  background: #f6f8fa;
+  padding: 12px 16px;
+  border-radius: 4px;
+}
+ul, ol {
+  padding-left: 28px;
+}
+li {
+  margin: 4px 0;
+}
+input[type="checkbox"] {
+  margin-right: 6px;
+}
+a {
+  color: #2ea78e;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+.nav {
+  background: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.nav a {
+  margin-right: 16px;
+  font-weight: 600;
+}
+hr {
+  border: none;
+  border-top: 1px solid #e1e4e8;
+  margin: 32px 0;
+}

@@ -24,8 +24,9 @@ const CM = { // 顧客マスタ
   customer_id:0, name:1, furigana:2, phone:3, email:4, dob:5,
   first_visit:6, lang:7, how_found:8, address:9, status:10,
   notion_page_id:11, created_at:12, updated_at:13, synced_at:14,
-  face_embedding:15,     // 顔認証用 128次元 float 配列(JSON文字列)。Notion 同期対象外
-  face_reg_declined:16,  // 顔認証登録案内を「今後表示しない」を選んだ場合 TRUE
+  // 2026-09-26 顔認証機能廃止に伴い、以下 2 列は列インデックス保持のため残置(空文字化運用)
+  face_embedding:15,
+  face_reg_declined:16,
 };
 const TR = { // 施術台帳
   entry_id:0, type:1, target_entry_id:2, date:3, customer_id:4,
@@ -50,6 +51,12 @@ const CR = { // クレジット台帳
 const AL = { // アクセスログ
   timestamp:0, action:1, request_id:2, result:3, error_msg:4,
   elapsed_ms:5, customer_id_hint:6,
+};
+const CL = { // 来店ログ (2026-09-26 追加)
+  checkin_id:0, customer_id:1, customer_name:2, phone_normalized:3,
+  checkin_at:4, checkin_date:5, entry_type:6, status:7,
+  recorded_at:8, record_id:9, no_show_reason:10, treatment_record_url:11,
+  updated_at:12, synced_at:13, notes:14, error_count:15,
 };
 
 /* ============================================================
@@ -79,14 +86,6 @@ function doPost(e) {
       var authDP = verifyStaffPassword(data.password, cfg);
       if (!authDP.ok) return jsonRes({ success: false, error: authDP.error, remainingSec: authDP.remainingSec });
       return jsonRes(handleGetPatientDetails(data.customerId, cfg));
-    }
-    if (action === 'getFaceEmbeddings') {
-      return jsonRes(handleGetFaceEmbeddings(data, cfg));
-    }
-    // 顔認証マッチング(サーバー側計算・プライバシー保護・パスワード不要)
-    // 患者側 UI から embedding を送信 → 一致する customerId を返す
-    if (action === 'matchFace') {
-      return jsonRes(handleMatchFace(data, cfg));
     }
     if (action === 'submitVoidRecord') {
       var authVR = verifyStaffPassword(data.password, cfg);
@@ -246,10 +245,14 @@ function getConfig(env) {
       CUSTOMER_DB_ID:        props.STAGING_CUSTOMER_DB_ID,
       KARTE_DB_ID:           props.STAGING_KARTE_DB_ID,
       LEDGER_SPREADSHEET_ID: props.STAGING_LEDGER_SPREADSHEET_ID || '',
+      NOTION_CHECKIN_DB_ID:  props.STAGING_NOTION_CHECKIN_DB_ID || '',
       _env: 'staging',
     });
   }
-  return Object.assign({}, props, { _env: 'production' });
+  return Object.assign({}, props, {
+    NOTION_CHECKIN_DB_ID: props.NOTION_CHECKIN_DB_ID || '',
+    _env: 'production',
+  });
 }
 
 function resolveEnv(requested) {
@@ -443,7 +446,8 @@ function appendCustomer(ss, data, customerId) {
     [CM.created_at]:     now,
     [CM.updated_at]:     now,
     [CM.synced_at]:      '',
-    [CM.face_embedding]: data.faceEmbedding ? String(data.faceEmbedding).slice(0, 5000) : '',
+    // 2026-09-26 顔認証廃止: face_embedding / face_reg_declined 列は空文字化で運用
+    [CM.face_embedding]:    '',
     [CM.face_reg_declined]: '',
   });
   ss.getSheetByName('顧客マスタ').appendRow(row);
@@ -466,6 +470,178 @@ function incSyncCounter(ss, count) {
   var sheet = ss.getSheetByName('_sync');
   var cell  = sheet.getRange('A1');
   cell.setValue(Number(cell.getValue()) + (count || 1));
+}
+
+/* ============================================================
+   来店ログ (2026-09-26 追加)
+   問診票送信を「本日来店」シグナルとして記録し、
+   施術記録受信時に recorded_at を更新して未記録リストから外す
+   ============================================================ */
+
+// 氏名を正規化(表記揺れ吸収)
+//  - 全角スペース → 半角
+//  - 前後トリム
+//  - 連続スペース → 1つ
+function normalizeName(name) {
+  return String(name || '')
+    .replace(/　/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+// 施術記録シートの事前入力済み URL を組み立てる
+//  ルカスが Notion の「📝 記録する」からタップしたときに氏名・電話番号が入力済み
+function buildTreatmentRecordUrl(cfg, customerId, name, phone) {
+  var base = cfg.SITE_URL || 'https://nicolas2028-data.github.io/lbc-form';
+  base = base.replace(/\/+$/, '');
+  var envParam = cfg._env === 'staging' ? '&env=staging' : '';
+  var q = 'customer_id=' + encodeURIComponent(customerId) +
+          '&name='       + encodeURIComponent(name || '') +
+          '&phone='      + encodeURIComponent(phone || '') +
+          envParam;
+  return base + '/treatment-record.html?' + q;
+}
+
+// 来店ログに 1 行追加(冪等: checkin_id=UUID)
+//  entryType: 'initial' | 'revisit' | 'auto_backfill'
+//  失敗しても呼び出し側の主フロー(問診票送信)を止めない
+function appendCheckinLog(cfg, customerId, customerName, phoneNormalized, entryType) {
+  try {
+    var ss = getLedger(cfg);
+    var sheet = ss.getSheetByName('来店ログ');
+    if (!sheet) {
+      Logger.log('appendCheckinLog: 来店ログ タブが存在しない — 次回 syncToNotion で自動作成される');
+      return { success: false, error: 'checkin_log_tab_missing' };
+    }
+    var now  = nowISO();
+    var today = todayStr();
+    var url  = buildTreatmentRecordUrl(cfg, customerId, customerName, phoneNormalized);
+    var row  = makeRow(16, {
+      [CL.checkin_id]:           genUUID(),
+      [CL.customer_id]:          String(customerId || ''),
+      [CL.customer_name]:        sanitizeSheetInput(String(customerName || '')),
+      [CL.phone_normalized]:     String(phoneNormalized || ''),
+      [CL.checkin_at]:           now,
+      [CL.checkin_date]:         today,
+      [CL.entry_type]:           entryType || 'initial',
+      [CL.status]:               'received',
+      [CL.recorded_at]:          '',
+      [CL.record_id]:            '',
+      [CL.no_show_reason]:       '',
+      [CL.treatment_record_url]: url,
+      [CL.updated_at]:           now,
+      [CL.synced_at]:            '',
+      [CL.notes]:                '',
+      [CL.error_count]:          0,
+    });
+    sheet.appendRow(row);
+    incSyncCounter(ss);
+    return { success: true };
+  } catch (e) {
+    Logger.log('appendCheckinLog error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+// 施術記録受信時に来店ログの recorded_at を更新
+//  同日・同 customer_id・recorded_at 空 の行を古い順で 1件マッチ
+//  status: 'recorded' (施術完了) or 'no_show' (施術なし)
+//  マッチしなければ auto_backfill で 1件追加 + 通知メール
+//  失敗しても呼び出し側の主フロー(施術記録送信)を止めない
+function updateCheckinLogOnRecord(cfg, recordId, customerId, treatmentDate, status, noShowReason) {
+  try {
+    var ss = getLedger(cfg);
+    var sheet = ss.getSheetByName('来店ログ');
+    if (!sheet) {
+      Logger.log('updateCheckinLogOnRecord: 来店ログ タブが存在しない');
+      return { success: false, matched: false, error: 'checkin_log_tab_missing' };
+    }
+    var targetDate = toDateStr(treatmentDate) || todayStr();
+    var last = sheet.getLastRow();
+    if (last < 2) {
+      _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDate, status, noShowReason);
+      return { success: true, matched: false, backfilled: true };
+    }
+    var vals = sheet.getRange(2, 1, last - 1, 16).getValues();
+    var now = nowISO();
+    for (var i = 0; i < vals.length; i++) {
+      var r = vals[i];
+      if (String(r[CL.customer_id]) !== String(customerId)) continue;
+      if (toDateStr(r[CL.checkin_date]) !== targetDate) continue;
+      if (String(r[CL.recorded_at] || '') !== '') continue;
+      // マッチ → 更新
+      var rowIndex = i + 2;
+      sheet.getRange(rowIndex, CL.recorded_at + 1).setValue(now);
+      sheet.getRange(rowIndex, CL.record_id + 1).setValue(String(recordId || ''));
+      sheet.getRange(rowIndex, CL.status + 1).setValue(status || 'recorded');
+      if (status === 'no_show') {
+        sheet.getRange(rowIndex, CL.no_show_reason + 1).setValue(sanitizeSheetInput(String(noShowReason || '')));
+      }
+      sheet.getRange(rowIndex, CL.updated_at + 1).setValue(now);
+      sheet.getRange(rowIndex, CL.synced_at + 1).setValue(''); // 再同期対象に
+      incSyncCounter(ss);
+      return { success: true, matched: true };
+    }
+    // マッチなし → auto_backfill
+    _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDate, status, noShowReason);
+    return { success: true, matched: false, backfilled: true };
+  } catch (e) {
+    Logger.log('updateCheckinLogOnRecord error: ' + e.message);
+    return { success: false, matched: false, error: e.message };
+  }
+}
+
+// 問診票なしで施術記録された場合の自動補完 + 通知メール
+function _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDate, status, noShowReason) {
+  var now = nowISO();
+  // 顧客マスタから氏名を取得
+  var customerName = '', phoneNormalized = '';
+  try {
+    var found = findCustomerById(ss, String(customerId));
+    if (found) {
+      customerName    = String(found.row[CM.name] || '');
+      phoneNormalized = String(found.row[CM.phone] || '');
+    }
+  } catch(_) {}
+  var url = buildTreatmentRecordUrl(cfg, customerId, customerName, phoneNormalized);
+  var row = makeRow(16, {
+    [CL.checkin_id]:           genUUID(),
+    [CL.customer_id]:          String(customerId || ''),
+    [CL.customer_name]:        sanitizeSheetInput(customerName),
+    [CL.phone_normalized]:     phoneNormalized,
+    [CL.checkin_at]:           now,
+    [CL.checkin_date]:         targetDate,
+    [CL.entry_type]:           'auto_backfill',
+    [CL.status]:               status || 'recorded',
+    [CL.recorded_at]:          now,
+    [CL.record_id]:            String(recordId || ''),
+    [CL.no_show_reason]:       status === 'no_show' ? sanitizeSheetInput(String(noShowReason || '')) : '',
+    [CL.treatment_record_url]: url,
+    [CL.updated_at]:           now,
+    [CL.synced_at]:            '',
+    [CL.notes]:                '問診票なしで施術記録受信のため自動補完',
+    [CL.error_count]:          0,
+  });
+  sheet.appendRow(row);
+  incSyncCounter(ss);
+  // 運用逸脱を Nicolas に通知
+  try {
+    if (cfg.NOTIFY_EMAIL) {
+      GmailApp.sendEmail(
+        cfg.NOTIFY_EMAIL,
+        '[LBC] 問診票なしで施術記録が受信されました (auto_backfill)',
+        '施術記録が来店ログにマッチしませんでした。\n\n' +
+        '施術日: ' + targetDate + '\n' +
+        '顧客ID: ' + customerId + '\n' +
+        '顧客名: ' + customerName + '\n' +
+        '記録ID: ' + recordId + '\n\n' +
+        '運用ルール: 問診票 → 施術記録 の順です。ルカスに順序確認を推奨。\n' +
+        '来店ログには entry_type=auto_backfill で自動補完済み。'
+      );
+    }
+  } catch(mailErr) {
+    Logger.log('_autoBackfillCheckinLog mail error: ' + mailErr.message);
+  }
 }
 
 /* ============================================================
@@ -526,15 +702,13 @@ function handleLookupPatient(data, cfg) {
   } else if (matches.length === 1) {
     var r = matches[0].row;
     result = {
-      success:          true,
-      found:            true,
-      customerId:       String(r[CM.customer_id]),
-      patientNum:       String(r[CM.customer_id]),
-      name:             String(r[CM.name]),
-      furigana:         String(r[CM.furigana]),
-      email:            String(r[CM.email] || ''),
-      hasFaceEmbedding: !!(String(r[CM.face_embedding] || '').length > 20),
-      faceRegDeclined:  String(r[CM.face_reg_declined] || '').toUpperCase() === 'TRUE',
+      success:    true,
+      found:      true,
+      customerId: String(r[CM.customer_id]),
+      patientNum: String(r[CM.customer_id]),
+      name:       String(r[CM.name]),
+      furigana:   String(r[CM.furigana]),
+      email:      String(r[CM.email] || ''),
     };
   } else {
     // 複数ヒット → 特定不可のため未発見扱いにして初回フローへ誘導
@@ -575,8 +749,6 @@ function handleUpdateCustomerInfo(data, cfg) {
     if (data.furigana) fields[CM.furigana]  = sanitizeSheetInput(String(data.furigana));
     if (data.newPhone) fields[CM.phone]     = normalizePhone(String(data.newPhone));
     if (typeof data.email !== 'undefined') fields[CM.email] = sanitizeSheetInput(String(data.email));
-    if (typeof data.faceEmbedding !== 'undefined') fields[CM.face_embedding] = String(data.faceEmbedding).slice(0, 5000);
-    if (typeof data.faceRegDeclined !== 'undefined') fields[CM.face_reg_declined] = data.faceRegDeclined ? 'TRUE' : '';
 
     if (Object.keys(fields).length === 0) return { success: true }; // 変更なし
 
@@ -741,6 +913,21 @@ function handleSubmitAll(data, cfg) {
 
   // 成功時にキャッシュにマーク(次の 5 分は同一内容ブロック)
   markContentDedupCache(dedupKeyQu);
+
+  // 来店ログに追記(2026-09-26 追加 — Notion 未記録リストの起点)
+  //  visitType='return' → revisit / それ以外 → initial
+  //  失敗しても主フローは止めない(appendCheckinLog 内部で try/catch 済み)
+  var entryType = (data.visitType === 'return') ? 'revisit' : 'initial';
+  var customerName = normalizeName(data.name || '');
+  if (!customerName) {
+    // 再来院で name が渡ってこない場合は顧客マスタから取得
+    try {
+      var cust = findCustomerById(ss, customerId);
+      if (cust) customerName = normalizeName(String(cust.row[CM.name] || ''));
+    } catch(_) {}
+  }
+  appendCheckinLog(cfg, customerId, customerName, phone, entryType);
+
   logAccess(ss, 'submitAll', data.requestId, 'ok', '', Date.now() - t0, customerId);
   return { success: true, patientNum: customerId };
 }
@@ -951,119 +1138,6 @@ function handleGetPatientList(cfg) {
 }
 
 /* ============================================================
-   ハンドラ: 顔認証 embedding 一括取得 (Face Auth Phase 1)
-   ============================================================ */
-
-// active な顧客の face_embedding + プロファイル情報を返却
-// 認証: staff password 必須(顧客プロファイル(氏名/電話/メール)の PII 保護)
-// iPad kiosk 運用前提: Lucas が朝一度パスワード入力 → sessionStorage 保持
-function handleGetFaceEmbeddings(data, cfg) {
-  cfg = cfg || getConfig();
-  var authResult = verifyStaffPassword(data.password, cfg);
-  if (!authResult.ok) {
-    return { success: false, error: authResult.error, remainingSec: authResult.remainingSec };
-  }
-
-  var ss = getLedger(cfg);
-  var rows = getSheetData(ss, '顧客マスタ');
-  var patients = [];
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i];
-    if (String(r[CM.status]) === 'archived') continue;
-    var emb = String(r[CM.face_embedding] || '');
-    if (!emb) continue;
-    patients.push({
-      customerId: String(r[CM.customer_id]),
-      patientNum: String(r[CM.customer_id]),
-      name:       String(r[CM.name] || ''),
-      furigana:   String(r[CM.furigana] || ''),
-      phone:      String(r[CM.phone] || ''),
-      email:      String(r[CM.email] || ''),
-      embedding:  emb, // JSON 文字列(128次元 float 配列)
-    });
-  }
-  return { success: true, count: patients.length, patients: patients };
-}
-
-/* ============================================================
-   ハンドラ: 顔認証マッチング(サーバー側計算・パスワード不要)
-   ============================================================ */
-
-// 患者が撮影した embedding を受け取り、サーバー側で全登録者と照合。
-// プライバシー保護: 登録者の embedding 一覧はレスポンスに含めない。
-// レート制限: session あたり 1 分間で 10 回まで(顔画像による列挙攻撃を防ぐ)
-function handleMatchFace(data, cfg) {
-  cfg = cfg || getConfig();
-
-  var inputEmb;
-  try {
-    inputEmb = JSON.parse(data.embedding || '[]');
-    if (!Array.isArray(inputEmb) || inputEmb.length !== 128) {
-      return { success: false, error: 'invalid_embedding' };
-    }
-  } catch(e) {
-    return { success: false, error: 'invalid_embedding' };
-  }
-
-  // レート制限: session あたり 1 分間で 10 回まで
-  var cacheR = CacheService.getScriptCache();
-  var rateKey = 'facematch_' + String(data.sessionId || 'anon').slice(0, 40);
-  var attempts = parseInt(cacheR.get(rateKey) || '0', 10);
-  if (attempts >= 10) {
-    return { success: true, found: false, error: 'rate_limited' };
-  }
-  cacheR.put(rateKey, String(attempts + 1), 60);
-
-  var ss = getLedger(cfg);
-  var rows = getSheetData(ss, '顧客マスタ');
-  var THRESHOLD = 0.5;
-  var bestDist = Infinity;
-  var bestMatch = null;
-
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i];
-    if (String(r[CM.status]) === 'archived') continue;
-    var embStr = String(r[CM.face_embedding] || '');
-    if (!embStr || embStr.length < 20) continue;
-    try {
-      var emb = JSON.parse(embStr);
-      if (!Array.isArray(emb) || emb.length !== 128) continue;
-      var d = 0;
-      for (var j = 0; j < 128; j++) {
-        var dv = inputEmb[j] - emb[j];
-        d += dv * dv;
-      }
-      d = Math.sqrt(d);
-      if (d < bestDist) {
-        bestDist = d;
-        bestMatch = {
-          customerId: String(r[CM.customer_id]),
-          name:       String(r[CM.name] || ''),
-          furigana:   String(r[CM.furigana] || ''),
-          phone:      String(r[CM.phone] || ''),
-          email:      String(r[CM.email] || ''),
-        };
-      }
-    } catch(_) {}
-  }
-
-  if (bestMatch && bestDist < THRESHOLD) {
-    return {
-      success:    true,
-      found:      true,
-      customerId: bestMatch.customerId,
-      patientNum: bestMatch.customerId,
-      name:       bestMatch.name,
-      furigana:   bestMatch.furigana,
-      phone:      bestMatch.phone,
-      email:      bestMatch.email,
-      confidence: Math.round((1 - bestDist) * 100),
-    };
-  }
-  return { success: true, found: false };
-}
-
-/* ============================================================
    ハンドラ: 患者詳細取得（クレジット・来院回数）
    ============================================================ */
 
@@ -1199,13 +1273,22 @@ function handleSubmitTreatmentRecord(data, cfg) {
   var entryId    = genUUID();
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
 
+  // 施術有無トグル(2026-09-26 追加)
+  //  data.attended === false → no-show (施術なし記録)
+  //  それ以外 → 通常の施術記録(後方互換: 既存クライアントは attended 未指定)
+  var attended = (data.attended === false) ? false : true;
+  var noShowReason = attended ? '' : sanitizeSheetInput(String(data.noShowReason || ''));
+  if (!attended && !noShowReason) {
+    return { success: false, error: 'no_show_reason_required' };
+  }
+
   // ── 多層 dedup(2026-09-06 強化) ─────────────────────────
   // 層 1: CacheService(超高速・5 分 TTL)— 同時リクエストにも強い
   // 層 2: シート走査(直近 300 秒・fallback)— キャッシュ蒸発時の保険
   var todayStrCache = todayStr();
   var salesNum = data.salesAmount !== '' && data.salesAmount !== undefined ? Number(data.salesAmount) : 0;
   var paymentStr = String(data.paymentMethod || '');
-  var dedupKey = 'tr:' + customerId + ':' + todayStrCache + ':' + courseLabel + ':' + salesNum + ':' + paymentStr;
+  var dedupKey = 'tr:' + customerId + ':' + todayStrCache + ':' + (attended ? 'y' : 'n') + ':' + courseLabel + ':' + salesNum + ':' + paymentStr;
 
   if (checkContentDedupCache(dedupKey)) {
     logAccess(ss, 'submitTreatmentRecord', data.requestId, 'dedup_cache', 'cache hit <5min', 0, customerId);
@@ -1238,28 +1321,30 @@ function handleSubmitTreatmentRecord(data, cfg) {
   }
 
   // クレジット残高チェック（書き込み前に行う）
-  if (data.creditUsed && Number(data.creditUsed) > 0) {
+  //  no-show の場合はクレジット消費なし
+  if (attended && data.creditUsed && Number(data.creditUsed) > 0) {
     var balance = computeCreditBalance(ss, customerId);
     if (Number(data.creditUsed) > balance) {
       return { success: false, error: 'クレジット残高不足（残高: ¥' + balance + '）' };
     }
   }
 
+  var recordType = attended ? 'record' : 'no_show';
   var trRow = makeRow(18, {
     [TR.entry_id]:             entryId,
-    [TR.type]:                 'record',
+    [TR.type]:                 recordType,
     [TR.target_entry_id]:      '',
     [TR.date]:                 todayStr(),
     [TR.customer_id]:          customerId,
-    [TR.course]:               courseLabel,
-    [TR.sales]:                data.salesAmount !== '' && data.salesAmount !== undefined
-                                 ? Number(data.salesAmount) : '',
-    [TR.payment]:              data.paymentMethod || '',
-    [TR.memo]:                 sanitizeSheetInput(data.treatmentMemo || ''),
+    [TR.course]:               attended ? courseLabel : '',
+    [TR.sales]:                attended && data.salesAmount !== '' && data.salesAmount !== undefined
+                                 ? Number(data.salesAmount) : 0,
+    [TR.payment]:              attended ? (data.paymentMethod || '') : '',
+    [TR.memo]:                 attended ? sanitizeSheetInput(data.treatmentMemo || '') : ('no-show 理由: ' + noShowReason),
     [TR.has_questionnaire]:    'FALSE',
-    [TR.credit_used]:          Number(data.creditUsed) || 0,
-    [TR.referrer_customer_id]: data.referrerId || '',
-    [TR.count_eligible]:       'TRUE',
+    [TR.credit_used]:          attended ? (Number(data.creditUsed) || 0) : 0,
+    [TR.referrer_customer_id]: attended ? (data.referrerId || '') : '',
+    [TR.count_eligible]:       attended ? 'TRUE' : 'FALSE', // no-show は集計対象外
     [TR.notion_page_id]:       '',
     [TR.created_at]:           now,
     [TR.updated_at]:           now,
@@ -1269,14 +1354,14 @@ function handleSubmitTreatmentRecord(data, cfg) {
   ss.getSheetByName('施術台帳').appendRow(trRow);
   incSyncCounter(ss);
 
-  // クレジット消費台帳に記録
-  if (data.creditUsed && Number(data.creditUsed) > 0) {
+  // クレジット消費台帳に記録(no-show 時はスキップ)
+  if (attended && data.creditUsed && Number(data.creditUsed) > 0) {
     appendCreditEntry(ss, customerId, 'use', -Number(data.creditUsed), '', entryId);
   }
 
-  // 紹介クレジット付与（初回来院の紹介者に）
+  // 紹介クレジット付与（初回来院の紹介者に。no-show 時はスキップ）
   var referralLimitReached = false;
-  if (data.referralDiscount && data.referrerId) {
+  if (attended && data.referralDiscount && data.referrerId) {
     var grantCount = countReferralGrants(ss, data.referrerId);
     if (grantCount < 3) {
       appendCreditEntry(ss, data.referrerId, 'grant', 1000, '', entryId);
@@ -1288,8 +1373,13 @@ function handleSubmitTreatmentRecord(data, cfg) {
 
   // 成功時にキャッシュにマーク(次の 5 分は同一内容ブロック)
   markContentDedupCache(dedupKey);
-  logAccess(ss, 'submitTreatmentRecord', data.requestId, 'ok', '', Date.now() - t0, customerId);
-  return { success: true, patientNum: customerId, entryId: entryId, referralLimitReached: referralLimitReached };
+
+  // 来店ログを更新(2026-09-26 追加 — Notion 未記録リストから該当患者を消す)
+  //  失敗しても主フローは止めない(内部で try/catch 済み)
+  updateCheckinLogOnRecord(cfg, entryId, customerId, todayStr(), attended ? 'recorded' : 'no_show', noShowReason);
+
+  logAccess(ss, 'submitTreatmentRecord', data.requestId, attended ? 'ok' : 'no_show', '', Date.now() - t0, customerId);
+  return { success: true, patientNum: customerId, entryId: entryId, referralLimitReached: referralLimitReached, attended: attended };
   } finally {
     lock.releaseLock();
   }
@@ -1587,12 +1677,14 @@ function syncToNotion() {
   var formatted = syncSheet.getRange('C1').getValue();
   var needFull  = !lastFull || (Date.now() - new Date(lastFull).getTime()) > 3600000;
 
-  // ヘッダー未適用なら自動フォーマット
-  if (!formatted) {
+  // ヘッダー未適用 or スキーマ Version 未対応なら自動フォーマット
+  // 'formatted' → v2 (2026-09-26: 来店ログ タブ追加)
+  var SCHEMA_VERSION = 'v2';
+  if (formatted !== SCHEMA_VERSION) {
     try {
       applySheetHeaders(ss);
-      syncSheet.getRange('C1').setValue('formatted');
-      Logger.log('syncToNotion: シートヘッダー自動適用完了');
+      syncSheet.getRange('C1').setValue(SCHEMA_VERSION);
+      Logger.log('syncToNotion: シートヘッダー自動適用完了 (schema=' + SCHEMA_VERSION + ')');
     } catch(e) {
       Logger.log('syncToNotion: ヘッダー適用失敗 ' + e.message);
     }
@@ -1610,6 +1702,7 @@ function syncToNotion() {
     synced += syncQuestionnaire(ss, cfg);
     synced += syncTreatment(ss, cfg);
     synced += syncCredit(ss, cfg);
+    synced += syncCheckinLog(ss, cfg);
 
     // カウンタ再計算
     var newCounter = countUnsyncedRows(ss);
@@ -1628,6 +1721,7 @@ function countUnsyncedRows(ss) {
     { name: '問診台帳',      syncedAtIdx: QU.synced_at },
     { name: '施術台帳',      syncedAtIdx: TR.synced_at },
     { name: 'クレジット台帳', syncedAtIdx: CR.synced_at },
+    { name: '来店ログ',      syncedAtIdx: CL.synced_at },
   ];
   for (var t = 0; t < tabIdx.length; t++) {
     var rows = getSheetData(ss, tabIdx[t].name);
@@ -1642,10 +1736,6 @@ function countUnsyncedRows(ss) {
 // 顧客マスタ → Notion 顧客マスタ DB upsert
 function syncCustomerMaster(ss, cfg) {
   var sheet = ss.getSheetByName('顧客マスタ');
-  // ヘッダー整合: face_reg_declined 列(17列目)がなければ自動追加
-  if (String(sheet.getRange(1, CM.face_reg_declined + 1).getValue()) !== 'face_reg_declined') {
-    sheet.getRange(1, CM.face_reg_declined + 1).setValue('face_reg_declined');
-  }
   var rows  = sheet.getLastRow() > 1
     ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues() : [];
   var synced = 0;
@@ -1666,7 +1756,6 @@ function syncCustomerMaster(ss, cfg) {
         'メールアドレス': { email: String(r[CM.email]) || null },
         '診察番号':       richText(String(r[CM.customer_id])),
         '言語':           { select: langMap[String(r[CM.lang])] ? { name: String(r[CM.lang]) } : null },
-        '顔認証':         { checkbox: String(r[CM.face_embedding] || '').length > 20 },
       };
       if (r[CM.dob])         props['生年月日']   = { date: { start: toDateStr(r[CM.dob]) } };
       if (r[CM.first_visit]) props['初回訪問日'] = { date: { start: toDateStr(r[CM.first_visit]) } };
@@ -1939,6 +2028,113 @@ function syncCredit(ss, cfg) {
     }
   }
   return synced;
+}
+
+/* ============================================================
+   来店ログ → Notion 来店ログ DB upsert (2026-09-26 追加)
+   ============================================================ */
+
+// 状態文字列を Notion Select ラベルに変換
+function _checkinStatusLabel(status) {
+  if (status === 'recorded') return '✅ 済';
+  if (status === 'no_show')  return '⚫ 施術なし';
+  return '🔴 未記録'; // received or 不明
+}
+
+function syncCheckinLog(ss, cfg) {
+  var sheet = ss.getSheetByName('来店ログ');
+  if (!sheet) {
+    Logger.log('syncCheckinLog: 来店ログ タブなし — スキップ');
+    return 0;
+  }
+  if (!cfg.NOTION_CHECKIN_DB_ID) {
+    Logger.log('syncCheckinLog: NOTION_CHECKIN_DB_ID 未設定 — スキップ');
+    return 0;
+  }
+  var last = sheet.getLastRow();
+  if (last < 2) return 0;
+
+  var rows = sheet.getRange(2, 1, last - 1, 16).getValues();
+  var synced = 0;
+  var maxToSync = 20; // 1トリガーあたりの上限(GAS 6分タイムアウト回避)
+
+  for (var i = 0; i < rows.length; i++) {
+    if (synced >= maxToSync) break;
+    var r = rows[i];
+    var updatedAt = (r[CL.updated_at] instanceof Date) ? r[CL.updated_at].toISOString() : String(r[CL.updated_at]);
+    var syncedAt  = (r[CL.synced_at]  instanceof Date) ? r[CL.synced_at].toISOString()  : String(r[CL.synced_at]);
+    if (!updatedAt) continue;
+    if (syncedAt && syncedAt >= updatedAt) continue;
+
+    // 5回連続失敗行はスキップ
+    var errCount = Number(r[CL.error_count] || 0);
+    if (errCount >= 5) continue;
+
+    var rowIndex = i + 2;
+    var checkinId = String(r[CL.checkin_id] || '');
+    if (!checkinId) {
+      Logger.log('syncCheckinLog: row ' + rowIndex + ' checkin_id 空 — スキップ');
+      continue;
+    }
+
+    try {
+      // checkin_id で既存ページ検索(upsert)
+      var pageId = _findCheckinPageByCheckinId(cfg, checkinId);
+
+      var checkinAtRaw = r[CL.checkin_at];
+      var checkinIso = (checkinAtRaw instanceof Date) ? checkinAtRaw.toISOString() : String(checkinAtRaw);
+      var props = {
+        '顧客名':      { title: [{ text: { content: String(r[CL.customer_name] || '(名前なし)') } }] },
+        '状態':        { select: { name: _checkinStatusLabel(String(r[CL.status])) } },
+        '来店':        { date: { start: checkinIso } },
+        '📝 記録する': { url: String(r[CL.treatment_record_url] || '') || null },
+        'メモ':        richText(String(r[CL.no_show_reason] || '')),
+        '診察番号':    richText(String(r[CL.customer_id] || '')),
+        'checkin_id':  richText(checkinId),
+      };
+
+      if (pageId) {
+        notionPatch(cfg, '/pages/' + pageId, { properties: props });
+      } else {
+        notionPost(cfg, '/pages', {
+          parent: { database_id: cfg.NOTION_CHECKIN_DB_ID },
+          properties: props,
+        });
+      }
+      Utilities.sleep(350);
+
+      // 成功: synced_at 書き込み、error_count リセット
+      sheet.getRange(rowIndex, CL.synced_at + 1).setValue(updatedAt);
+      if (errCount > 0) sheet.getRange(rowIndex, CL.error_count + 1).setValue(0);
+      synced++;
+    } catch (e) {
+      var newErrCount = errCount + 1;
+      sheet.getRange(rowIndex, CL.error_count + 1).setValue(newErrCount);
+      Logger.log('syncCheckinLog error row=' + rowIndex + ' errCount=' + newErrCount + ': ' + e.message);
+      if (newErrCount === 5) {
+        notifyError('syncCheckinLog', new Error('来店ログ row=' + rowIndex + ' が 5 回連続で同期失敗しました: ' + e.message));
+      }
+    }
+  }
+  return synced;
+}
+
+// checkin_id で Notion 来店ログ DB を検索して page ID を返す(見つからなければ null)
+function _findCheckinPageByCheckinId(cfg, checkinId) {
+  try {
+    var res = notionPost(cfg, '/databases/' + cfg.NOTION_CHECKIN_DB_ID + '/query', {
+      filter: {
+        property: 'checkin_id',
+        rich_text: { equals: checkinId },
+      },
+      page_size: 1,
+    });
+    if (res && res.results && res.results.length > 0) return res.results[0].id;
+    return null;
+  } catch (e) {
+    Logger.log('_findCheckinPageByCheckinId error checkinId=' + checkinId + ': ' + e.message);
+    throw e; // 呼び出し元で error_count 加算
+  }
 }
 
 /* ============================================================
@@ -2395,6 +2591,21 @@ function diagnoseSyncIssues() {
       : '❌ カルテDB: ' + kRes.getResponseCode() + ' — インテグレーションが DB に接続されているか確認');
   } catch(e) { out.push('❌ カルテDB確認失敗: ' + e.message); }
 
+  // 3.5 来店ログDB接続確認 (2026-09-26 追加)
+  if (cfg.NOTION_CHECKIN_DB_ID) {
+    try {
+      var chRes = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + cfg.NOTION_CHECKIN_DB_ID, {
+        headers: { 'Authorization': 'Bearer ' + cfg.NOTION_TOKEN, 'Notion-Version': '2022-06-28' },
+        muteHttpExceptions: true,
+      });
+      out.push(chRes.getResponseCode() === 200
+        ? '✅ 来店ログDB: アクセス可'
+        : '❌ 来店ログDB: ' + chRes.getResponseCode() + ' — インテグレーションが DB に接続されているか確認');
+    } catch(e) { out.push('❌ 来店ログDB確認失敗: ' + e.message); }
+  } else {
+    out.push('⚠ NOTION_CHECKIN_DB_ID 未設定 — 来店ログ同期はスキップされます');
+  }
+
   // 4. 同期トリガー確認
   var triggers = ScriptApp.getProjectTriggers().map(function(t) { return t.getHandlerFunction(); });
   out.push(triggers.indexOf('syncToNotion') >= 0
@@ -2436,6 +2647,8 @@ function resetSyncErrors() {
     // 問診台帳: error_count はあるが CM/TR/CR にはない updated_at ではなく synced_at のみでの再同期
     // (2026-09-06 バグ修正: これまで問診台帳のエラー行がスキップされたまま復旧されなかった)
     { name: '問診台帳',    errCol: QU.error_count, syncCol: QU.synced_at },
+    // 来店ログ (2026-09-26 追加)
+    { name: '来店ログ',    errCol: CL.error_count, syncCol: CL.synced_at },
   ].forEach(function(def) {
     var sh = ss.getSheetByName(def.name);
     if (!sh) return;
@@ -3222,6 +3435,80 @@ function cleanAndRenumber() {
   Logger.log('=== cleanAndRenumber 完了。次回の同期トリガーで Notion に反映されます ===');
 }
 
+// 来店ログ機能の staging スモークテスト (2026-09-26 追加)
+//  GAS エディタから手動実行。ENV=staging 前提。
+//  実施内容:
+//   1. normalizeName の動作確認
+//   2. 来店ログタブ存在 + ヘッダー確認
+//   3. appendCheckinLog を直接呼び出して 1件追加
+//   4. updateCheckinLogOnRecord で recorded_at 更新確認
+//   5. マッチしないケースで auto_backfill 動作確認
+//   6. syncCheckinLog で Notion 反映確認
+function testCheckinLogSmoke() {
+  var cfg = getConfig();
+  if (cfg._env !== 'staging') {
+    Logger.log('❌ ENV=staging でのみ実行可');
+    return;
+  }
+  var ss = getLedger(cfg);
+  var sheet = ss.getSheetByName('来店ログ');
+  if (!sheet) {
+    Logger.log('❌ 来店ログ タブなし — applySheetHeaders 実行が必要');
+    return;
+  }
+  var beforeCount = sheet.getLastRow();
+  Logger.log('Before rows: ' + beforeCount);
+
+  // 1. normalizeName
+  var nameCases = [
+    ['山田　太郎', '山田 太郎'],
+    ['  田中太郎  ', '田中太郎'],
+    ['佐藤   花子', '佐藤 花子'],
+    ['', ''],
+  ];
+  var nameOk = true;
+  nameCases.forEach(function(c) {
+    var got = normalizeName(c[0]);
+    var pass = got === c[1];
+    Logger.log((pass ? '✅' : '❌') + ' normalizeName("' + c[0] + '") = "' + got + '"');
+    if (!pass) nameOk = false;
+  });
+
+  // 2. Dummy customerId でテストレコード追加
+  var testCustId = 'TEST-CHECKIN-' + Date.now();
+  var testName   = 'テスト太郎';
+  var testPhone  = '09000000000';
+
+  var r1 = appendCheckinLog(cfg, testCustId, testName, testPhone, 'initial');
+  Logger.log('appendCheckinLog result: ' + JSON.stringify(r1));
+
+  // 3. updateCheckinLogOnRecord (マッチするケース)
+  var testRecordId = 'test-rec-' + Date.now();
+  var r2 = updateCheckinLogOnRecord(cfg, testRecordId, testCustId, todayStr(), 'recorded', '');
+  Logger.log('updateCheckinLogOnRecord (match) result: ' + JSON.stringify(r2));
+
+  // 4. updateCheckinLogOnRecord (マッチしないケース → auto_backfill)
+  var missCustId = 'TEST-MISS-' + Date.now();
+  var r3 = updateCheckinLogOnRecord(cfg, 'no-match', missCustId, todayStr(), 'no_show', 'テスト理由');
+  Logger.log('updateCheckinLogOnRecord (no match → auto_backfill) result: ' + JSON.stringify(r3));
+
+  var afterCount = sheet.getLastRow();
+  Logger.log('After rows: ' + afterCount + ' (追加 ' + (afterCount - beforeCount) + ' 件)');
+
+  // 5. syncCheckinLog で Notion 反映
+  if (cfg.NOTION_CHECKIN_DB_ID) {
+    Logger.log('syncCheckinLog 実行...');
+    var syncCount = syncCheckinLog(ss, cfg);
+    Logger.log('syncCheckinLog: ' + syncCount + '件反映');
+  } else {
+    Logger.log('⚠ NOTION_CHECKIN_DB_ID 未設定のため Notion 同期スキップ');
+  }
+
+  Logger.log('=== testCheckinLogSmoke 完了 ===');
+  Logger.log('※ テストレコードが 来店ログ タブに残っています。手動削除してください');
+  Logger.log('  検索キー: customer_id が TEST- で始まる行');
+}
+
 // Step 1-2: normalizePhone の動作確認
 function testNormalizePhone() {
   var cases = [
@@ -3256,6 +3543,7 @@ function setupStaging() {
   ss.insertSheet('施術台帳');
   ss.insertSheet('問診台帳');
   ss.insertSheet('クレジット台帳');
+  ss.insertSheet('来店ログ');
   ss.insertSheet('アクセスログ');
   ss.insertSheet('_sync');
 
@@ -3304,6 +3592,7 @@ function setupProduction() {
   ss.insertSheet('施術台帳');
   ss.insertSheet('問診台帳');
   ss.insertSheet('クレジット台帳');
+  ss.insertSheet('来店ログ');
   ss.insertSheet('アクセスログ');
   ss.insertSheet('_sync');
 
@@ -3471,13 +3760,21 @@ var SHEET_DEFS = {
     headers: ['日時','操作','リクエストID','結果','エラー概要','処理時間(ms)','診察番号(参考)'],
     systemFrom: 0, // 全列システム
   },
+  '来店ログ': {
+    headers: ['来店ID','診察番号','氏名','電話番号','来店日時','来店日','来店種別','状態','記録日時','記録ID','施術なし理由','記録URL','[更新日時]','[同期日時]','[備考]','[エラー回数]'],
+    systemFrom: 12, // index 12以降 (updated_at 以降) がシステム列
+  },
 };
 
 // ヘッダー設定 + 色分けを指定シートに適用
 function applySheetHeaders(ss) {
   Object.keys(SHEET_DEFS).forEach(function(name) {
     var sh  = ss.getSheetByName(name);
-    if (!sh) return;
+    if (!sh) {
+      // タブが存在しなければ作成する(2026-09-26: 来店ログ タブの自動追加のため)
+      sh = ss.insertSheet(name);
+      Logger.log('applySheetHeaders: タブ "' + name + '" を自動作成');
+    }
     var def = SHEET_DEFS[name];
     var len = def.headers.length;
     sh.getRange(1, 1, 1, len).setValues([def.headers]);

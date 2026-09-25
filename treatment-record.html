@@ -772,8 +772,31 @@
         🎫 今月の月2回プラン1回目が記録済です — 2回目（前払済）を自動選択しました
       </div>
 
+      <!-- 施術有無トグル (2026-09-26 追加) -->
+      <div class="card" id="attendanceCard">
+        <div class="card-title"><span>📋</span>施術有無<span class="badge-req">必須</span></div>
+        <div class="payment-list">
+          <label class="payment-item">
+            <input type="radio" name="attended" value="yes" checked onchange="onAttendanceChange()"> ✅ 施術を受けた
+          </label>
+          <label class="payment-item">
+            <input type="radio" name="attended" value="no" onchange="onAttendanceChange()"> ⚫ 施術を受けなかった (no-show)
+          </label>
+        </div>
+      </div>
+
+      <!-- no-show 理由入力 (attended=no 時のみ表示) -->
+      <div class="card" id="noShowReasonCard" style="display:none">
+        <div class="card-title"><span>💬</span>施術を受けなかった理由<span class="badge-req">必須</span></div>
+        <textarea id="noShowReason" placeholder="例: 急用でお帰り／体調不良で中止／予約時間を大幅に過ぎたためキャンセル 等" style="min-height:80px"></textarea>
+        <div class="field-error" id="e_noShowReason" style="margin-top:8px"></div>
+        <p class="field-hint" style="margin-top:8px;font-size:0.85rem;color:var(--text-sub)">
+          ※ no-show として記録され、売上・来院数の集計対象から自動的に外れます
+        </p>
+      </div>
+
       <!-- コース選択 -->
-      <div class="card">
+      <div class="card" id="courseCard">
         <div class="card-title"><span>💆</span>施術コース<span class="badge-req">必須</span></div>
         <div class="course-list" id="courseList"></div>
         <!-- 月2回プラン同時申込チェック -->
@@ -786,7 +809,7 @@
       </div>
 
       <!-- 支払い方法 -->
-      <div class="card">
+      <div class="card" id="paymentCard">
         <div class="card-title"><span>💳</span>支払い方法<span class="badge-req">必須</span></div>
         <div class="payment-list">
           <label class="payment-item">
@@ -806,7 +829,7 @@
       </div>
 
       <!-- 売上金額 -->
-      <div class="card">
+      <div class="card" id="salesCard">
         <div class="card-title"><span>💴</span>売上金額<span class="badge-req">必須</span></div>
         <div class="amount-wrap">
           <span class="amount-prefix">¥</span>
@@ -825,7 +848,7 @@
       </div>
 
       <!-- 施術メモ -->
-      <div class="card">
+      <div class="card" id="memoCard">
         <div class="card-title"><span>📝</span>施術メモ<span class="badge-opt">任意</span></div>
         <textarea id="memo" placeholder="気になった点、次回への申し送りなど"></textarea>
       </div>
@@ -892,6 +915,21 @@ let _refMatches = [];
 let _authPw     = '';
 
 /* ── 初期化 ──────────────────────────────────────── */
+// URL パラメータで事前入力される患者情報(Notion「📝 記録する」からの導線)
+// 2026-09-26 追加: パスワード認証後、該当患者を自動選択して Phase 2 へ直接遷移
+var URL_PREFILL = (function() {
+  try {
+    var qs = new URLSearchParams(window.location.search);
+    var cid = qs.get('customer_id');
+    if (!cid) return null;
+    return {
+      customerId: cid,
+      name:       qs.get('name') || '',
+      phone:      qs.get('phone') || '',
+    };
+  } catch (e) { return null; }
+})();
+
 window.addEventListener('DOMContentLoaded', function() {
   renderCourses();
   // パスワードはメモリ変数のみで保持。ページリロード時は再入力が必要（セキュリティ設計）
@@ -968,6 +1006,27 @@ async function loadPatients() {
     document.getElementById('loadingPatients').style.display = 'none';
     document.getElementById('searchArea').style.display      = 'block';
     renderPendingPatients();
+
+    // URL パラメータで指定された患者を自動選択(Notion 未記録リストからの導線)
+    if (URL_PREFILL && URL_PREFILL.customerId) {
+      var target = allPatients.find(function(p) {
+        return String(p.customerId) === String(URL_PREFILL.customerId) ||
+               String(p.patientNum) === String(URL_PREFILL.customerId);
+      });
+      if (target) {
+        var idx = allPatients.indexOf(target);
+        // 検索欄にも氏名を反映
+        document.getElementById('nameSearch').value = target.name;
+        // 患者詳細をロードして Phase 2 へ
+        selectPendingPatient(idx);
+      } else {
+        // 見つからない場合は検索欄に URL の氏名を入れて手動選択を促す
+        if (URL_PREFILL.name) {
+          document.getElementById('nameSearch').value = URL_PREFILL.name;
+          onNameInput(URL_PREFILL.name);
+        }
+      }
+    }
   } catch (err) {
     console.error('[loadPatients]', err);
     document.getElementById('loadingPatients').style.display = 'none';
@@ -1079,7 +1138,45 @@ function changePatient() {
   document.getElementById('memo').value = '';
   document.getElementById('amountSummary').classList.remove('visible');
   document.getElementById('salesAmount').value = '';
+  // 施術有無トグルもリセット(2026-09-26)
+  var attYes = document.querySelector('input[name="attended"][value="yes"]');
+  if (attYes) attYes.checked = true;
+  var reasonEl = document.getElementById('noShowReason');
+  if (reasonEl) reasonEl.value = '';
+  onAttendanceChange();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── 施術有無トグル (2026-09-26 追加) ─────────────────── */
+function onAttendanceChange() {
+  var attended = (document.querySelector('input[name="attended"]:checked')?.value) !== 'no';
+  var show = function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; };
+  var hide = function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; };
+  if (attended) {
+    // yes: 全カード再表示。creditSection/referralSection/monthly2Banner は既存 classList ロジックに任せる
+    hide('noShowReasonCard');
+    show('courseCard');
+    show('paymentCard');
+    show('salesCard');
+    show('memoCard');
+    show('creditSection');
+    show('referralSection');
+    show('monthly2Banner');
+    clearErr('e_noShowReason', 'noShowReason');
+  } else {
+    // no-show: 通常入力欄を全て非表示、理由入力欄を表示
+    show('noShowReasonCard');
+    hide('courseCard');
+    hide('paymentCard');
+    hide('salesCard');
+    hide('memoCard');
+    hide('creditSection');
+    hide('referralSection');
+    hide('monthly2Banner');
+    clearErr('e_course');
+    clearErr('e_payment');
+    clearErr('e_salesAmount', 'salesAmount');
+  }
 }
 
 /* ── Phase 2 表示 ──────────────────────────────── */
@@ -1331,21 +1428,33 @@ async function submitRecord() {
   _lastSubmitTs = now;
   if (S.submitting) return;
 
-  const courseId      = document.querySelector('input[name="course"]:checked')?.value;
-  const paymentMethod = document.querySelector('input[name="payment"]:checked')?.value;
-  const salesAmount   = document.getElementById('salesAmount').value;
-  const memo          = document.getElementById('memo').value.trim();
+  // 施術有無トグル(2026-09-26 追加)
+  const attended = (document.querySelector('input[name="attended"]:checked')?.value) !== 'no';
 
   let ok = true;
-  if (!courseId)      { showErr('e_course', 'コースを選択してください'); ok = false; }      else clearErr('e_course');
-  if (!paymentMethod) { showErr('e_payment', '支払い方法を選択してください'); ok = false; } else clearErr('e_payment');
-  if (salesAmount === '' || Number(salesAmount) < 0) {
-    showErr('e_salesAmount', '売上金額を入力してください', 'salesAmount'); ok = false;
-  } else clearErr('e_salesAmount', 'salesAmount');
+  let courseId, paymentMethod, salesAmount, memo, noShowReason;
+
+  if (attended) {
+    courseId      = document.querySelector('input[name="course"]:checked')?.value;
+    paymentMethod = document.querySelector('input[name="payment"]:checked')?.value;
+    salesAmount   = document.getElementById('salesAmount').value;
+    memo          = document.getElementById('memo').value.trim();
+
+    if (!courseId)      { showErr('e_course', 'コースを選択してください'); ok = false; }      else clearErr('e_course');
+    if (!paymentMethod) { showErr('e_payment', '支払い方法を選択してください'); ok = false; } else clearErr('e_payment');
+    if (salesAmount === '' || Number(salesAmount) < 0) {
+      showErr('e_salesAmount', '売上金額を入力してください', 'salesAmount'); ok = false;
+    } else clearErr('e_salesAmount', 'salesAmount');
+  } else {
+    noShowReason = document.getElementById('noShowReason').value.trim();
+    if (!noShowReason) {
+      showErr('e_noShowReason', '理由を入力してください', 'noShowReason'); ok = false;
+    } else clearErr('e_noShowReason', 'noShowReason');
+  }
   if (!ok) return;
 
   // 月2回コース系は GAS に 'monthly2' として送る
-  const gasId = courseId === 'monthly2_2nd' ? 'monthly2' : courseId;
+  const gasId = attended ? (courseId === 'monthly2_2nd' ? 'monthly2' : courseId) : null;
 
   S.submitting = true;
   document.getElementById('submitBtn').disabled       = true;
@@ -1361,14 +1470,16 @@ async function submitRecord() {
       password:        _authPw,
       customerId:      S.customerId,
       patientNum:      S.patientNum,
+      attended:        attended,
+      noShowReason:    noShowReason || '',
       courseId:        gasId,
-      paymentMethod,
-      salesAmount:     Number(salesAmount),
-      treatmentMemo:   memo,
-      referrerId:      S.referrerId      || null,
-      referrerName:    S.referrerName    || null,
-      referralDiscount: S.referralApplied,
-      creditUsed:      S.creditUsed,
+      paymentMethod:   paymentMethod || '',
+      salesAmount:     attended ? Number(salesAmount) : 0,
+      treatmentMemo:   memo || '',
+      referrerId:      attended ? (S.referrerId || null) : null,
+      referrerName:    attended ? (S.referrerName || null) : null,
+      referralDiscount: attended ? S.referralApplied : false,
+      creditUsed:      attended ? S.creditUsed : 0,
       env:             CONFIG.ENV_PARAM,
     };
     const res  = await fetch(CONFIG.GAS_URL, {
@@ -1382,7 +1493,7 @@ async function submitRecord() {
     if (data.success) {
       // 二重送信防止 (2026-09-06): 成功時は S.submitting を true のまま維持
       // ボタン disabled + オーバーレイ維持 → 送信完了画面から戻るまで再送信不可
-      showSuccess(courseId, Number(salesAmount));
+      showSuccess(attended ? courseId : null, attended ? Number(salesAmount) : 0, attended, noShowReason);
       return;
     } else {
       let errMsg = data.error || 'エラーが発生しました。';
@@ -1422,14 +1533,25 @@ function hideSubmitBlocker() {
   if (el) el.style.display = 'none';
 }
 
-function showSuccess(courseId, amount) {
-  const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : courseId;
+function showSuccess(courseId, amount, attended, noShowReason) {
+  // デフォルトは attended=true(後方互換)
+  if (attended === undefined) attended = true;
+  var titleEl = document.querySelector('.success-title');
+  if (titleEl) titleEl.textContent = attended ? '✅ 施術記録を保存しました' : '⚫ no-show を記録しました';
+
   const details = [
     '<strong>' + S.patientName + ' 様</strong>（' + S.patientNum + '）',
-    courseName + '　¥' + amount.toLocaleString(),
   ];
-  if (S.referralApplied && S.referrerName) details.push('紹介割引適用（' + S.referrerName + ' さん +¥1,000クレジット）');
-  if (S.creditUsed > 0) details.push('クレジット使用 ¥' + S.creditUsed.toLocaleString());
+  if (attended) {
+    const courseName = COURSE_MAP[courseId] ? COURSE_MAP[courseId].name : courseId;
+    details.push(courseName + '　¥' + amount.toLocaleString());
+    if (S.referralApplied && S.referrerName) details.push('紹介割引適用（' + S.referrerName + ' さん +¥1,000クレジット）');
+    if (S.creditUsed > 0) details.push('クレジット使用 ¥' + S.creditUsed.toLocaleString());
+  } else {
+    details.push('理由: ' + escHtml(noShowReason || ''));
+    details.push('<span style="color:var(--text-sub);font-size:0.9em">売上・来院数の集計対象からは除外されます</span>');
+  }
+  details.push('<div style="margin-top:12px;font-size:0.9em;color:var(--text-sub)">✅ 1分以内に Notion「未記録リスト」から消えます</div>');
   document.getElementById('successDetail').innerHTML = details.join('<br>');
   document.getElementById('successScreen').classList.add('visible');
   window.scrollTo({ top: 0 });

@@ -653,27 +653,20 @@
   <p>施術後にご入力ください（スタッフ専用）</p>
 </div>
 
-<!-- ══ パスワード認証 ══ -->
-<div id="passwordGate">
+<!-- ══ パスワード認証 (2026-09-26 廃止・DOM 残置は JS 参照互換のため) ══ -->
+<div id="passwordGate" style="display:none">
   <div class="card">
     <div class="pw-icon">🔐</div>
-    <div class="pw-title">スタッフ認証</div>
-    <div class="pw-sub">パスワードを入力してください</div>
-    <div class="pw-input-wrap">
-      <input type="password" id="pwInput" placeholder="パスワード"
-        onkeydown="if(event.key==='Enter')verifyPassword()"
-        autocomplete="current-password">
-      <button class="pw-toggle" type="button" onclick="togglePwVisibility()" id="pwToggle" aria-label="パスワードを表示">👁</button>
-    </div>
-    <div class="field-error" id="e_pw" style="margin-bottom:12px"></div>
-    <button class="btn-submit" onclick="verifyPassword()">ログイン</button>
-    <div class="loading-row" id="pwLoading" style="display:none;margin-top:10px">
-      <span class="spinner"></span><span>確認中...</span>
-    </div>
+    <div class="pw-title">スタッフ認証(廃止済)</div>
+    <div class="pw-sub">パスワードは不要になりました</div>
+    <input type="password" id="pwInput" style="display:none">
+    <div class="field-error" id="e_pw" style="display:none"></div>
+    <button class="btn-submit" id="pwToggle" style="display:none"></button>
+    <div class="loading-row" id="pwLoading" style="display:none"></div>
   </div>
 </div>
 
-<div id="mainForm" style="display:none">
+<div id="mainForm" style="display:block">
   <div class="container">
 
     <!-- ══ Phase 1: 患者検索 ══ -->
@@ -912,17 +905,15 @@ const S = {
 let allPatients = [];
 let _acMatches  = [];
 let _refMatches = [];
-let _authPw     = '';
 
 /* ── 初期化 ──────────────────────────────────────── */
 // URL パラメータで事前入力される患者情報(Notion「📝 記録する」からの導線)
-// 2026-09-26 追加: パスワード認証後、該当患者を自動選択して Phase 2 へ直接遷移
+// 2026-09-26 更新: パスワード認証廃止に伴い、URL パラメータで指定された患者を自動選択して直接記録画面へ
 var URL_PREFILL = (function() {
   try {
     var qs = new URLSearchParams(window.location.search);
     var cid = qs.get('customer_id');
     if (!cid) return null;
-    // trim + 大文字化(コピペ時の余計な空白と case ずれを吸収)(2026-09-26 修正)
     var normId = String(cid).trim().toUpperCase();
     if (!normId) return null;
     return {
@@ -935,54 +926,18 @@ var URL_PREFILL = (function() {
 
 window.addEventListener('DOMContentLoaded', function() {
   renderCourses();
-  // パスワードはメモリ変数のみで保持。ページリロード時は再入力が必要（セキュリティ設計）
+  // 2026-09-26: パスワード認証廃止 — パスワードゲートを完全 skip して mainForm に直接遷移
+  document.getElementById('passwordGate').style.display = 'none';
+  document.getElementById('mainForm').style.display = 'block';
+  loadPatients();
 });
 
-/* ── パスワード認証 ────────────────────────────── */
-function togglePwVisibility() {
-  const inp = document.getElementById('pwInput');
-  const btn = document.getElementById('pwToggle');
-  const showing = inp.type === 'text';
-  inp.type = showing ? 'password' : 'text';
-  btn.textContent = showing ? '👁' : '🙈';
-  btn.setAttribute('aria-label', showing ? 'パスワードを表示' : 'パスワードを非表示');
-}
-
-async function verifyPassword() {
-  const pw = document.getElementById('pwInput').value;
-  if (!pw) { showErr('e_pw', 'パスワードを入力してください'); return; }
-  clearErr('e_pw');
-  document.getElementById('pwLoading').style.display = 'flex';
-  document.querySelector('#passwordGate .btn-submit').disabled = true;
-  try {
-    const res  = await fetch(CONFIG.GAS_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify({ action: 'verifyStaff', pw, env: CONFIG.ENV_PARAM }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      _authPw = pw;
-      document.getElementById('passwordGate').style.display = 'none';
-      document.getElementById('mainForm').style.display = 'block';
-      loadPatients();
-    } else if (data.error === 'auth_locked') {
-      const min = Math.ceil((data.remainingSec || 900) / 60);
-      showErr('e_pw', 'ログイン試行回数が上限に達しました。' + min + '分後に再度お試しください。');
-    } else if (data.error === 'config_error') {
-      showErr('e_pw', '【管理者へ】GASスクリプトプロパティにSTAFF_PASSWORDが設定されていません。');
-    } else {
-      showErr('e_pw', 'パスワードが正しくありません');
-      document.getElementById('pwInput').value = '';
-      document.getElementById('pwInput').focus();
-    }
-  } catch {
-    showErr('e_pw', '通信エラーが発生しました。再度お試しください。');
-  } finally {
-    document.getElementById('pwLoading').style.display = 'none';
-    document.querySelector('#passwordGate .btn-submit').disabled = false;
-  }
-}
+/* ── パスワード認証は廃止済 (2026-09-26) ─────────────────────────
+   関数は後方互換のため残しているが、実際には呼ばれない
+   (DOMContentLoaded 内で passwordGate を直接 hide して mainForm に遷移)
+─────────────────────────────────────────────────────────────── */
+function togglePwVisibility() { /* 廃止 */ }
+async function verifyPassword() { /* 廃止: パスワードなしで直接 loadPatients() 実行 */ }
 
 /* ── コース描画 ────────────────────────────────── */
 function renderCourses() {
@@ -1002,7 +957,7 @@ async function loadPatients() {
   document.getElementById('searchArea').style.display      = 'none';
   document.getElementById('loadError').style.display       = 'none';
   try {
-    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientList', password: _authPw, env: CONFIG.ENV_PARAM }) });
+    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientList', env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'load failed');
     allPatients = data.patients || [];
@@ -1062,7 +1017,7 @@ async function selectPendingPatient(idx) {
   document.getElementById('nameSearch').value = p.name;
   S.creditBalance = p.creditBalance || 0;
   try {
-    var res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, password: _authPw, env: CONFIG.ENV_PARAM }) });
+    var res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, env: CONFIG.ENV_PARAM }) });
     var data = await res.json();
     showPhase2(p.customerId, p.patientNum, p.name, data.success ? data : {});
   } catch {
@@ -1111,7 +1066,7 @@ async function selectPatient(idx) {
 
   // 詳細情報（通算回数・前回日付・期限切れクレジット）をロード
   try {
-    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, password: _authPw, env: CONFIG.ENV_PARAM }) });
+    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
     if (data.success) {
       showPhase2(p.customerId, p.patientNum, p.name, data);
@@ -1485,7 +1440,6 @@ async function submitRecord() {
     const payload = {
       action:          'submitTreatmentRecord',
       requestId,
-      password:        _authPw,
       customerId:      S.customerId,
       patientNum:      S.patientNum,
       attended:        attended,
@@ -1608,7 +1562,7 @@ async function voidRecord(entryId, courseLabel, amount) {
   try {
     var res = await fetch(CONFIG.GAS_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'submitVoidRecord', targetEntryId: entryId, customerId: S.customerId, password: _authPw, env: CONFIG.ENV_PARAM }),
+      body: JSON.stringify({ action: 'submitVoidRecord', targetEntryId: entryId, customerId: S.customerId, env: CONFIG.ENV_PARAM }),
     });
     var data = await res.json();
     if (data.success) {

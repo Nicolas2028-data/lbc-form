@@ -77,21 +77,13 @@ function doPost(e) {
     if (action === 'submitQuestionnaire')   return jsonRes(handleSubmitQuestionnaire(data, cfg));
     if (action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data, cfg));
     if (action === 'submitBooking')         return jsonRes(handleSubmitBooking(data, cfg));
-    if (action === 'getPatientList') {
-      var authLP = verifyStaffPassword(data.password, cfg);
-      if (!authLP.ok) return jsonRes({ success: false, error: authLP.error, remainingSec: authLP.remainingSec });
-      return jsonRes(handleGetPatientList(cfg));
-    }
-    if (action === 'getPatientDetails') {
-      var authDP = verifyStaffPassword(data.password, cfg);
-      if (!authDP.ok) return jsonRes({ success: false, error: authDP.error, remainingSec: authDP.remainingSec });
-      return jsonRes(handleGetPatientDetails(data.customerId, cfg));
-    }
-    if (action === 'submitVoidRecord') {
-      var authVR = verifyStaffPassword(data.password, cfg);
-      if (!authVR.ok) return jsonRes({ success: false, error: authVR.error, remainingSec: authVR.remainingSec });
-      return jsonRes(handleSubmitVoidRecord(data, cfg));
-    }
+    // 2026-09-26: 施術記録シートのパスワード認証廃止(Nicolas 指示)
+    //  - Lucas が Notion 未記録リストからワンタップで開ける運用に切替
+    //  - URL パラメータで患者事前選択済なので UX 優先
+    //  - adminForceVoid のみ引き続きパスワード保護(管理操作)
+    if (action === 'getPatientList')     return jsonRes(handleGetPatientList(cfg));
+    if (action === 'getPatientDetails')  return jsonRes(handleGetPatientDetails(data.customerId, cfg));
+    if (action === 'submitVoidRecord')   return jsonRes(handleSubmitVoidRecord(data, cfg));
     if (action === 'adminForceVoid') {
       var authAF = verifyStaffPassword(data.password, cfg);
       if (!authAF.ok) return jsonRes({ success: false, error: authAF.error, remainingSec: authAF.remainingSec });
@@ -230,16 +222,9 @@ function doGet(e) {
       });
     }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
-    if (p.action === 'getPatientList') {
-      var authL = verifyStaffPassword(p.pw, cfg);
-      if (!authL.ok) return jsonRes({ success: false, error: authL.error, remainingSec: authL.remainingSec });
-      return jsonRes(handleGetPatientList(cfg));
-    }
-    if (p.action === 'getPatientDetails') {
-      var authD = verifyStaffPassword(p.pw, cfg);
-      if (!authD.ok) return jsonRes({ success: false, error: authD.error, remainingSec: authD.remainingSec });
-      return jsonRes(handleGetPatientDetails(p.customerId, cfg));
-    }
+    // 2026-09-26: パスワード認証廃止(Nicolas 指示)
+    if (p.action === 'getPatientList')    return jsonRes(handleGetPatientList(cfg));
+    if (p.action === 'getPatientDetails') return jsonRes(handleGetPatientDetails(p.customerId, cfg));
 
     // ダッシュボード集計データ（集計値のみ・PII なし）
     if (p.action === 'getDashboardData') {
@@ -1292,16 +1277,8 @@ function handleSubmitTreatmentRecord(data, cfg) {
   cfg = cfg || getConfig();
   var t0 = Date.now();
 
-  // スタッフ認可（ブルートフォース保護）
-  var authResult = verifyStaffPassword(data.password, cfg);
-  if (!authResult.ok) {
-    try {
-      var ss0 = getLedger(cfg);
-      logAccess(ss0, 'submitTreatmentRecord', data.requestId, authResult.error, '', 0, '');
-    } catch(e) {}
-    return { success: false, error: authResult.error, remainingSec: authResult.remainingSec };
-  }
-
+  // 2026-09-26: パスワード認証廃止(Nicolas 指示)
+  // Lucas が Notion 未記録リストからワンタップで開ける運用に切替
   var ss         = getLedger(cfg);
 
   // LockService: クレジット残高確認 → 追記の間に race condition を防ぐ(2026-09-06)

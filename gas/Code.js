@@ -3578,6 +3578,196 @@ function testNormalizePhone() {
   Logger.log(ok ? '全テスト PASS' : '❌ テスト FAIL あり');
 }
 
+/* ============================================================
+   来店ログのバックフィル (2026-09-26 追加)
+   ============================================================
+   過去の問診台帳から来店ログを 1 回だけ移送。
+   これにより Notion「🚨 未記録」に既存の未記録患者が表示される。
+
+   マッチロジック(施術済み判定):
+     問診台帳 の (customer_id, date) に対して
+     同 customer_id・同日 の 施術台帳 (type='record' or 'no_show') があるか検索
+     → あり: status=recorded/no_show, recorded_at=施術created_at
+     → なし: status=received (未記録)
+
+   実行方法 (GAS エディタから手動):
+     backfillCheckinLogDryRun()  → 対象件数と内訳を Logger.log で確認 (安全・書き込みなし)
+     backfillCheckinLogRun()     → 実行 (来店ログに書き込み)
+
+   冪等性: 既に来店ログに存在する (customer_id, checkin_date, entry_type) は skip
+   ============================================================ */
+
+function _backfillCheckinLogImpl(dryRun) {
+  var cfg = getConfig();
+  var ss = getLedger(cfg);
+  var quSheet = ss.getSheetByName('問診台帳');
+  var trSheet = ss.getSheetByName('施術台帳');
+  var clSheet = ss.getSheetByName('来店ログ');
+  if (!quSheet) { Logger.log('❌ 問診台帳 タブなし'); return; }
+  if (!trSheet) { Logger.log('❌ 施術台帳 タブなし'); return; }
+  if (!clSheet) {
+    Logger.log('⚠ 来店ログ タブが存在しない → 作成します');
+    if (!dryRun) applySheetHeaders(ss);
+    clSheet = ss.getSheetByName('来店ログ');
+    if (!clSheet) { Logger.log('❌ 来店ログ タブ作成失敗'); return; }
+  }
+
+  // 問診台帳全件読み込み
+  var quRows = quSheet.getLastRow() > 1
+    ? quSheet.getRange(2, 1, quSheet.getLastRow() - 1, 24).getValues() : [];
+  Logger.log('問診台帳: ' + quRows.length + ' 件');
+
+  // 施術台帳を (customer_id, date) → [created_at, type, entry_id] マップに
+  var trRows = trSheet.getLastRow() > 1
+    ? trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues() : [];
+  var trByKey = {};
+  for (var t = 0; t < trRows.length; t++) {
+    var tr = trRows[t];
+    var trType = String(tr[TR.type]);
+    if (trType !== 'record' && trType !== 'no_show') continue;
+    var trKey = String(tr[TR.customer_id]) + '|' + toDateStr(tr[TR.date]);
+    if (!trByKey[trKey]) trByKey[trKey] = tr;
+  }
+
+  // 既存 来店ログ を (customer_id, checkin_date, entry_type) → true マップに(冪等性用)
+  var clRows = clSheet.getLastRow() > 1
+    ? clSheet.getRange(2, 1, clSheet.getLastRow() - 1, 16).getValues() : [];
+  var clExisting = {};
+  for (var c = 0; c < clRows.length; c++) {
+    var cl = clRows[c];
+    var clKey = String(cl[CL.customer_id]) + '|' + toDateStr(cl[CL.checkin_date]) + '|' + String(cl[CL.entry_type]);
+    clExisting[clKey] = true;
+  }
+  Logger.log('既存 来店ログ: ' + clRows.length + ' 件');
+
+  var stats = { received: 0, recorded: 0, no_show: 0, skipped: 0 };
+  var rowsToAppend = [];
+
+  for (var i = 0; i < quRows.length; i++) {
+    var q = quRows[i];
+    var custId = String(q[QU.customer_id] || '');
+    if (!custId) { stats.skipped++; continue; }
+    var quDate = toDateStr(q[QU.date]);
+    if (!quDate) { stats.skipped++; continue; }
+
+    var visitType = String(q[QU.visit_type] || 'first');
+    var entryType = (visitType === 'first') ? 'initial' : 'revisit';
+    var checkKey = custId + '|' + quDate + '|' + entryType;
+    if (clExisting[checkKey]) { stats.skipped++; continue; }
+
+    // 施術済み判定
+    var matched = trByKey[custId + '|' + quDate];
+    var status, recordedAt, recordId, noShowReason;
+    if (matched) {
+      var trType2 = String(matched[TR.type]);
+      status = (trType2 === 'no_show') ? 'no_show' : 'recorded';
+      var trCreatedAt = matched[TR.created_at];
+      recordedAt = (trCreatedAt instanceof Date) ? trCreatedAt.toISOString() : String(trCreatedAt || '');
+      recordId = String(matched[TR.entry_id] || '');
+      // no_show 理由は memo に保存されているケースあり
+      noShowReason = (trType2 === 'no_show') ? String(matched[TR.memo] || '').replace(/^no-show 理由:\s*/, '') : '';
+      stats[status]++;
+    } else {
+      status = 'received';
+      recordedAt = '';
+      recordId = '';
+      noShowReason = '';
+      stats.received++;
+    }
+
+    // 顧客氏名と電話を顧客マスタから取得
+    var found = findCustomerById(ss, custId);
+    var custName = found ? String(found.row[CM.name] || '') : '';
+    var custPhone = found ? String(found.row[CM.phone] || '') : '';
+
+    // checkin_at は問診の created_at を使用(なければ date + 09:00 で近似)
+    var quCreatedAt = q[QU.created_at];
+    var checkinAt;
+    if (quCreatedAt instanceof Date) {
+      checkinAt = quCreatedAt.toISOString();
+    } else if (quCreatedAt) {
+      checkinAt = String(quCreatedAt);
+    } else {
+      checkinAt = quDate + 'T09:00:00+09:00'; // fallback
+    }
+
+    var url = buildTreatmentRecordUrl(cfg, custId, custName, custPhone);
+    var now = nowISO();
+    var row = makeRow(16, {
+      [CL.checkin_id]:           genUUID(),
+      [CL.customer_id]:          custId,
+      [CL.customer_name]:        sanitizeSheetInput(custName),
+      [CL.phone_normalized]:     custPhone,
+      [CL.checkin_at]:           checkinAt,
+      [CL.checkin_date]:         quDate,
+      [CL.entry_type]:           entryType,
+      [CL.status]:               status,
+      [CL.recorded_at]:          recordedAt,
+      [CL.record_id]:            recordId,
+      [CL.no_show_reason]:       sanitizeSheetInput(noShowReason),
+      [CL.treatment_record_url]: url,
+      [CL.updated_at]:           now,
+      [CL.synced_at]:            '',
+      [CL.notes]:                'backfill from 問診台帳 (2026-09-26)',
+      [CL.error_count]:          0,
+    });
+    rowsToAppend.push(row);
+  }
+
+  Logger.log('=== バックフィル ' + (dryRun ? '[DRY RUN]' : '[実行]') + ' ===');
+  Logger.log('  未記録 (received): ' + stats.received + ' 件');
+  Logger.log('  記録済み (recorded): ' + stats.recorded + ' 件');
+  Logger.log('  no-show: ' + stats.no_show + ' 件');
+  Logger.log('  skip (重複/欠損): ' + stats.skipped + ' 件');
+  Logger.log('  合計追加予定: ' + rowsToAppend.length + ' 件');
+
+  if (dryRun) {
+    Logger.log('✅ Dry run 完了。書き込みなし。実行するには backfillCheckinLogRun() を呼んでください。');
+    return { dryRun: true, stats: stats, wouldAdd: rowsToAppend.length };
+  }
+
+  if (rowsToAppend.length === 0) {
+    Logger.log('✅ 追加対象なし');
+    return { dryRun: false, stats: stats, added: 0 };
+  }
+
+  // 一括追加
+  var startRow = clSheet.getLastRow() + 1;
+  clSheet.getRange(startRow, 1, rowsToAppend.length, 16).setValues(rowsToAppend);
+  incSyncCounter(ss, rowsToAppend.length);
+  Logger.log('✅ ' + rowsToAppend.length + ' 件追加完了。次回 syncToNotion (1分以内) で Notion に反映されます。');
+  return { dryRun: false, stats: stats, added: rowsToAppend.length };
+}
+
+function backfillCheckinLogDryRun() {
+  return _backfillCheckinLogImpl(true);
+}
+
+function backfillCheckinLogRun() {
+  return _backfillCheckinLogImpl(false);
+}
+
+// 来店ログ タブが本番シートに存在するかを確認する軽量ヘルパー
+//  存在しない場合は applySheetHeaders で作成する
+function ensureCheckinLogSheet() {
+  var cfg = getConfig();
+  var ss = getLedger(cfg);
+  var sh = ss.getSheetByName('来店ログ');
+  if (sh) {
+    Logger.log('✅ 来店ログ タブは既に存在します (行数: ' + sh.getLastRow() + ')');
+    return { exists: true, rows: sh.getLastRow() };
+  }
+  Logger.log('⚠ 来店ログ タブが存在しない → applySheetHeaders で作成');
+  applySheetHeaders(ss);
+  sh = ss.getSheetByName('来店ログ');
+  if (sh) {
+    Logger.log('✅ 来店ログ タブ作成完了');
+    return { exists: true, created: true };
+  }
+  Logger.log('❌ 作成失敗');
+  return { exists: false };
+}
+
 // Step 0.5 セットアップ（再実行可）
 function setupStaging() {
   var props = PropertiesService.getScriptProperties();

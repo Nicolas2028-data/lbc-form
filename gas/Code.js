@@ -1791,12 +1791,13 @@ function syncToNotion() {
 
 function countUnsyncedRows(ss) {
   var count = 0;
+  // 2026-09-26: 来店ログ は Notion 同期しないためカウント対象外(L3 修正)
+  //   含めると synced_at が永久に空のまま counter が膨張し、syncToNotion が毎回 full-scan する
   var tabIdx = [
     { name: '顧客マスタ',    syncedAtIdx: CM.synced_at },
     { name: '問診台帳',      syncedAtIdx: QU.synced_at },
     { name: '施術台帳',      syncedAtIdx: TR.synced_at },
     { name: 'クレジット台帳', syncedAtIdx: CR.synced_at },
-    { name: '来店ログ',      syncedAtIdx: CL.synced_at },
   ];
   for (var t = 0; t < tabIdx.length; t++) {
     var rows = getSheetData(ss, tabIdx[t].name);
@@ -1878,6 +1879,32 @@ function syncQuestionnaire(ss, cfg) {
 
       var pageId = String(r[QU.notion_page_id]);
       var wasExistingPage = !!pageId;
+
+      // 2026-09-26 追加 M1: 同日 施術台帳 から既に紐付けされたカルテページを探す
+      //  → 施術記録が問診票より先に同期されたレースで、二重カルテが作られるのを防ぐ
+      if (!pageId) {
+        var quDateStr = toDateStr(r[QU.date]);
+        var trSheet = ss.getSheetByName('施術台帳');
+        if (trSheet && trSheet.getLastRow() > 1) {
+          var trAllRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+          for (var trIdx = 0; trIdx < trAllRows.length; trIdx++) {
+            var trr = trAllRows[trIdx];
+            var trType = String(trr[TR.type]);
+            if (trType !== 'record' && trType !== 'no_show') continue;
+            if (String(trr[TR.customer_id]) !== custId) continue;
+            if (toDateStr(trr[TR.date]) !== quDateStr) continue;
+            var trPageId = String(trr[TR.notion_page_id] || '');
+            if (trPageId) {
+              pageId = trPageId;
+              // シートにも書き戻して次回以降 skip できるように
+              sheet.getRange(i + 2, QU.notion_page_id + 1).setValue(pageId);
+              Logger.log('syncQuestionnaire: 施術台帳 の既存カルテを再利用 pageId=' + pageId);
+              break;
+            }
+          }
+        }
+      }
+
       if (!pageId) {
         // Notion カルテページ新規作成
         //  2026-09-26: ステータスを select 型に変更、'🔴 未記録' 初期値、
@@ -2010,6 +2037,40 @@ function syncTreatment(ss, cfg) {
         }
       }
 
+      // 2026-09-26 追加: 同日マッチなしの場合、customer_id + ステータス='🔴 未記録' の
+      // 最古の Notion カルテページを再利用(過去問診票の遅延記録シナリオに対応)
+      //  例: 患者 P006 が 2026-08-02 問診 → カルテ = 未記録
+      //      Lucas が 2026-09-26 に記録 → 8/2 のカルテを 完了 に更新すべき
+      if (!pageId && cfg.KARTE_DB_ID) {
+        try {
+          var pendingRes = notionPost(cfg, '/databases/' + cfg.KARTE_DB_ID + '/query', {
+            filter: {
+              and: [
+                { property: '診察番号', rich_text: { equals: custId } },
+                { property: 'ステータス', select: { equals: '🔴 未記録' } },
+              ],
+            },
+            sorts: [{ property: '日付', direction: 'ascending' }],
+            page_size: 1,
+          });
+          if (pendingRes && pendingRes.results && pendingRes.results.length > 0) {
+            pageId = pendingRes.results[0].id;
+            Logger.log('syncTreatment: 過去 未記録 カルテ再利用 custId=' + custId + ' pageId=' + pageId);
+          }
+          Utilities.sleep(200);
+        } catch (fbErr) {
+          Logger.log('syncTreatment: 未記録カルテ検索失敗: ' + fbErr.message);
+        }
+      }
+
+      // 2026-09-26 修正 M2: statusName を新規作成の前に計算(create + patch の中間 stale 状態を排除)
+      var isVoided = !!voidedSet[String(r[TR.entry_id])];
+      var trType = String(r[TR.type]);
+      var statusName;
+      if (isVoided)                statusName = '❌ 取消';
+      else if (trType === 'no_show') statusName = '⚫ 施術なし';
+      else                          statusName = '✅ 完了';
+
       if (!pageId) {
         // 問診なし来院 → カルテページを新規作成
         //  2026-09-26: ステータスを select 型 + 診察番号 + URL 同時セット
@@ -2021,11 +2082,10 @@ function syncTreatment(ss, cfg) {
         var langMap3 = { ja: '日本語', es: 'Español', pt: 'Português' };
         var lang2 = custData ? String(custData.row[CM.lang]) : 'ja';
         var recordUrl2 = buildTreatmentRecordUrl(cfg, custIdStr2, custName2, custPhone2);
-        // 初期ステータスは施術記録内容に応じて決定(下の props 上書きに任せる)
         var newKarteProps = {
           '名前':        { title: [{ text: { content: title2 } }] },
           '日付':        { date: { start: toDateStr(r[TR.date]) } },
-          'ステータス':  { select: { name: '✅ 完了' } },
+          'ステータス':  { select: { name: statusName } }, // M2: 最終ステータスを直接セット
           '対応言語':    { select: { name: langMap3[lang2] || '日本語' } },
           '問診票':      { checkbox: false },
           '診察番号':    richText(custIdStr2),
@@ -2037,14 +2097,6 @@ function syncTreatment(ss, cfg) {
         Utilities.sleep(350);
       }
 
-      var isVoided = !!voidedSet[String(r[TR.entry_id])];
-      //  2026-09-26 修正: type='no_show' の場合は '⚫ 施術なし' に、
-      //  void された記録は '❌ 取消'、通常記録は '✅ 完了'
-      var trType = String(r[TR.type]);
-      var statusName;
-      if (isVoided)                statusName = '❌ 取消';
-      else if (trType === 'no_show') statusName = '⚫ 施術なし';
-      else                          statusName = '✅ 完了';
       var props = { 'ステータス': { select: { name: statusName } } };
       if (r[TR.course] && VALID_COURSES.indexOf(String(r[TR.course])) >= 0) {
         props['コース'] = { select: { name: String(r[TR.course]) } };
@@ -2052,7 +2104,8 @@ function syncTreatment(ss, cfg) {
       if (r[TR.sales] !== '') props['売上金額']   = { number: Number(r[TR.sales]) };
       if (r[TR.payment])      props['支払い方法'] = { select: { name: String(r[TR.payment]) } };
       if (r[TR.memo])         props['施術メモ']   = richText(String(r[TR.memo]));
-      if (r[TR.credit_used])  props['クレジット使用額'] = { number: Number(r[TR.credit_used]) };
+      // 2026-09-26 修正 M4: 0 も明示的な値として同期(訂正ケースで stale 値が残るのを防ぐ)
+      if (r[TR.credit_used] !== '') props['クレジット使用額'] = { number: Number(r[TR.credit_used]) || 0 };
       if (r[TR.referrer_customer_id]) {
         var refId   = String(r[TR.referrer_customer_id]);
         var refData = findCustomerById(ss, refId);

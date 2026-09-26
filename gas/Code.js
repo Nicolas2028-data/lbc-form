@@ -1728,21 +1728,7 @@ function countReferralGrants(ss, referrerId) {
 function syncToNotion() {
   var cfg = getConfig();
 
-  // 2026-09-26: NOTION_CHECKIN_DB_ID の bootstrap を early return より前で実行
-  //  → 来店ログが空でも Nicolas の手動設定なしで property がセットされる
-  if (!cfg.NOTION_CHECKIN_DB_ID) {
-    var _bootId = (cfg._env === 'staging')
-      ? '0213c9361e63409c8c5ba21129c3712e'
-      : '2c503d5e8679423c8a869532a661cea8';
-    var _bootKey = (cfg._env === 'staging') ? 'STAGING_NOTION_CHECKIN_DB_ID' : 'NOTION_CHECKIN_DB_ID';
-    try {
-      PropertiesService.getScriptProperties().setProperty(_bootKey, _bootId);
-      cfg.NOTION_CHECKIN_DB_ID = _bootId;
-      Logger.log('syncToNotion: bootstrap ' + _bootKey + ' = ' + _bootId);
-    } catch (_e) {
-      Logger.log('syncToNotion: NOTION_CHECKIN_DB_ID bootstrap failed: ' + _e.message);
-    }
-  }
+  // 2026-09-26: 来店ログ DB を カルテ DB に統合、来店ログ の Notion 同期は廃止
 
   // Drive フォルダ未設定は Nicolas が手動で設定すること (2026-09-06: 自動設定を廃止)
   // 以前は staging 用にハードコード ID が自動書き込みされていたが、
@@ -1791,7 +1777,7 @@ function syncToNotion() {
     synced += syncQuestionnaire(ss, cfg);
     synced += syncTreatment(ss, cfg);
     synced += syncCredit(ss, cfg);
-    synced += syncCheckinLog(ss, cfg);
+    // 2026-09-26: syncCheckinLog は廃止(カルテ DB に統合)
 
     // カウンタ再計算
     var newCounter = countUnsyncedRows(ss);
@@ -1894,16 +1880,24 @@ function syncQuestionnaire(ss, cfg) {
       var wasExistingPage = !!pageId;
       if (!pageId) {
         // Notion カルテページ新規作成
+        //  2026-09-26: ステータスを select 型に変更、'🔴 未記録' 初期値、
+        //             診察番号 + 📝 記録する URL も同時にセット(未記録リスト統合)
         var dateLabel = toDateStr(r[QU.date]).replace(/-/g, '/');
-        var title     = (custData ? String(custData.row[CM.name]) : String(r[QU.customer_id])) + ' (' + dateLabel + ')';
+        var custIdStr = String(r[QU.customer_id]);
+        var custName  = custData ? String(custData.row[CM.name]) : custIdStr;
+        var custPhone = custData ? String(custData.row[CM.phone] || '') : '';
+        var title     = custName + ' (' + dateLabel + ')';
         var langMap2  = { ja: '日本語', es: 'Español', pt: 'Português' };
         var lang      = custData ? String(custData.row[CM.lang]) : 'ja';
+        var recordUrl = buildTreatmentRecordUrl(cfg, custIdStr, custName, custPhone);
         var karteProps = {
-          '名前':      { title: [{ text: { content: title } }] },
-          '日付':      { date: { start: toDateStr(r[QU.date]) } },
-          'ステータス': { status: { name: '未着手' } },
-          '対応言語':  { select: { name: langMap2[lang] || '日本語' } },
-          '問診票':    { checkbox: true },
+          '名前':        { title: [{ text: { content: title } }] },
+          '日付':        { date: { start: toDateStr(r[QU.date]) } },
+          'ステータス':  { select: { name: '🔴 未記録' } },
+          '対応言語':    { select: { name: langMap2[lang] || '日本語' } },
+          '問診票':      { checkbox: true },
+          '診察番号':    richText(custIdStr),
+          '📝 記録する': { url: recordUrl },
         };
         if (custNotionId) karteProps['顧客マスタ'] = { relation: [{ id: custNotionId }] };
         var newPage = notionPost(cfg, '/pages', { parent: { database_id: cfg.KARTE_DB_ID }, properties: karteProps });
@@ -2018,17 +2012,24 @@ function syncTreatment(ss, cfg) {
 
       if (!pageId) {
         // 問診なし来院 → カルテページを新規作成
-        // 修正 (2026-09-06): タイトル日付を toDateStr で正規化(YYYY/MM/DD)
+        //  2026-09-26: ステータスを select 型 + 診察番号 + URL 同時セット
         var dateLabel2 = toDateStr(r[TR.date]).replace(/-/g, '/');
-        var title2 = (custData ? String(custData.row[CM.name]) : custId) + ' (' + dateLabel2 + ')';
+        var custIdStr2 = String(custId);
+        var custName2 = custData ? String(custData.row[CM.name]) : custIdStr2;
+        var custPhone2 = custData ? String(custData.row[CM.phone] || '') : '';
+        var title2 = custName2 + ' (' + dateLabel2 + ')';
         var langMap3 = { ja: '日本語', es: 'Español', pt: 'Português' };
         var lang2 = custData ? String(custData.row[CM.lang]) : 'ja';
+        var recordUrl2 = buildTreatmentRecordUrl(cfg, custIdStr2, custName2, custPhone2);
+        // 初期ステータスは施術記録内容に応じて決定(下の props 上書きに任せる)
         var newKarteProps = {
-          '名前':      { title: [{ text: { content: title2 } }] },
-          '日付':      { date: { start: toDateStr(r[TR.date]) } },
-          'ステータス': { status: { name: '完了' } },
-          '対応言語':  { select: { name: langMap3[lang2] || '日本語' } },
-          '問診票':    { checkbox: false },
+          '名前':        { title: [{ text: { content: title2 } }] },
+          '日付':        { date: { start: toDateStr(r[TR.date]) } },
+          'ステータス':  { select: { name: '✅ 完了' } },
+          '対応言語':    { select: { name: langMap3[lang2] || '日本語' } },
+          '問診票':      { checkbox: false },
+          '診察番号':    richText(custIdStr2),
+          '📝 記録する': { url: recordUrl2 },
         };
         if (custNotionId) newKarteProps['顧客マスタ'] = { relation: [{ id: custNotionId }] };
         var newP = notionPost(cfg, '/pages', { parent: { database_id: cfg.KARTE_DB_ID }, properties: newKarteProps });
@@ -2037,7 +2038,14 @@ function syncTreatment(ss, cfg) {
       }
 
       var isVoided = !!voidedSet[String(r[TR.entry_id])];
-      var props = { 'ステータス': { status: { name: isVoided ? '取消' : '完了' } } };
+      //  2026-09-26 修正: type='no_show' の場合は '⚫ 施術なし' に、
+      //  void された記録は '❌ 取消'、通常記録は '✅ 完了'
+      var trType = String(r[TR.type]);
+      var statusName;
+      if (isVoided)                statusName = '❌ 取消';
+      else if (trType === 'no_show') statusName = '⚫ 施術なし';
+      else                          statusName = '✅ 完了';
+      var props = { 'ステータス': { select: { name: statusName } } };
       if (r[TR.course] && VALID_COURSES.indexOf(String(r[TR.course])) >= 0) {
         props['コース'] = { select: { name: String(r[TR.course]) } };
       }
@@ -2130,7 +2138,12 @@ function _checkinStatusLabel(status) {
   return '🔴 未記録'; // received or 不明
 }
 
+// 2026-09-26: 来店ログ DB を カルテ DB に統合。この関数は no-op として残す
+//  シート `来店ログ` タブへの書き込み(appendCheckinLog / updateCheckinLogOnRecord)は
+//  audit log として継続。ただし Notion 側の 来店ログ DB へは同期しない。
 function syncCheckinLog(ss, cfg) {
+  return 0;
+  // 以下は履歴のため残置(実行されない)
   var sheet = ss.getSheetByName('来店ログ');
   if (!sheet) {
     Logger.log('syncCheckinLog: 来店ログ タブなし — スキップ');

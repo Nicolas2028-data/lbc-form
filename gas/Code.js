@@ -1728,6 +1728,22 @@ function countReferralGrants(ss, referrerId) {
 function syncToNotion() {
   var cfg = getConfig();
 
+  // 2026-09-26: NOTION_CHECKIN_DB_ID の bootstrap を early return より前で実行
+  //  → 来店ログが空でも Nicolas の手動設定なしで property がセットされる
+  if (!cfg.NOTION_CHECKIN_DB_ID) {
+    var _bootId = (cfg._env === 'staging')
+      ? '0213c9361e63409c8c5ba21129c3712e'
+      : '2c503d5e8679423c8a869532a661cea8';
+    var _bootKey = (cfg._env === 'staging') ? 'STAGING_NOTION_CHECKIN_DB_ID' : 'NOTION_CHECKIN_DB_ID';
+    try {
+      PropertiesService.getScriptProperties().setProperty(_bootKey, _bootId);
+      cfg.NOTION_CHECKIN_DB_ID = _bootId;
+      Logger.log('syncToNotion: bootstrap ' + _bootKey + ' = ' + _bootId);
+    } catch (_e) {
+      Logger.log('syncToNotion: NOTION_CHECKIN_DB_ID bootstrap failed: ' + _e.message);
+    }
+  }
+
   // Drive フォルダ未設定は Nicolas が手動で設定すること (2026-09-06: 自動設定を廃止)
   // 以前は staging 用にハードコード ID が自動書き込みされていたが、
   // その ID は本番 Drive フォルダを指しており、staging → 本番への混入経路になっていた。

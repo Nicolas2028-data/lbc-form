@@ -2120,9 +2120,24 @@ function syncCheckinLog(ss, cfg) {
     Logger.log('syncCheckinLog: 来店ログ タブなし — スキップ');
     return 0;
   }
+  // 2026-09-26: NOTION_CHECKIN_DB_ID が未設定の場合、既知の本番/staging DB ID を自動セットする
+  //  (Nicolas が GAS UI から手動設定する手間を省くための bootstrap)
+  //  DB は Claude が MCP で作成済:
+  //    本番:  2c503d5e-8679-423c-8a86-9532a661cea8
+  //    staging: 0213c936-1e63-409c-8c5b-a21129c3712e
   if (!cfg.NOTION_CHECKIN_DB_ID) {
-    Logger.log('syncCheckinLog: NOTION_CHECKIN_DB_ID 未設定 — スキップ');
-    return 0;
+    var bootId = (cfg._env === 'staging')
+      ? '0213c9361e63409c8c5ba21129c3712e'
+      : '2c503d5e8679423c8a869532a661cea8';
+    var bootKey = (cfg._env === 'staging') ? 'STAGING_NOTION_CHECKIN_DB_ID' : 'NOTION_CHECKIN_DB_ID';
+    try {
+      PropertiesService.getScriptProperties().setProperty(bootKey, bootId);
+      cfg.NOTION_CHECKIN_DB_ID = bootId;
+      Logger.log('syncCheckinLog: bootstrap ' + bootKey + ' = ' + bootId);
+    } catch (bootErr) {
+      Logger.log('syncCheckinLog: bootstrap failed: ' + bootErr.message);
+      return 0;
+    }
   }
   var last = sheet.getLastRow();
   if (last < 2) return 0;

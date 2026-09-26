@@ -84,6 +84,13 @@ function doPost(e) {
     if (action === 'getPatientList')     return jsonRes(handleGetPatientList(cfg));
     if (action === 'getPatientDetails')  return jsonRes(handleGetPatientDetails(data.customerId, cfg));
     if (action === 'submitVoidRecord')   return jsonRes(handleSubmitVoidRecord(data, cfg));
+    // 管理: 既知 checkin_id で来店ログ一括インポート(admin token 必須)
+    if (action === 'importCheckinLogRows') {
+      var authIC = verifyStaffPassword(data.password, cfg);
+      if (!authIC.ok) return jsonRes({ success: false, error: authIC.error, remainingSec: authIC.remainingSec });
+      var rowsArr = Array.isArray(data.rows) ? data.rows : [];
+      return jsonRes(importCheckinLogRowsWithKnownIds(rowsArr));
+    }
     if (action === 'adminForceVoid') {
       var authAF = verifyStaffPassword(data.password, cfg);
       if (!authAF.ok) return jsonRes({ success: false, error: authAF.error, remainingSec: authAF.remainingSec });
@@ -1310,20 +1317,28 @@ function handleSubmitTreatmentRecord(data, cfg) {
   var entryId    = genUUID();
   var courseLabel = COURSE_ID_MAP[data.courseId] || '';
 
-  // 施術有無トグル(2026-09-26 追加)
-  //  data.attended === false → no-show (施術なし記録)
+  // 施術有無トグル(2026-09-26 追加、2026-09-26 修正 M1/M2)
+  //  data.attended: boolean, "false"/"no"/0 も no-show として解釈
   //  それ以外 → 通常の施術記録(後方互換: 既存クライアントは attended 未指定)
-  var attended = (data.attended === false) ? false : true;
-  var noShowReason = attended ? '' : sanitizeSheetInput(String(data.noShowReason || ''));
-  if (!attended && !noShowReason) {
+  var attendedRaw = data.attended;
+  var attended = !(attendedRaw === false || attendedRaw === 'false' || attendedRaw === 'no' || attendedRaw === 0 || attendedRaw === '0');
+  // 空白のみもエラー扱い(M2 修正: trim してから空チェック)
+  var noShowReasonTrimmed = String(data.noShowReason || '').trim();
+  var noShowReason = attended ? '' : sanitizeSheetInput(noShowReasonTrimmed);
+  if (!attended && !noShowReasonTrimmed) {
     return { success: false, error: 'no_show_reason_required' };
+  }
+  if (!String(data.customerId || '').trim()) {
+    return { success: false, error: 'customerId_required' };
   }
 
   // ── 多層 dedup(2026-09-06 強化) ─────────────────────────
   // 層 1: CacheService(超高速・5 分 TTL)— 同時リクエストにも強い
   // 層 2: シート走査(直近 300 秒・fallback)— キャッシュ蒸発時の保険
   var todayStrCache = todayStr();
-  var salesNum = data.salesAmount !== '' && data.salesAmount !== undefined ? Number(data.salesAmount) : 0;
+  // 2026-09-26 修正 H2: NaN 混入を防ぐため isFinite でガード
+  var _rawSales = (data.salesAmount !== '' && data.salesAmount !== undefined && data.salesAmount !== null) ? Number(data.salesAmount) : 0;
+  var salesNum = isFinite(_rawSales) ? _rawSales : 0;
   var paymentStr = String(data.paymentMethod || '');
   var dedupKey = 'tr:' + customerId + ':' + todayStrCache + ':' + (attended ? 'y' : 'n') + ':' + courseLabel + ':' + salesNum + ':' + paymentStr;
 
@@ -1374,8 +1389,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
     [TR.date]:                 todayStr(),
     [TR.customer_id]:          customerId,
     [TR.course]:               attended ? courseLabel : '',
-    [TR.sales]:                attended && data.salesAmount !== '' && data.salesAmount !== undefined
-                                 ? Number(data.salesAmount) : 0,
+    [TR.sales]:                attended ? salesNum : 0, // salesNum は既に isFinite でガード済 (H2 fix)
     [TR.payment]:              attended ? (data.paymentMethod || '') : '',
     [TR.memo]:                 attended ? sanitizeSheetInput(data.treatmentMemo || '') : ('no-show 理由: ' + noShowReason),
     [TR.has_questionnaire]:    'FALSE',
@@ -2121,21 +2135,33 @@ function syncCheckinLog(ss, cfg) {
     }
 
     try {
-      // checkin_id で既存ページ検索(upsert)
+      // Step 1: checkin_id で既存ページ検索(通常経路)
       var pageId = _findCheckinPageByCheckinId(cfg, checkinId);
 
       var checkinIso = (checkinAtRaw instanceof Date) ? checkinAtRaw.toISOString() : String(checkinAtRaw);
       // 顧客名は Notion title の 2000文字上限に収まるよう安全側で truncate (2026-09-26 追加)
       var custName = String(r[CL.customer_name] || '(名前なし)').slice(0, 1900);
+      var rowStatus = String(r[CL.status] || 'received');
+      var rowCustId = String(r[CL.customer_id] || '');
       var props = {
         '顧客名':      { title: [{ text: { content: custName } }] },
-        '状態':        { select: { name: _checkinStatusLabel(String(r[CL.status])) } },
+        '状態':        { select: { name: _checkinStatusLabel(rowStatus) } },
         '来店':        { date: { start: checkinIso } },
         '📝 記録する': { url: String(r[CL.treatment_record_url] || '') || null },
         'メモ':        richText(String(r[CL.no_show_reason] || '').slice(0, 1900)),
-        '診察番号':    richText(String(r[CL.customer_id] || '')),
+        '診察番号':    richText(rowCustId),
         'checkin_id':  richText(checkinId),
       };
+
+      // Step 2 (2026-09-26 追加): checkin_id 不一致で status が recorded/no_show の場合、
+      // 「customer_id + 状態=未記録」で Notion 既存ページを探し PATCH で吸収する。
+      // これにより Python バックフィルで先に作った Notion ページを重複させず正しく更新できる。
+      if (!pageId && (rowStatus === 'recorded' || rowStatus === 'no_show') && rowCustId) {
+        pageId = _findPendingCheckinPageByCustomerId(cfg, rowCustId);
+        if (pageId) {
+          Logger.log('syncCheckinLog: checkin_id 不一致 → customer_id=' + rowCustId + ' の 未記録 ページを再利用: ' + pageId);
+        }
+      }
 
       if (pageId) {
         notionPatch(cfg, '/pages/' + pageId, { properties: props });
@@ -2161,6 +2187,30 @@ function syncCheckinLog(ss, cfg) {
     }
   }
   return synced;
+}
+
+// customer_id + 状態='🔴 未記録' で最古の Notion ページを検索(2026-09-26 追加)
+//  syncCheckinLog の fallback: checkin_id 不一致でも既存 未記録 ページに PATCH で吸収するため
+//  用途: Python バックフィル等で Notion 側先行作成された未記録ページに対して
+//        sheet 側で異なる checkin_id を持つ recorded 行が来たとき、重複を防ぐ
+function _findPendingCheckinPageByCustomerId(cfg, customerId) {
+  try {
+    var res = notionPost(cfg, '/databases/' + cfg.NOTION_CHECKIN_DB_ID + '/query', {
+      filter: {
+        and: [
+          { property: '診察番号', rich_text: { equals: String(customerId) } },
+          { property: '状態',     select:    { equals: '🔴 未記録' } },
+        ],
+      },
+      sorts: [{ property: '来店', direction: 'ascending' }],
+      page_size: 1,
+    });
+    if (res && res.results && res.results.length > 0) return res.results[0].id;
+    return null;
+  } catch (e) {
+    Logger.log('_findPendingCheckinPageByCustomerId error customerId=' + customerId + ': ' + e.message);
+    return null; // 失敗しても呼び出し側は新規作成 fallback
+  }
 }
 
 // checkin_id で Notion 来店ログ DB を検索して page ID を返す(見つからなければ null)
@@ -2572,8 +2622,9 @@ function getDetailedReport(targetDate) {
     if (res === 'auth_fail') {
       authFailDetails.push({ time: ts.slice(11,19), action: act });
     }
-    if (res === 'ok' && act === 'submitTreatmentRecord') {
-      successDetails.push({ time: ts.slice(11,19), requestId: String(r[AL.request_id] || ''), customerId: String(r[AL.customer_id_hint] || '') });
+    // 2026-09-26 修正 L4: no_show も成功詳細に含める(未記録件数が過少報告される問題を修正)
+    if ((res === 'ok' || res === 'no_show') && act === 'submitTreatmentRecord') {
+      successDetails.push({ time: ts.slice(11,19), requestId: String(r[AL.request_id] || ''), customerId: String(r[AL.customer_id_hint] || ''), result: res });
     }
   });
 
@@ -3752,6 +3803,71 @@ function backfillCheckinLogDryRun() {
 
 function backfillCheckinLogRun() {
   return _backfillCheckinLogImpl(false);
+}
+
+// 既知の checkin_id で来店ログ行を一括インポート(2026-09-26 追加)
+//  用途: Notion に直接作成された行をシートにも反映して整合性を保つ
+//  各 row: { checkin_id, customer_id, customer_name, phone, checkin_at, checkin_date,
+//           entry_type, status, recorded_at, record_id, no_show_reason, notes }
+//  synced_at は now() で埋める(Notion 側は既に存在するため再同期を防ぐ)
+//  冪等: 既存の checkin_id 一致行があれば skip
+function importCheckinLogRowsWithKnownIds(rows) {
+  var cfg = getConfig();
+  var ss = getLedger(cfg);
+  var sheet = ss.getSheetByName('来店ログ');
+  if (!sheet) {
+    applySheetHeaders(ss);
+    sheet = ss.getSheetByName('来店ログ');
+  }
+  if (!sheet) return { success: false, error: '来店ログ タブ作成失敗' };
+
+  // 既存 checkin_id セット
+  var existingIds = {};
+  if (sheet.getLastRow() > 1) {
+    var idCol = sheet.getRange(2, CL.checkin_id + 1, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < idCol.length; i++) {
+      var cid = String(idCol[i][0] || '').trim();
+      if (cid) existingIds[cid] = true;
+    }
+  }
+
+  var toAppend = [];
+  var skipped = 0;
+  var now = nowISO();
+  for (var j = 0; j < rows.length; j++) {
+    var r = rows[j];
+    var cidR = String(r.checkin_id || '').trim();
+    if (!cidR) { skipped++; continue; }
+    if (existingIds[cidR]) { skipped++; continue; }
+
+    var row = makeRow(16, {
+      [CL.checkin_id]:           cidR,
+      [CL.customer_id]:          String(r.customer_id || ''),
+      [CL.customer_name]:        sanitizeSheetInput(String(r.customer_name || '')),
+      [CL.phone_normalized]:     String(r.phone_normalized || r.phone || ''),
+      [CL.checkin_at]:           String(r.checkin_at || now),
+      [CL.checkin_date]:         String(r.checkin_date || toDateStr(r.checkin_at) || todayStr()),
+      [CL.entry_type]:           String(r.entry_type || 'initial'),
+      [CL.status]:               String(r.status || 'received'),
+      [CL.recorded_at]:          String(r.recorded_at || ''),
+      [CL.record_id]:            String(r.record_id || ''),
+      [CL.no_show_reason]:       sanitizeSheetInput(String(r.no_show_reason || '')),
+      [CL.treatment_record_url]: String(r.treatment_record_url || ''),
+      [CL.updated_at]:           now,
+      [CL.synced_at]:            now, // Notion に既に存在 → 再同期しない
+      [CL.notes]:                sanitizeSheetInput(String(r.notes || 'import with known checkin_id')),
+      [CL.error_count]:          0,
+    });
+    toAppend.push(row);
+  }
+
+  if (toAppend.length === 0) {
+    return { success: true, added: 0, skipped: skipped, total: rows.length };
+  }
+  var startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, toAppend.length, 16).setValues(toAppend);
+  // synced_at 埋め済なのでカウンタは増やさない
+  return { success: true, added: toAppend.length, skipped: skipped, total: rows.length };
 }
 
 // 来店ログの状態レポート(タブ存在、行数、Notion sync 状態、未同期件数)

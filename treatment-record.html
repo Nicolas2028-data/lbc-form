@@ -973,6 +973,10 @@ async function loadPatients() {
         var pnum = String(p.patientNum || '').trim().toUpperCase();
         return cid === URL_PREFILL.customerId || pnum === URL_PREFILL.customerId;
       });
+      if (!target) {
+        // 2026-09-26 修正 M2: URL 指定患者が見つからない場合、silent fail ではなく明示的にトースト表示
+        toast('指定された患者が見つかりませんでした (' + URL_PREFILL.customerId + ')。検索欄から選択してください。', 'error');
+      }
       if (target) {
         var idx = allPatients.indexOf(target);
         // 検索欄にも氏名を反映

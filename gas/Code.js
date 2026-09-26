@@ -591,7 +591,13 @@ function updateCheckinLogOnRecord(cfg, recordId, customerId, treatmentDate, stat
     var now = nowISO();
 
     // 過去7日の範囲(遅延記録シナリオ用)
-    var sevenDaysAgoMs = new Date(targetDate + 'T00:00:00').getTime() - 7 * 24 * 60 * 60 * 1000;
+    // 2026-09-26 修正 M4: `new Date('YYYY-MM-DD' + 'T00:00:00')` の TZ 依存を回避するため
+    // 明示的に (y, m-1, d) コンストラクタで local (GAS project TZ = JST) の 00:00 を作る
+    var _tParts = String(targetDate).split('-');
+    var _ty = Number(_tParts[0]) || 1970;
+    var _tm = (Number(_tParts[1]) || 1) - 1;
+    var _td = Number(_tParts[2]) || 1;
+    var sevenDaysAgoMs = new Date(_ty, _tm, _td).getTime() - 7 * 24 * 60 * 60 * 1000;
     var sevenDaysAgoStr = fmtDate(new Date(sevenDaysAgoMs));
 
     var sameDayIdx = -1;      // 同日マッチ優先
@@ -674,19 +680,30 @@ function _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDat
   sheet.appendRow(row);
   incSyncCounter(ss);
   // 運用逸脱を Nicolas に通知
+  //  2026-09-26 修正 L5: 1時間内の重複通知を CacheService でスロットル
+  //  → 遅延記録が連続すると通知が大量発生する問題を回避
   try {
     if (cfg.NOTIFY_EMAIL) {
-      GmailApp.sendEmail(
-        cfg.NOTIFY_EMAIL,
-        '[LBC] 問診票なしで施術記録が受信されました (auto_backfill)',
-        '施術記録が来店ログにマッチしませんでした。\n\n' +
-        '施術日: ' + targetDate + '\n' +
-        '顧客ID: ' + customerId + '\n' +
-        '顧客名: ' + customerName + '\n' +
-        '記録ID: ' + recordId + '\n\n' +
-        '運用ルール: 問診票 → 施術記録 の順です。ルカスに順序確認を推奨。\n' +
-        '来店ログには entry_type=auto_backfill で自動補完済み。'
-      );
+      var cache = CacheService.getScriptCache();
+      var throttleKey = 'notify_backfill_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd-HH');
+      var alreadySentThisHour = cache.get(throttleKey);
+      if (!alreadySentThisHour) {
+        cache.put(throttleKey, '1', 3600); // 1時間 TTL
+        GmailApp.sendEmail(
+          cfg.NOTIFY_EMAIL,
+          '[LBC] 問診票なしで施術記録が受信されました (auto_backfill)',
+          '施術記録が来店ログにマッチしませんでした。\n\n' +
+          '施術日: ' + targetDate + '\n' +
+          '顧客ID: ' + customerId + '\n' +
+          '顧客名: ' + customerName + '\n' +
+          '記録ID: ' + recordId + '\n\n' +
+          '運用ルール: 問診票 → 施術記録 の順です。ルカスに順序確認を推奨。\n' +
+          '来店ログには entry_type=auto_backfill で自動補完済み。\n\n' +
+          '※ このメールは 1時間に 1通のみ配信されます。この期間中の他の auto_backfill は通知されません。'
+        );
+      } else {
+        Logger.log('_autoBackfillCheckinLog: 通知スロットル中(1時間内既送信)');
+      }
     }
   } catch(mailErr) {
     Logger.log('_autoBackfillCheckinLog mail error: ' + mailErr.message);
@@ -1340,7 +1357,10 @@ function handleSubmitTreatmentRecord(data, cfg) {
   var _rawSales = (data.salesAmount !== '' && data.salesAmount !== undefined && data.salesAmount !== null) ? Number(data.salesAmount) : 0;
   var salesNum = isFinite(_rawSales) ? _rawSales : 0;
   var paymentStr = String(data.paymentMethod || '');
-  var dedupKey = 'tr:' + customerId + ':' + todayStrCache + ':' + (attended ? 'y' : 'n') + ':' + courseLabel + ':' + salesNum + ':' + paymentStr;
+  // 2026-09-26 修正 M3: no-show の場合は理由の 20文字 hash を dedup key に含める
+  // → 同日 2 回目の no-show (異なる理由) が silently drop される問題を回避
+  var noShowHash = attended ? '' : String(noShowReason || '').slice(0, 40).replace(/[^a-zA-Z0-9぀-ヿ一-鿿]/g, '_');
+  var dedupKey = 'tr:' + customerId + ':' + todayStrCache + ':' + (attended ? 'y' : 'n') + ':' + courseLabel + ':' + salesNum + ':' + paymentStr + ':' + noShowHash;
 
   if (checkContentDedupCache(dedupKey)) {
     logAccess(ss, 'submitTreatmentRecord', data.requestId, 'dedup_cache', 'cache hit <5min', 0, customerId);
@@ -1484,7 +1504,9 @@ function handleSubmitVoidRecord(data, cfg) {
   }
   if (!origRow)                                       return { success: false, error: 'record_not_found' };
   if (String(origRow[TR.customer_id]) !== customerId) return { success: false, error: 'record_not_found' };
-  if (String(origRow[TR.type]) !== 'record')          return { success: false, error: 'already_voided' };
+  // 2026-09-26 修正 M6: record と no_show の両方を void 可能に(no-show 誤記録の修正を許容)
+  var origType = String(origRow[TR.type]);
+  if (origType !== 'record' && origType !== 'no_show') return { success: false, error: 'already_voided' };
   if (alreadyVoided)                                  return { success: false, error: 'already_voided' };
   if (toDateStr(origRow[TR.date]) !== today)          return { success: false, error: 'past_date_void_not_allowed' };
 
@@ -2718,8 +2740,9 @@ function diagnoseSyncIssues() {
     : '❌ syncToNotion トリガー: 停止 — installTriggers() を実行してください');
 
   // 5. スタック行（error_count >= 5）の件数確認
-  var sheets = ['顧客マスタ','施術台帳'];
-  var errCols = [CM.error_count, TR.error_count];
+  // 顧客マスタは error_count 列を持たないため除外(2026-09-26 修正 L1)
+  var sheets = ['施術台帳', '問診台帳', 'クレジット台帳', '来店ログ'];
+  var errCols = [TR.error_count, QU.error_count, CR.error_count, CL.error_count];
   sheets.forEach(function(name, si) {
     try {
       var sh = ss.getSheetByName(name);
@@ -2746,13 +2769,10 @@ function resetSyncErrors() {
   var ss  = getLedger(cfg);
   var count = 0;
   [
-    { name: '顧客マスタ',  errCol: CM.error_count, syncCol: CM.synced_at },
+    // 顧客マスタは error_count 列を持たないため除外(2026-09-26 修正 L1: no-op を削除)
     { name: '施術台帳',    errCol: TR.error_count, syncCol: TR.synced_at },
     { name: 'クレジット台帳', errCol: CR.error_count, syncCol: CR.synced_at },
-    // 問診台帳: error_count はあるが CM/TR/CR にはない updated_at ではなく synced_at のみでの再同期
-    // (2026-09-06 バグ修正: これまで問診台帳のエラー行がスキップされたまま復旧されなかった)
     { name: '問診台帳',    errCol: QU.error_count, syncCol: QU.synced_at },
-    // 来店ログ (2026-09-26 追加)
     { name: '来店ログ',    errCol: CL.error_count, syncCol: CL.synced_at },
   ].forEach(function(def) {
     var sh = ss.getSheetByName(def.name);

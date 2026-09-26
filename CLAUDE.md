@@ -58,10 +58,13 @@ GitHub Pages (questionnaire.html / treatment-record.html / dashboard.html)
 - 台帳は追記専用。訂正は**赤伝方式**(void 行 + correction 行)
 - 物理削除禁止。論理削除のみ
 
-### 4. 認可はサーバー側
+### 4. 認可はサーバー側(2026-09-26 更新)
 
-- スタッフ系 API は毎リクエスト GAS 側で `STAFF_PASSWORD` を検証
-- フロントの画面ゲートは UX。認可ではない
+- **施術記録シート系 API はパスワード認証を廃止**(`submitTreatmentRecord` / `submitVoidRecord` / `getPatientList` / `getPatientDetails`)
+  - ルカスが Notion 未記録リストからワンタップで開ける運用に切替(Nicolas 明示指示)
+  - URL パラメータで患者事前選択済のため UX 優先
+  - 前提: URL は Notion 経由のみ配布(Notion アクセス制御を維持)、iPad は物理的にルカス管理下
+- **管理系 API (`adminForceVoid` / `run*` / `dev*` / `importCheckinLogRows`)** は引き続き `STAFF_PASSWORD` 必須
 - 顧客の個人情報を外部 AI に送らない
 
 ### 5. STEP の完了条件を無視して次に進まない
@@ -81,7 +84,7 @@ GitHub Pages (questionnaire.html / treatment-record.html / dashboard.html)
 | 顧客情報を外部 AI に送信 | 個人情報保護 |
 | `clasp push` の勝手な実行 | 本番影響。必ず確認を取る |
 | Drive の共有設定を「リンクを知っている全員」にする | 患者写真が含まれるため |
-| スタッフパスワード付きの API を認証なしで呼ぶ実装 | 認可回避になる |
+| 管理系 API (adminForceVoid / run* / dev*) をパスワードなしで呼ぶ実装 | 認可回避になる |
 
 ---
 

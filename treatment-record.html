@@ -653,20 +653,9 @@
   <p>施術後にご入力ください（スタッフ専用）</p>
 </div>
 
-<!-- ══ パスワード認証 (2026-09-26 廃止・DOM 残置は JS 参照互換のため) ══ -->
-<div id="passwordGate" style="display:none">
-  <div class="card">
-    <div class="pw-icon">🔐</div>
-    <div class="pw-title">スタッフ認証(廃止済)</div>
-    <div class="pw-sub">パスワードは不要になりました</div>
-    <input type="password" id="pwInput" style="display:none">
-    <div class="field-error" id="e_pw" style="display:none"></div>
-    <button class="btn-submit" id="pwToggle" style="display:none"></button>
-    <div class="loading-row" id="pwLoading" style="display:none"></div>
-  </div>
-</div>
+<!-- パスワード認証は 2026-09-26 に完全廃止(DOM も削除) -->
 
-<div id="mainForm" style="display:block">
+<div id="mainForm">
   <div class="container">
 
     <!-- ══ Phase 1: 患者検索 ══ -->
@@ -783,7 +772,7 @@
         <div class="card-title"><span>💬</span>施術を受けなかった理由<span class="badge-req">必須</span></div>
         <textarea id="noShowReason" placeholder="例: 急用でお帰り／体調不良で中止／予約時間を大幅に過ぎたためキャンセル 等" style="min-height:80px"></textarea>
         <div class="field-error" id="e_noShowReason" style="margin-top:8px"></div>
-        <p class="field-hint" style="margin-top:8px;font-size:0.85rem;color:var(--text-sub)">
+        <p style="margin-top:8px;font-size:0.85rem;color:var(--text-sub)">
           ※ no-show として記録され、売上・来院数の集計対象から自動的に外れます
         </p>
       </div>
@@ -926,18 +915,9 @@ var URL_PREFILL = (function() {
 
 window.addEventListener('DOMContentLoaded', function() {
   renderCourses();
-  // 2026-09-26: パスワード認証廃止 — パスワードゲートを完全 skip して mainForm に直接遷移
-  document.getElementById('passwordGate').style.display = 'none';
-  document.getElementById('mainForm').style.display = 'block';
+  // 2026-09-26: パスワード認証は廃止済。mainForm が最初から表示され、loadPatients() で即座に患者リスト取得
   loadPatients();
 });
-
-/* ── パスワード認証は廃止済 (2026-09-26) ─────────────────────────
-   関数は後方互換のため残しているが、実際には呼ばれない
-   (DOMContentLoaded 内で passwordGate を直接 hide して mainForm に遷移)
-─────────────────────────────────────────────────────────────── */
-function togglePwVisibility() { /* 廃止 */ }
-async function verifyPassword() { /* 廃止: パスワードなしで直接 loadPatients() 実行 */ }
 
 /* ── コース描画 ────────────────────────────────── */
 function renderCourses() {
@@ -1472,12 +1452,8 @@ async function submitRecord() {
       showSuccess(attended ? courseId : null, attended ? Number(salesAmount) : 0, attended, noShowReason);
       return;
     } else {
-      let errMsg = data.error || 'エラーが発生しました。';
-      if (data.error === 'auth_locked') {
-        const min = Math.ceil((data.remainingSec || 900) / 60);
-        errMsg = 'セキュリティロック中です。' + min + '分後に再試行してください。';
-      }
-      toast(errMsg, 'error');
+      // 2026-09-26: パスワード認証廃止で auth_locked 分岐は不要になった
+      toast(data.error || 'エラーが発生しました。', 'error');
       document.getElementById('submitBtn').disabled = false;
       S.submitting = false;
       hideSubmitBlocker();
@@ -1525,7 +1501,8 @@ function showSuccess(courseId, amount, attended, noShowReason) {
     if (S.referralApplied && S.referrerName) details.push('紹介割引適用（' + escHtml(S.referrerName) + ' さん +¥1,000クレジット）');
     if (S.creditUsed > 0) details.push('クレジット使用 ¥' + Number(S.creditUsed).toLocaleString());
   } else {
-    details.push('理由: ' + escHtml(noShowReason || ''));
+    // noShowReason の改行を <br> に変換して表示(L6 修正)
+    details.push('理由: ' + escHtml(noShowReason || '').replace(/\n/g, '<br>'));
     details.push('<span style="color:var(--text-sub);font-size:0.9em">売上・来院数の集計対象からは除外されます</span>');
   }
   details.push('<div style="margin-top:12px;font-size:0.9em;color:var(--text-sub)">✅ 1分以内に Notion「未記録リスト」から消えます</div>');

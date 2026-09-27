@@ -621,22 +621,11 @@
     .btn-void:hover { background: var(--danger); color: white; }
     .btn-void:disabled { opacity: 0.4; pointer-events: none; }
 
-    /* ─── パスワードゲート ─── */
-    #passwordGate { max-width: 420px; margin: 80px auto 0; padding: 0 16px; }
-    .pw-icon  { font-size: 3rem; text-align: center; margin-bottom: 20px; opacity: 0.9; }
-    .pw-title { font-size: 1.35rem; font-weight: 700; color: var(--text); text-align: center; margin-bottom: 8px; letter-spacing: -0.02em; }
-    .pw-sub   { font-size: 0.88rem; color: var(--text-muted); text-align: center; margin-bottom: 28px; }
-    .pw-input-wrap { position: relative; margin-bottom: 14px; }
-    .pw-input-wrap input { padding-right: 46px; }
-    .pw-toggle {
-      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-      background: none; border: none; cursor: pointer;
-      font-size: 1.1rem; color: var(--text-muted); padding: 4px;
-    }
+    /* パスワードゲート CSS は 2026-09-26 のパスワード認証廃止に伴い撤去 (2026-09-27) */
 
     /* ─── Print ── */
     @media print {
-      header, .btn-submit, .btn-back, .btn-change-patient, .toast, .loading-row, .btn-void, #passwordGate { display: none !important; }
+      header, .btn-submit, .btn-back, .btn-change-patient, .toast, .loading-row, .btn-void { display: none !important; }
       body, .card, .banner { background: #fff !important; box-shadow: none !important; }
       .card { border: 1px solid #ccc !important; page-break-inside: avoid; }
     }

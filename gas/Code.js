@@ -2058,6 +2058,34 @@ function syncToNotion() {
     Logger.log('syncToNotion: voidDuplicateRecords error: ' + dedupErr.message);
   }
 
+  // 2026-09-27: reformatSheets one-shot (追加 10 カラムのヘッダー反映)
+  //  一度実行したら _reformat_v2 フラグで再実行しない(冪等)
+  try {
+    var reformatKey = '_reformat_v2';
+    var scriptProps3 = PropertiesService.getScriptProperties();
+    if (!scriptProps3.getProperty(reformatKey)) {
+      applySheetHeaders(ss);
+      scriptProps3.setProperty(reformatKey, nowISO());
+      Logger.log('syncToNotion: one-shot applySheetHeaders(reformat) 完了');
+    }
+  } catch(reformatErr) {
+    Logger.log('syncToNotion: applySheetHeaders error: ' + reformatErr.message);
+  }
+
+  // 2026-09-27: backfillAllCustomerCounters one-shot (既存 32 顧客の累計キャッシュ埋込)
+  //  一度実行したら _counters_backfilled_v1 フラグで再実行しない(冪等)
+  try {
+    var countersKey = '_counters_backfilled_v1';
+    var scriptProps4 = PropertiesService.getScriptProperties();
+    if (!scriptProps4.getProperty(countersKey)) {
+      backfillAllCustomerCounters(cfg);
+      scriptProps4.setProperty(countersKey, nowISO());
+      Logger.log('syncToNotion: one-shot backfillAllCustomerCounters 完了');
+    }
+  } catch(countersErr) {
+    Logger.log('syncToNotion: backfillAllCustomerCounters error: ' + countersErr.message);
+  }
+
   var syncSheet = ss.getSheetByName('_sync');
   var counter   = Number(syncSheet.getRange('A1').getValue());
   var lastFull  = syncSheet.getRange('B1').getValue();

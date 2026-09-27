@@ -2073,17 +2073,25 @@ function syncToNotion() {
   }
 
   // 2026-09-27: backfillAllCustomerCounters one-shot (既存 32 顧客の累計キャッシュ埋込)
-  //  一度実行したら _counters_backfilled_v1 フラグで再実行しない(冪等)
+  //  一度実行したら _counters_backfilled_vN フラグで再実行しない(冪等)
+  //  v3: 詳細トレース出力を _sync F1/G1 に書き込む
   try {
-    var countersKey = '_counters_backfilled_v1';
+    var countersKey = '_counters_backfilled_v3';
     var scriptProps4 = PropertiesService.getScriptProperties();
     if (!scriptProps4.getProperty(countersKey)) {
-      backfillAllCustomerCounters(cfg);
+      var backfillRes = backfillAllCustomerCounters(cfg);
       scriptProps4.setProperty(countersKey, nowISO());
-      Logger.log('syncToNotion: one-shot backfillAllCustomerCounters 完了');
+      var syncSheetY = ss.getSheetByName('_sync');
+      if (syncSheetY) {
+        syncSheetY.getRange('F1').setValue('counters: updated=' + (backfillRes && backfillRes.updated) + '/' + (backfillRes && backfillRes.total) + ' errors=' + ((backfillRes && backfillRes.errors) ? backfillRes.errors.length : 0));
+        syncSheetY.getRange('G1').setValue(JSON.stringify(backfillRes));
+      }
+      Logger.log('syncToNotion: one-shot backfillAllCustomerCounters 完了 res=' + JSON.stringify(backfillRes));
     }
   } catch(countersErr) {
     Logger.log('syncToNotion: backfillAllCustomerCounters error: ' + countersErr.message);
+    var syncSheetZ = ss.getSheetByName('_sync');
+    if (syncSheetZ) syncSheetZ.getRange('F1').setValue('counters error: ' + countersErr.message);
   }
 
   var syncSheet = ss.getSheetByName('_sync');

@@ -27,14 +27,29 @@ const CM = { // 顧客マスタ
   // 2026-09-26 顔認証機能廃止に伴い、以下 2 列は列インデックス保持のため残置(空文字化運用)
   face_embedding:15,
   face_reg_declined:16,
+  // 2026-09-27: 追加カラム(監査対応) — スタッフメモ・退会日・累計キャッシュ
+  notes:17,
+  withdrawn_at:18,
+  total_visits:19,
+  last_visit:20,
+  total_credit_used:21,
+  total_referrals_given:22,
 };
+// 顧客マスタ 列数(CM 定数のプロパティ数)
+const CM_COLS = 23;
 const TR = { // 施術台帳
   entry_id:0, type:1, target_entry_id:2, date:3, customer_id:4,
   course:5, sales:6, payment:7, memo:8, has_questionnaire:9,
   credit_used:10, referrer_customer_id:11, count_eligible:12,
   notion_page_id:13, created_at:14, updated_at:15, synced_at:16,
   error_count:17,
+  // 2026-09-27: 追加カラム(監査対応) — 施術時間・割引額・割引前金額
+  duration_min:18,
+  discount_amount:19,
+  sale_before_discount:20,
 };
+// 施術台帳 列数
+const TR_COLS = 21;
 const QU = { // 問診台帳
   entry_id:0, date:1, customer_id:2, visit_type:3, has_changes:4,
   main_symptom:5, duration:6, pain_level:7, safety_check:8,
@@ -57,7 +72,11 @@ const CL = { // 来店ログ (2026-09-26 追加)
   checkin_at:4, checkin_date:5, entry_type:6, status:7,
   recorded_at:8, record_id:9, no_show_reason:10, treatment_record_url:11,
   updated_at:12, synced_at:13, notes:14, error_count:15,
+  // 2026-09-27: 追加カラム(監査対応) — 待ち時間(分)
+  wait_time_min:16,
 };
+// 来店ログ 列数
+const CL_COLS = 17;
 
 /* ============================================================
    エントリポイント
@@ -163,6 +182,12 @@ function doGet(e) {
       if (!authPH.ok) return jsonRes({ success: false, error: authPH.error, remainingSec: authPH.remainingSec });
       fixExistingPhones(cfg);
       return jsonRes({ success: true });
+    }
+    // 2026-09-27: 追加カラム(監査対応) — 顧客マスタ 累計キャッシュ 一括再構築
+    if (p.action === 'runBackfillCustomerCounters') {
+      var authBC = verifyStaffPassword(p.pw, cfg);
+      if (!authBC.ok) return jsonRes({ success: false, error: authBC.error, remainingSec: authBC.remainingSec });
+      return jsonRes(backfillAllCustomerCounters(cfg));
     }
     // dev* エンドポイント: 2 段構えの保護 (2026-09-06 強化)
     //  - 1段目: cfg._env === 'staging' (production の場合は resolveEnv が null 返却で無効化)
@@ -488,7 +513,8 @@ function acquireLedgerLock(waitMs) {
 function appendCustomer(ss, data, customerId) {
   var now = nowISO();
   var phone = normalizePhone(data.phone || '');
-  var row = makeRow(17, {
+  // 2026-09-27: 追加カラム(監査対応) — CM_COLS=23 に拡張
+  var row = makeRow(CM_COLS, {
     [CM.customer_id]:    customerId,
     [CM.name]:           sanitizeSheetInput(data.name || ''),
     [CM.furigana]:       sanitizeSheetInput(data.furigana || ''),
@@ -507,6 +533,13 @@ function appendCustomer(ss, data, customerId) {
     // 2026-09-26 顔認証廃止: face_embedding / face_reg_declined 列は空文字化で運用
     [CM.face_embedding]:    '',
     [CM.face_reg_declined]: '',
+    // 2026-09-27: 追加カラム デフォルト値
+    [CM.notes]:                 '',
+    [CM.withdrawn_at]:          '',
+    [CM.total_visits]:          0,
+    [CM.last_visit]:            '',
+    [CM.total_credit_used]:     0,
+    [CM.total_referrals_given]: 0,
   });
   ss.getSheetByName('顧客マスタ').appendRow(row);
   return customerId;
@@ -576,7 +609,8 @@ function appendCheckinLog(cfg, customerId, customerName, phoneNormalized, entryT
     var now  = nowISO();
     var today = todayStr();
     var url  = buildTreatmentRecordUrl(cfg, customerId, customerName, phoneNormalized);
-    var row  = makeRow(16, {
+    // 2026-09-27: 追加カラム(監査対応) — CL_COLS=17 に拡張(wait_time_min)
+    var row  = makeRow(CL_COLS, {
       [CL.checkin_id]:           genUUID(),
       [CL.customer_id]:          String(customerId || ''),
       [CL.customer_name]:        sanitizeSheetInput(String(customerName || '')),
@@ -593,6 +627,7 @@ function appendCheckinLog(cfg, customerId, customerName, phoneNormalized, entryT
       [CL.synced_at]:            '',
       [CL.notes]:                '',
       [CL.error_count]:          0,
+      [CL.wait_time_min]:        0,
     });
     sheet.appendRow(row);
     incSyncCounter(ss);
@@ -625,7 +660,8 @@ function updateCheckinLogOnRecord(cfg, recordId, customerId, treatmentDate, stat
       _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDate, status, noShowReason);
       return { success: true, matched: false, backfilled: true };
     }
-    var vals = sheet.getRange(2, 1, last - 1, 16).getValues();
+    // 2026-09-27: 追加カラム(監査対応) — CL_COLS=17
+    var vals = sheet.getRange(2, 1, last - 1, CL_COLS).getValues();
     var now = nowISO();
 
     // 過去7日の範囲(遅延記録シナリオ用)
@@ -697,7 +733,8 @@ function _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDat
     }
   } catch(_) {}
   var url = buildTreatmentRecordUrl(cfg, customerId, customerName, phoneNormalized);
-  var row = makeRow(16, {
+  // 2026-09-27: 追加カラム(監査対応) — CL_COLS=17 に拡張(wait_time_min)
+  var row = makeRow(CL_COLS, {
     [CL.checkin_id]:           genUUID(),
     [CL.customer_id]:          String(customerId || ''),
     [CL.customer_name]:        sanitizeSheetInput(customerName),
@@ -714,6 +751,7 @@ function _autoBackfillCheckinLog(cfg, ss, sheet, recordId, customerId, targetDat
     [CL.synced_at]:            '',
     [CL.notes]:                '問診票なしで施術記録受信のため自動補完',
     [CL.error_count]:          0,
+    [CL.wait_time_min]:        0,
   });
   sheet.appendRow(row);
   incSyncCounter(ss);
@@ -1416,7 +1454,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
 
   var trSheet = ss.getSheetByName('施術台帳');
   if (trSheet && trSheet.getLastRow() > 1) {
-    var trVals = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+    var trVals = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, TR_COLS).getValues();
     var startTr = Math.max(0, trVals.length - 300); // 直近 300 行走査
     var nowMs = Date.now();
     for (var ti = trVals.length - 1; ti >= startTr; ti--) {
@@ -1449,7 +1487,13 @@ function handleSubmitTreatmentRecord(data, cfg) {
   }
 
   var recordType = attended ? 'record' : 'no_show';
-  var trRow = makeRow(18, {
+  // 2026-09-27: 追加カラム(監査対応) — TR_COLS=21 に拡張(duration_min/discount_amount/sale_before_discount)
+  //  duration_min: フロントから届いた値を採用(未指定は 60 分デフォルト)。no-show は 0。
+  //  discount_amount / sale_before_discount: フロントから届く数値(未対応クライアントの場合は 0)
+  var _durationMin = attended ? (Number(data.durationMin) > 0 ? Number(data.durationMin) : 60) : 0;
+  var _discountAmt = attended ? (Number(data.discountAmount) || 0) : 0;
+  var _saleBefore  = attended ? (Number(data.saleBeforeDiscount) > 0 ? Number(data.saleBeforeDiscount) : (salesNum + _discountAmt)) : 0;
+  var trRow = makeRow(TR_COLS, {
     [TR.entry_id]:             entryId,
     [TR.type]:                 recordType,
     [TR.target_entry_id]:      '',
@@ -1468,6 +1512,9 @@ function handleSubmitTreatmentRecord(data, cfg) {
     [TR.updated_at]:           now,
     [TR.synced_at]:            '',
     [TR.error_count]:          0,
+    [TR.duration_min]:         _durationMin,
+    [TR.discount_amount]:      _discountAmt,
+    [TR.sale_before_discount]: _saleBefore,
   });
   ss.getSheetByName('施術台帳').appendRow(trRow);
   incSyncCounter(ss);
@@ -1495,6 +1542,16 @@ function handleSubmitTreatmentRecord(data, cfg) {
   // 来店ログを更新(2026-09-26 追加 — Notion 未記録リストから該当患者を消す)
   //  失敗しても主フローは止めない(内部で try/catch 済み)
   updateCheckinLogOnRecord(cfg, entryId, customerId, todayStr(), attended ? 'recorded' : 'no_show', noShowReason);
+
+  // 2026-09-27: 追加カラム(監査対応) — 該当顧客の 累計キャッシュ 更新
+  //  失敗しても主フローは止めない
+  try { updateCustomerCounters(ss, customerId); }
+  catch (ccErr) { Logger.log('updateCustomerCounters (submitTreatmentRecord) error: ' + ccErr.message); }
+  //  紹介があった場合は紹介者側の 累計紹介人数 も更新
+  if (attended && data.referrerId) {
+    try { updateCustomerCounters(ss, String(data.referrerId)); }
+    catch (ccErr2) { Logger.log('updateCustomerCounters (referrer) error: ' + ccErr2.message); }
+  }
 
   logAccess(ss, 'submitTreatmentRecord', data.requestId, attended ? 'ok' : 'no_show', '', Date.now() - t0, customerId);
   return { success: true, patientNum: customerId, entryId: entryId, referralLimitReached: referralLimitReached, attended: attended };
@@ -1538,7 +1595,7 @@ function handleSubmitVoidRecord(data, cfg) {
 
   var sheet      = ss.getSheetByName('施術台帳');
   var rows       = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, TR_COLS).getValues() : [];
   var today      = todayStr();
 
   var origRow = null;
@@ -1559,7 +1616,8 @@ function handleSubmitVoidRecord(data, cfg) {
 
   var now    = nowISO();
   var voidId = genUUID();
-  var voidRow = makeRow(18, {
+  // 2026-09-27: 追加カラム(監査対応) — void 行は 追加カラムを 0 埋めで維持
+  var voidRow = makeRow(TR_COLS, {
     [TR.entry_id]:             voidId,
     [TR.type]:                 'void',
     [TR.target_entry_id]:      targetId,
@@ -1578,6 +1636,9 @@ function handleSubmitVoidRecord(data, cfg) {
     [TR.updated_at]:           now,
     [TR.synced_at]:            now,
     [TR.error_count]:          0,
+    [TR.duration_min]:         0,
+    [TR.discount_amount]:      -(Number(origRow[TR.discount_amount]) || 0),
+    [TR.sale_before_discount]: -(Number(origRow[TR.sale_before_discount]) || 0),
   });
   sheet.appendRow(voidRow);
 
@@ -1596,6 +1657,15 @@ function handleSubmitVoidRecord(data, cfg) {
 
   if (Number(origRow[TR.credit_used]) > 0) {
     appendCreditEntry(ss, customerId, 'refund', Number(origRow[TR.credit_used]), targetId, '');
+  }
+
+  // 2026-09-27: 追加カラム(監査対応) — 該当顧客の 累計キャッシュ 更新
+  try { updateCustomerCounters(ss, customerId); }
+  catch (ccErr) { Logger.log('updateCustomerCounters (submitVoidRecord) error: ' + ccErr.message); }
+  //  元 record の紹介者があった場合は紹介者側も更新
+  if (origRow[TR.referrer_customer_id]) {
+    try { updateCustomerCounters(ss, String(origRow[TR.referrer_customer_id])); }
+    catch (ccErr2) { Logger.log('updateCustomerCounters (referrer void) error: ' + ccErr2.message); }
   }
 
   logAccess(ss, 'voidTreatmentRecord', data.requestId || '', 'ok', '', 0, customerId);
@@ -1638,7 +1708,7 @@ function handleAdminForceVoid(data, cfg) {
 
   var sheet      = ss.getSheetByName('施術台帳');
   var rows       = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, TR_COLS).getValues() : [];
 
   var origRow = null;
   var alreadyVoided = false;
@@ -1656,7 +1726,8 @@ function handleAdminForceVoid(data, cfg) {
   var now    = nowISO();
   var voidId = genUUID();
   var origDate = origRow[TR.date];
-  var voidRow = makeRow(18, {
+  // 2026-09-27: 追加カラム(監査対応) — void 行は 追加カラムを 0 埋めで維持
+  var voidRow = makeRow(TR_COLS, {
     [TR.entry_id]:             voidId,
     [TR.type]:                 'void',
     [TR.target_entry_id]:      targetId,
@@ -1675,6 +1746,9 @@ function handleAdminForceVoid(data, cfg) {
     [TR.updated_at]:           now,
     [TR.synced_at]:            now,
     [TR.error_count]:          0,
+    [TR.duration_min]:         0,
+    [TR.discount_amount]:      -(Number(origRow[TR.discount_amount]) || 0),
+    [TR.sale_before_discount]: -(Number(origRow[TR.sale_before_discount]) || 0),
   });
   sheet.appendRow(voidRow);
 
@@ -1691,6 +1765,14 @@ function handleAdminForceVoid(data, cfg) {
 
   if (Number(origRow[TR.credit_used]) > 0) {
     appendCreditEntry(ss, customerId, 'refund', Number(origRow[TR.credit_used]), targetId, '');
+  }
+
+  // 2026-09-27: 追加カラム(監査対応) — 該当顧客の 累計キャッシュ 更新
+  try { updateCustomerCounters(ss, customerId); }
+  catch (ccErr) { Logger.log('updateCustomerCounters (adminForceVoid) error: ' + ccErr.message); }
+  if (origRow[TR.referrer_customer_id]) {
+    try { updateCustomerCounters(ss, String(origRow[TR.referrer_customer_id])); }
+    catch (ccErr2) { Logger.log('updateCustomerCounters (referrer adminForceVoid) error: ' + ccErr2.message); }
   }
 
   logAccess(ss, 'adminForceVoid', data.requestId || '', 'ok', reason, 0, customerId);
@@ -1884,7 +1966,7 @@ function countUnsyncedRows(ss) {
 function syncCustomerMaster(ss, cfg) {
   var sheet = ss.getSheetByName('顧客マスタ');
   var rows  = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues() : [];
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, CM_COLS).getValues() : [];
   var synced = 0;
 
   for (var i = 0; i < rows.length; i++) {
@@ -1957,7 +2039,7 @@ function syncQuestionnaire(ss, cfg) {
         var quDateStr = toDateStr(r[QU.date]);
         var trSheet = ss.getSheetByName('施術台帳');
         if (trSheet && trSheet.getLastRow() > 1) {
-          var trAllRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+          var trAllRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, TR_COLS).getValues();
           for (var trIdx = 0; trIdx < trAllRows.length; trIdx++) {
             var trr = trAllRows[trIdx];
             var trType = String(trr[TR.type]);
@@ -2062,7 +2144,7 @@ function syncQuestionnaire(ss, cfg) {
 function syncTreatment(ss, cfg) {
   var sheet = ss.getSheetByName('施術台帳');
   var rows  = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 18).getValues() : [];
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, TR_COLS).getValues() : [];
   var quRows = getSheetData(ss, '問診台帳');
   var synced = 0;
 
@@ -2297,7 +2379,7 @@ function syncCheckinLog(ss, cfg) {
   var last = sheet.getLastRow();
   if (last < 2) return 0;
 
-  var rows = sheet.getRange(2, 1, last - 1, 16).getValues();
+  var rows = sheet.getRange(2, 1, last - 1, CL_COLS).getValues();
   var synced = 0;
   var maxToSync = 20; // 1トリガーあたりの上限(GAS 6分タイムアウト回避)
 
@@ -2454,7 +2536,7 @@ function pollNotionKarte(cfg) {
   // 冪等性 index: 施術台帳に既にある notion_page_id を Set 化
   var trSheet = ss.getSheetByName('施術台帳');
   var trVals = (trSheet && trSheet.getLastRow() > 1)
-    ? trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues() : [];
+    ? trSheet.getRange(2, 1, trSheet.getLastRow() - 1, TR_COLS).getValues() : [];
   var importedPageIds = {};
   for (var t = 0; t < trVals.length; t++) {
     var pid = String(trVals[t][TR.notion_page_id] || '');
@@ -2576,7 +2658,13 @@ function _pollNotionKarteImportOne(ss, cfg, page) {
     var now = nowISO();
     var courseValid = (attended && VALID_COURSES.indexOf(course) >= 0) ? course : '';
     var recordType = attended ? 'record' : 'no_show';
-    var trRow = makeRow(18, {
+    // 2026-09-27: 追加カラム(監査対応) — TR_COLS=21 に拡張。Notion 経由取込は分/割引情報を未取得のためデフォルト。
+    //  duration_min: Notion 側にプロパティ導入までは 60 分デフォルト
+    //  discount_amount / sale_before_discount: 未取得のため 0 / sales と同値
+    var _durationMinPoll = attended ? 60 : 0;
+    var _discountAmtPoll = 0;
+    var _saleBeforePoll  = attended ? (Number(sales) || 0) : 0;
+    var trRow = makeRow(TR_COLS, {
       [TR.entry_id]:             entryId,
       [TR.type]:                 recordType,
       [TR.target_entry_id]:      '',
@@ -2597,6 +2685,9 @@ function _pollNotionKarteImportOne(ss, cfg, page) {
       [TR.updated_at]:           now,
       [TR.synced_at]:            now, // Notion 側が正なので即 synced(syncTreatment で再上書きしない)
       [TR.error_count]:          0,
+      [TR.duration_min]:         _durationMinPoll,
+      [TR.discount_amount]:      _discountAmtPoll,
+      [TR.sale_before_discount]: _saleBeforePoll,
     });
     trSheet2.appendRow(trRow);
     incSyncCounter(ss);
@@ -2650,6 +2741,14 @@ function _pollNotionKarteImportOne(ss, cfg, page) {
     Logger.log('pollNotionKarte backfill error pageId=' + pageId + ': ' + e.message);
   }
 
+  // 2026-09-27: 追加カラム(監査対応) — 該当顧客の 累計キャッシュ 更新
+  try { updateCustomerCounters(ss, custId); }
+  catch (ccErr) { Logger.log('updateCustomerCounters (pollNotionKarte) error: ' + ccErr.message); }
+  if (attended && referrerId) {
+    try { updateCustomerCounters(ss, referrerId); }
+    catch (ccErr2) { Logger.log('updateCustomerCounters (poll referrer) error: ' + ccErr2.message); }
+  }
+
   return { imported: true, entryId: entryId, customerId: custId };
 }
 
@@ -2660,7 +2759,7 @@ function findCustomerByNotionPageId(ss, notionPageId) {
   if (!sheet || sheet.getLastRow() < 2) return null;
   // Notion API の id はダッシュ有り。シート側は登録経緯で有無混在しうるため両方比較
   var normalized = String(notionPageId).replace(/-/g, '');
-  var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+  var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, CM_COLS).getValues();
   for (var i = 0; i < vals.length; i++) {
     var stored = String(vals[i][CM.notion_page_id] || '');
     if (!stored) continue;
@@ -3260,7 +3359,8 @@ function handleSubmitBooking(data, cfg) {
   // 施術台帳に予約エントリ追記
   var now = nowISO();
   var courseLabel = COURSE_ID_MAP[data.courseId] || COURSE_NAME_MAP[data.courseName] || '';
-  var trRow = makeRow(18, {
+  // 2026-09-27: 追加カラム(監査対応) — TR_COLS=21 に拡張。予約行は施術時間 60 分デフォルト
+  var trRow = makeRow(TR_COLS, {
     [TR.entry_id]:          genUUID(),
     [TR.type]:              'record',
     [TR.date]:              data.date || todayStr(),
@@ -3272,6 +3372,9 @@ function handleSubmitBooking(data, cfg) {
     [TR.updated_at]:        now,
     [TR.synced_at]:         '',
     [TR.error_count]:       0,
+    [TR.duration_min]:      60,
+    [TR.discount_amount]:   0,
+    [TR.sale_before_discount]: 0,
   });
   ss.getSheetByName('施術台帳').appendRow(trRow);
   incSyncCounter(ss);
@@ -3934,7 +4037,7 @@ function cleanAndRenumber() {
 
   // 施術台帳
   if (trSheet && trSheet.getLastRow() > 1) {
-    var trRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+    var trRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, TR_COLS).getValues();
     for (var ti = 0; ti < trRows.length; ti++) {
       var oldCid = String(trRows[ti][TR.customer_id]);
       var newCid = RENUMBER[oldCid]
@@ -4117,7 +4220,7 @@ function _backfillCheckinLogImpl(dryRun) {
 
   // 施術台帳を (customer_id, date) → [created_at, type, entry_id] マップに
   var trRows = trSheet.getLastRow() > 1
-    ? trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues() : [];
+    ? trSheet.getRange(2, 1, trSheet.getLastRow() - 1, TR_COLS).getValues() : [];
   var trByKey = {};
   for (var t = 0; t < trRows.length; t++) {
     var tr = trRows[t];
@@ -4129,7 +4232,7 @@ function _backfillCheckinLogImpl(dryRun) {
 
   // 既存 来店ログ を (customer_id, checkin_date, entry_type) → true マップに(冪等性用)
   var clRows = clSheet.getLastRow() > 1
-    ? clSheet.getRange(2, 1, clSheet.getLastRow() - 1, 16).getValues() : [];
+    ? clSheet.getRange(2, 1, clSheet.getLastRow() - 1, CL_COLS).getValues() : [];
   var clExisting = {};
   for (var c = 0; c < clRows.length; c++) {
     var cl = clRows[c];
@@ -4191,7 +4294,8 @@ function _backfillCheckinLogImpl(dryRun) {
 
     var url = buildTreatmentRecordUrl(cfg, custId, custName, custPhone);
     var now = nowISO();
-    var row = makeRow(16, {
+    // 2026-09-27: 追加カラム(監査対応) — CL_COLS=17 に拡張(wait_time_min)
+    var row = makeRow(CL_COLS, {
       [CL.checkin_id]:           genUUID(),
       [CL.customer_id]:          custId,
       [CL.customer_name]:        sanitizeSheetInput(custName),
@@ -4208,6 +4312,7 @@ function _backfillCheckinLogImpl(dryRun) {
       [CL.synced_at]:            '',
       [CL.notes]:                'backfill from 問診台帳 (2026-09-26)',
       [CL.error_count]:          0,
+      [CL.wait_time_min]:        0,
     });
     rowsToAppend.push(row);
   }
@@ -4231,7 +4336,7 @@ function _backfillCheckinLogImpl(dryRun) {
 
   // 一括追加
   var startRow = clSheet.getLastRow() + 1;
-  clSheet.getRange(startRow, 1, rowsToAppend.length, 16).setValues(rowsToAppend);
+  clSheet.getRange(startRow, 1, rowsToAppend.length, CL_COLS).setValues(rowsToAppend);
   incSyncCounter(ss, rowsToAppend.length);
   Logger.log('✅ ' + rowsToAppend.length + ' 件追加完了。次回 syncToNotion (1分以内) で Notion に反映されます。');
   return { dryRun: false, stats: stats, added: rowsToAppend.length };
@@ -4280,7 +4385,8 @@ function importCheckinLogRowsWithKnownIds(rows) {
     if (!cidR) { skipped++; continue; }
     if (existingIds[cidR]) { skipped++; continue; }
 
-    var row = makeRow(16, {
+    // 2026-09-27: 追加カラム(監査対応) — CL_COLS=17 に拡張(wait_time_min)
+    var row = makeRow(CL_COLS, {
       [CL.checkin_id]:           cidR,
       [CL.customer_id]:          String(r.customer_id || ''),
       [CL.customer_name]:        sanitizeSheetInput(String(r.customer_name || '')),
@@ -4297,6 +4403,7 @@ function importCheckinLogRowsWithKnownIds(rows) {
       [CL.synced_at]:            now, // Notion に既に存在 → 再同期しない
       [CL.notes]:                sanitizeSheetInput(String(r.notes || 'import with known checkin_id')),
       [CL.error_count]:          0,
+      [CL.wait_time_min]:        Number(r.wait_time_min) || 0,
     });
     toAppend.push(row);
   }
@@ -4305,7 +4412,7 @@ function importCheckinLogRowsWithKnownIds(rows) {
     return { success: true, added: 0, skipped: skipped, total: rows.length };
   }
   var startRow = sheet.getLastRow() + 1;
-  sheet.getRange(startRow, 1, toAppend.length, 16).setValues(toAppend);
+  sheet.getRange(startRow, 1, toAppend.length, CL_COLS).setValues(toAppend);
   // synced_at 埋め済なのでカウンタは増やさない
   return { success: true, added: toAppend.length, skipped: skipped, total: rows.length };
 }
@@ -4337,7 +4444,7 @@ function checkinLogStatusReport(cfg) {
       report.hint = '来店ログタブは存在するが 0 件。バックフィルするなら runCheckinLogBackfill を呼んでください';
       return report;
     }
-    var rows = sh.getRange(2, 1, last - 1, 16).getValues();
+    var rows = sh.getRange(2, 1, last - 1, CL_COLS).getValues();
     report.total_rows = rows.length;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
@@ -4598,11 +4705,15 @@ function testWriteToNewDrive() {
 
 var SHEET_DEFS = {
   '顧客マスタ': {
-    headers: ['診察番号','氏名','フリガナ','電話番号','メールアドレス','生年月日','初回来院日','言語','来院のきっかけ','住所','ステータス','[Notion ID]','[登録日時]','[更新日時]','[同期日時]','[顔認証]'],
+    // 2026-09-27: 追加カラム(監査対応) — スタッフメモ 以降 6 列を追加(17..22)
+    // 既存列インデックス 0..16 は保持。face_embedding/face_reg_declined 15 と 16 も互換維持のため 2 列残置。
+    // 追加列は [顔認証] の後に付き、既存データは reformatSheets 後に空欄が末尾に付くだけ。
+    headers: ['診察番号','氏名','フリガナ','電話番号','メールアドレス','生年月日','初回来院日','言語','来院のきっかけ','住所','ステータス','[Notion ID]','[登録日時]','[更新日時]','[同期日時]','[顔認証]','[顔認証拒否]','スタッフメモ','退会日','累計来院数','最終来院日','累計クレジット使用額','累計紹介人数'],
     systemFrom: 11, // index 11以降がシステム列
   },
   '施術台帳': {
-    headers: ['記録ID','種別','対象記録ID','施術日','診察番号','コース','売上金額','支払方法','施術メモ','問診票あり','クレジット使用額','紹介者診察番号','集計対象','[Notion ID]','[登録日時]','[更新日時]','[同期日時]','[エラー回数]'],
+    // 2026-09-27: 追加カラム(監査対応) — 施術時間/割引額/割引前金額 3 列(18..20)
+    headers: ['記録ID','種別','対象記録ID','施術日','診察番号','コース','売上金額','支払方法','施術メモ','問診票あり','クレジット使用額','紹介者診察番号','集計対象','[Notion ID]','[登録日時]','[更新日時]','[同期日時]','[エラー回数]','施術時間(分)','割引額','割引前金額'],
     systemFrom: 13,
   },
   '問診台帳': {
@@ -4618,7 +4729,8 @@ var SHEET_DEFS = {
     systemFrom: 0, // 全列システム
   },
   '来店ログ': {
-    headers: ['来店ID','診察番号','氏名','電話番号','来店日時','来店日','来店種別','状態','記録日時','記録ID','施術なし理由','記録URL','[更新日時]','[同期日時]','[備考]','[エラー回数]'],
+    // 2026-09-27: 追加カラム(監査対応) — 待ち時間(分) 1 列(16)
+    headers: ['来店ID','診察番号','氏名','電話番号','来店日時','来店日','来店種別','状態','記録日時','記録ID','施術なし理由','記録URL','[更新日時]','[同期日時]','[備考]','[エラー回数]','待ち時間(分)'],
     systemFrom: 12, // index 12以降 (updated_at 以降) がシステム列
   },
 };
@@ -4670,7 +4782,7 @@ function fixExistingPhones(cfg) {
   if (sheet.getLastRow() < 2) { Logger.log('データなし'); return; }
   // まず電話番号列をテキスト形式に設定（先頭0保護）
   sheet.getRange(2, CM.phone + 1, sheet.getMaxRows() - 1, 1).setNumberFormat('@');
-  var rows  = sheet.getRange(2, 1, sheet.getLastRow() - 1, 15).getValues();
+  var rows  = sheet.getRange(2, 1, sheet.getLastRow() - 1, CM_COLS).getValues();
   var fixed = 0;
   rows.forEach(function(r, i) {
     var phone = String(r[CM.phone] || '');
@@ -4685,6 +4797,102 @@ function fixExistingPhones(cfg) {
   });
   if (fixed > 0) incSyncCounter(ss, fixed);
   Logger.log('✅ fixExistingPhones 完了: ' + fixed + '件修正');
+}
+
+/* ============================================================
+   顧客マスタ 累計キャッシュ更新 (2026-09-27: 追加カラム 監査対応)
+   ============================================================
+   施術台帳・クレジット台帳を走査して以下を該当顧客マスタ行に書き込む:
+     total_visits          : type='record' AND count_eligible=TRUE の件数
+     last_visit            : 上記の最新 date
+     total_credit_used     : type='use' の絶対値合計
+     total_referrals_given : 施術台帳の referrer_customer_id=customerId の件数
+   syncedAt は更新しない(表示用キャッシュ・Notion 同期対象外)
+   ============================================================ */
+function updateCustomerCounters(ss, customerId) {
+  try {
+    if (!customerId) return { success: false, error: 'no_customer_id' };
+    var custData = findCustomerById(ss, String(customerId));
+    if (!custData) return { success: false, error: 'customer_not_found' };
+    var rowIdx = custData.rowIndex;
+
+    // 施術台帳を 1 パスで走査(void 行は既に count_eligible=FALSE に落とされている前提)
+    var trRows = getSheetData(ss, '施術台帳');
+    var totalVisits = 0;
+    var lastVisit   = '';
+    var totalReferrals = 0;
+    for (var i = 0; i < trRows.length; i++) {
+      var tr = trRows[i];
+      var trType = String(tr[TR.type]);
+      var trCid  = String(tr[TR.customer_id]);
+      // 累計来院数 / 最終来院日
+      if (trCid === String(customerId)
+          && trType === 'record'
+          && String(tr[TR.count_eligible]) === 'TRUE') {
+        totalVisits++;
+        var d = toDateStr(tr[TR.date]);
+        if (d && d > lastVisit) lastVisit = d;
+      }
+      // 累計紹介人数(自分が紹介者になっている record 行の件数)
+      if (String(tr[TR.referrer_customer_id]) === String(customerId)
+          && trType === 'record'
+          && String(tr[TR.count_eligible]) === 'TRUE') {
+        totalReferrals++;
+      }
+    }
+
+    // クレジット台帳 (type='use' の絶対値合計)
+    var crRows = getSheetData(ss, 'クレジット台帳');
+    var totalCredit = 0;
+    for (var j = 0; j < crRows.length; j++) {
+      var cr = crRows[j];
+      if (String(cr[CR.customer_id]) !== String(customerId)) continue;
+      if (String(cr[CR.type]) !== 'use') continue;
+      totalCredit += Math.abs(Number(cr[CR.amount]) || 0);
+    }
+
+    var sheet = ss.getSheetByName('顧客マスタ');
+    sheet.getRange(rowIdx, CM.total_visits + 1).setValue(totalVisits);
+    sheet.getRange(rowIdx, CM.last_visit + 1).setValue(lastVisit || '');
+    sheet.getRange(rowIdx, CM.total_credit_used + 1).setValue(totalCredit);
+    sheet.getRange(rowIdx, CM.total_referrals_given + 1).setValue(totalReferrals);
+    return {
+      success: true,
+      customerId: String(customerId),
+      total_visits: totalVisits,
+      last_visit: lastVisit,
+      total_credit_used: totalCredit,
+      total_referrals_given: totalReferrals,
+    };
+  } catch (e) {
+    Logger.log('updateCustomerCounters error customerId=' + customerId + ': ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+// 全顧客の累計キャッシュを一括更新(初回セットアップ・整合性再構築用)
+//  GAS エディタから手動実行可(Nicolas 用)
+function backfillAllCustomerCounters(cfg) {
+  cfg = cfg || getConfig();
+  var ss = getLedger(cfg);
+  var cmSheet = ss.getSheetByName('顧客マスタ');
+  if (!cmSheet || cmSheet.getLastRow() < 2) {
+    Logger.log('backfillAllCustomerCounters: 顧客マスタ 行なし');
+    return { success: true, updated: 0 };
+  }
+  var cmRows = cmSheet.getRange(2, 1, cmSheet.getLastRow() - 1, CM_COLS).getValues();
+  var updated = 0;
+  var errors = [];
+  for (var i = 0; i < cmRows.length; i++) {
+    var cid = String(cmRows[i][CM.customer_id] || '').trim();
+    if (!cid) continue;
+    var res = updateCustomerCounters(ss, cid);
+    if (res && res.success) updated++;
+    else errors.push({ customerId: cid, error: res && res.error });
+  }
+  Logger.log('backfillAllCustomerCounters: ' + updated + '/' + cmRows.length + ' 件更新 (errors=' + errors.length + ')');
+  if (errors.length > 0) Logger.log('errors: ' + JSON.stringify(errors));
+  return { success: true, updated: updated, total: cmRows.length, errors: errors };
 }
 
 // ステージング用 Drive フォルダを作成して DRIVE_FOLDER_ID を設定
@@ -4731,7 +4939,7 @@ function resetOrphanedSyncedAt() {
   // 顧客マスタ
   var cmSheet = ss.getSheetByName('顧客マスタ');
   if (cmSheet.getLastRow() > 1) {
-    var cmRows = cmSheet.getRange(2, 1, cmSheet.getLastRow() - 1, 15).getValues();
+    var cmRows = cmSheet.getRange(2, 1, cmSheet.getLastRow() - 1, CM_COLS).getValues();
     cmRows.forEach(function(r, i) {
       if (!r[CM.notion_page_id] && r[CM.synced_at]) {
         cmSheet.getRange(i + 2, CM.synced_at + 1).setValue('');
@@ -4758,7 +4966,7 @@ function resetOrphanedSyncedAt() {
   // 施術台帳
   var trSheet = ss.getSheetByName('施術台帳');
   if (trSheet.getLastRow() > 1) {
-    var trRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues();
+    var trRows = trSheet.getRange(2, 1, trSheet.getLastRow() - 1, TR_COLS).getValues();
     trRows.forEach(function(r, i) {
       if (!r[TR.notion_page_id]) {
         trSheet.getRange(i + 2, TR.synced_at + 1).setValue('');
@@ -4779,7 +4987,7 @@ function debugSyncOneCustomer() {
   var ss  = getLedger(cfg);
   var sheet = ss.getSheetByName('顧客マスタ');
   if (sheet.getLastRow() < 2) { Logger.log('データなし'); return; }
-  var r = sheet.getRange(2, 1, 1, 15).getValues()[0];
+  var r = sheet.getRange(2, 1, 1, CM_COLS).getValues()[0];
   Logger.log('row: ' + JSON.stringify(r));
 
   var langMap = { ja: 'ja', es: 'es', pt: 'pt' };
@@ -4830,7 +5038,7 @@ function debugSync() {
   var cmLast = cmSheet.getLastRow();
   Logger.log('顧客マスタ lastRow: ' + cmLast);
   if (cmLast > 1) {
-    var cmRows = cmSheet.getRange(2, 1, cmLast - 1, 15).getValues();
+    var cmRows = cmSheet.getRange(2, 1, cmLast - 1, CM_COLS).getValues();
     cmRows.forEach(function(r, i) {
       Logger.log('CM row' + (i+2) + ': customer_id=' + r[CM.customer_id]
         + ', updated_at=' + r[CM.updated_at]

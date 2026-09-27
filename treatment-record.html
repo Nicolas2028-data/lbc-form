@@ -820,6 +820,17 @@
         <div class="field-error" id="e_salesAmount" style="margin-top:8px"></div>
       </div>
 
+      <!-- 施術時間 (2026-09-27: 追加カラム 監査対応) -->
+      <div class="card" id="durationCard">
+        <div class="card-title"><span>⏱️</span>施術時間</div>
+        <select id="durationMin" style="width:100%;padding:12px;font-size:1rem;border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <option value="60" selected>60 分</option>
+          <option value="30">30 分</option>
+          <option value="45">45 分</option>
+          <option value="90">90 分</option>
+        </select>
+      </div>
+
       <!-- 施術メモ -->
       <div class="card" id="memoCard">
         <div class="card-title"><span>📝</span>施術メモ<span class="badge-opt">任意</span></div>
@@ -1093,6 +1104,7 @@ function onAttendanceChange() {
     show('courseCard');
     show('paymentCard');
     show('salesCard');
+    show('durationCard');
     show('memoCard');
     show('creditSection');
     show('referralSection');
@@ -1104,6 +1116,7 @@ function onAttendanceChange() {
     hide('courseCard');
     hide('paymentCard');
     hide('salesCard');
+    hide('durationCard');
     hide('memoCard');
     hide('creditSection');
     hide('referralSection');
@@ -1428,6 +1441,8 @@ async function submitRecord() {
       referrerName:    attended ? (S.referrerName || null) : null,
       referralDiscount: attended ? S.referralApplied : false,
       creditUsed:      attended ? S.creditUsed : 0,
+      // 2026-09-27: 追加カラム(監査対応) — 施術時間(分)
+      durationMin:     attended ? (Number(document.getElementById('durationMin').value) || 60) : 0,
       env:             CONFIG.ENV_PARAM,
     };
     const res  = await fetch(CONFIG.GAS_URL, {

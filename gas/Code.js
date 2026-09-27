@@ -156,6 +156,14 @@ function doGet(e) {
       var synced = syncCheckinLog(ss, cfg);
       return jsonRes({ success: true, synced: synced });
     }
+    // 2026-09-27: 顧客マスタ 電話番号の 先頭 0 補正 + 列書式テキスト化
+    //  Sheets の数値解釈で消失した先頭 0 を全 32 件一括補正(冪等)
+    if (p.action === 'runFixCustomerPhones') {
+      var authPH = verifyStaffPassword(p.pw, cfg);
+      if (!authPH.ok) return jsonRes({ success: false, error: authPH.error, remainingSec: authPH.remainingSec });
+      fixExistingPhones(cfg);
+      return jsonRes({ success: true });
+    }
     // dev* エンドポイント: 2 段構えの保護 (2026-09-06 強化)
     //  - 1段目: cfg._env === 'staging' (production の場合は resolveEnv が null 返却で無効化)
     //  - 2段目: STAFF_PASSWORD 認証 (verifyStaffPassword でブルートフォース保護付き)
@@ -545,9 +553,11 @@ function buildTreatmentRecordUrl(cfg, customerId, name, phone) {
   var base = cfg.SITE_URL || 'https://nicolas2028-data.github.io/lbc-form';
   base = base.replace(/\/+$/, '');
   var envParam = cfg._env === 'staging' ? '&env=staging' : '';
+  // 2026-09-27: phone は必ず normalizePhone を通す(シート数値化で先頭 0 消失した値も復元)
+  var phoneNorm = normalizePhone(phone || '');
   var q = 'customer_id=' + encodeURIComponent(customerId) +
           '&name='       + encodeURIComponent(name || '') +
-          '&phone='      + encodeURIComponent(phone || '') +
+          '&phone='      + encodeURIComponent(phoneNorm) +
           envParam;
   return base + '/treatment-record.html?' + q;
 }
@@ -1790,6 +1800,21 @@ function syncToNotion() {
     pollNotionKarte(cfg);
   } catch(pollErr) {
     Logger.log('syncToNotion: pollNotionKarte error: ' + pollErr.message);
+  }
+
+  // 2026-09-27: 顧客マスタ 電話番号の 先頭 0 補正 (one-shot 自動実行)
+  //  Sheets が電話番号を数値として保存 → 先頭 0 消失。全 32 件を normalizePhone で補正 + 列書式テキスト化。
+  //  一度実行したら _phones_fixed_v1 フラグで再実行しない(冪等)
+  try {
+    var phoneFixKey = '_phones_fixed_v1';
+    var scriptProps = PropertiesService.getScriptProperties();
+    if (!scriptProps.getProperty(phoneFixKey)) {
+      fixExistingPhones(cfg);
+      scriptProps.setProperty(phoneFixKey, nowISO());
+      Logger.log('syncToNotion: one-shot fixExistingPhones 完了');
+    }
+  } catch(phoneErr) {
+    Logger.log('syncToNotion: fixExistingPhones error: ' + phoneErr.message);
   }
 
   var syncSheet = ss.getSheetByName('_sync');

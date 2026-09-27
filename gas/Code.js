@@ -2401,6 +2401,255 @@ function _findCheckinPageByCheckinId(cfg, checkinId) {
 }
 
 /* ============================================================
+   Notion → シート 取込ポーリング (2026-09-27 追加)
+   ============================================================
+   Notion-native record flow: ルカスが Notion で施術カルテを作成 → 完了に変更
+   すると本関数がシート施術台帳に取込む。冪等性は TR.notion_page_id で担保。
+   ============================================================ */
+
+function pollNotionKarte(cfg) {
+  cfg = cfg || getConfig();
+  if (!cfg.KARTE_DB_ID || !cfg.NOTION_TOKEN) {
+    Logger.log('pollNotionKarte: KARTE_DB_ID or NOTION_TOKEN missing — skip');
+    return { imported: 0, skipped: 0, errors: [] };
+  }
+
+  var MAX_IMPORT = 20; // 1 トリガー実行あたりの上限(GAS 6分制限内)
+  var ss = getLedger(cfg);
+  if (!ss) { Logger.log('pollNotionKarte: ledger not accessible'); return { imported: 0, skipped: 0, errors: [] }; }
+
+  // 冪等性 index: 施術台帳に既にある notion_page_id を Set 化
+  var trSheet = ss.getSheetByName('施術台帳');
+  var trVals = (trSheet && trSheet.getLastRow() > 1)
+    ? trSheet.getRange(2, 1, trSheet.getLastRow() - 1, 18).getValues() : [];
+  var importedPageIds = {};
+  for (var t = 0; t < trVals.length; t++) {
+    var pid = String(trVals[t][TR.notion_page_id] || '');
+    if (pid) importedPageIds[pid] = true;
+  }
+
+  // Notion query: ステータス=完了 or 施術なし
+  var query;
+  try {
+    query = notionPost(cfg, '/databases/' + cfg.KARTE_DB_ID + '/query', {
+      filter: {
+        or: [
+          { property: 'ステータス', select: { equals: '✅ 完了' } },
+          { property: 'ステータス', select: { equals: '⚫ 施術なし' } },
+        ],
+      },
+      sorts: [{ property: '日付', direction: 'ascending' }],
+      page_size: 50,
+    });
+  } catch (e) {
+    Logger.log('pollNotionKarte query error: ' + e.message);
+    return { imported: 0, skipped: 0, errors: [{ phase: 'query', message: e.message }] };
+  }
+  Utilities.sleep(350);
+
+  var karteList = (query && query.results) || [];
+  var imported = 0, skipped = 0, errors = [];
+
+  for (var k = 0; k < karteList.length && imported < MAX_IMPORT; k++) {
+    var page = karteList[k];
+    var pageId = String(page.id);
+    if (importedPageIds[pageId]) { skipped++; continue; }
+    try {
+      var res = _pollNotionKarteImportOne(ss, cfg, page);
+      if (res.imported) imported++;
+      else skipped++;
+      importedPageIds[pageId] = true;
+    } catch (e) {
+      Logger.log('pollNotionKarte import error pageId=' + pageId + ': ' + e.message);
+      errors.push({ pageId: pageId, message: e.message });
+    }
+    Utilities.sleep(350);
+  }
+
+  Logger.log('pollNotionKarte: imported=' + imported + ' skipped=' + skipped + ' errors=' + errors.length);
+  if (errors.length >= 5) {
+    try { notifyError('pollNotionKarte', new Error('errors=' + errors.length + ' first=' + errors[0].message)); } catch(_) {}
+  }
+  return { imported: imported, skipped: skipped, errors: errors };
+}
+
+// 1 カルテを施術台帳に取込む(private)
+function _pollNotionKarteImportOne(ss, cfg, page) {
+  var pageId = String(page.id);
+  var props = page.properties || {};
+
+  // customer_id 特定: 顧客マスタ relation → 顧客マスタ シート照合
+  var custId = '';
+  var custData = null;
+  var relArr = (props['顧客マスタ'] && props['顧客マスタ'].relation) || [];
+  if (relArr.length > 0) {
+    custData = findCustomerByNotionPageId(ss, relArr[0].id);
+    if (custData) custId = String(custData.row[CM.customer_id] || '');
+  }
+  // fallback: 診察番号 プロパティから
+  if (!custId && props['診察番号'] && props['診察番号'].rich_text) {
+    var rt = props['診察番号'].rich_text;
+    if (rt.length > 0) custId = String(rt[0].plain_text || '');
+    if (custId) custData = findCustomerById(ss, custId);
+  }
+  if (!custId) {
+    Logger.log('_pollNotionKarteImportOne: customer not resolved pageId=' + pageId);
+    return { skipped: 'customer_not_found' };
+  }
+
+  // プロパティ抽出
+  var statusName = (props['ステータス'] && props['ステータス'].select && props['ステータス'].select.name) || '';
+  var attended = (statusName === '✅ 完了');
+  var dateStr = (props['日付'] && props['日付'].date && props['日付'].date.start) || todayStr();
+  var course = (props['コース'] && props['コース'].select && props['コース'].select.name) || '';
+  var salesRaw = (props['売上金額'] && typeof props['売上金額'].number === 'number') ? props['売上金額'].number : 0;
+  var sales = isFinite(salesRaw) ? salesRaw : 0;
+  var payment = (props['支払い方法'] && props['支払い方法'].select && props['支払い方法'].select.name) || '';
+  var creditUsed = (props['クレジット使用額'] && typeof props['クレジット使用額'].number === 'number') ? props['クレジット使用額'].number : 0;
+  var referralApplied = !!(props['紹介割引適用'] && props['紹介割引適用'].checkbox);
+  var refererName = '';
+  if (props['紹介者名'] && props['紹介者名'].rich_text && props['紹介者名'].rich_text.length > 0) {
+    refererName = String(props['紹介者名'].rich_text.map(function(x){return x.plain_text||'';}).join(''));
+  }
+  var memoRaw = '';
+  if (props['施術メモ'] && props['施術メモ'].rich_text && props['施術メモ'].rich_text.length > 0) {
+    memoRaw = String(props['施術メモ'].rich_text.map(function(x){return x.plain_text||'';}).join(''));
+  }
+  var changeMarker = (props['前回から変化'] && props['前回から変化'].select && props['前回から変化'].select.name) || '';
+  var memoWithMarker = memoRaw;
+  if (changeMarker && !/^【(変化なし|変化あり)】/.test(memoRaw)) {
+    memoWithMarker = '【' + changeMarker + '】' + memoRaw;
+  }
+
+  // 紹介者 customer_id: 「田中太郎 (P006)」形式から抽出
+  var referrerId = '';
+  if (referralApplied && refererName) {
+    var m = refererName.match(/\(([A-Z0-9]+)\)\s*$/);
+    if (m) referrerId = m[1];
+  }
+
+  // クレジット残高チェック
+  if (attended && creditUsed > 0) {
+    var balance = computeCreditBalance(ss, custId);
+    if (creditUsed > balance) {
+      Logger.log('pollNotionKarte: クレジット残高不足 custId=' + custId + ' credit=' + creditUsed + ' balance=' + balance);
+      return { skipped: 'insufficient_credit' };
+    }
+  }
+
+  // 施術台帳に追記
+  var lock = acquireLedgerLock(15000);
+  var entryId = genUUID();
+  try {
+    var trSheet2 = ss.getSheetByName('施術台帳');
+    var now = nowISO();
+    var courseValid = (attended && VALID_COURSES.indexOf(course) >= 0) ? course : '';
+    var recordType = attended ? 'record' : 'no_show';
+    var trRow = makeRow(18, {
+      [TR.entry_id]:             entryId,
+      [TR.type]:                 recordType,
+      [TR.target_entry_id]:      '',
+      [TR.date]:                 dateStr,
+      [TR.customer_id]:          custId,
+      [TR.course]:               attended ? courseValid : '',
+      [TR.sales]:                attended ? sales : 0,
+      [TR.payment]:              attended ? payment : '',
+      [TR.memo]:                 attended
+                                 ? sanitizeSheetInput(memoWithMarker)
+                                 : sanitizeSheetInput('no-show (Notion 側取込): ' + (memoRaw || '理由未記入')),
+      [TR.has_questionnaire]:    'FALSE',
+      [TR.credit_used]:          attended ? (Number(creditUsed) || 0) : 0,
+      [TR.referrer_customer_id]: attended ? referrerId : '',
+      [TR.count_eligible]:       attended ? 'TRUE' : 'FALSE',
+      [TR.notion_page_id]:       pageId, // 冪等性 key
+      [TR.created_at]:           now,
+      [TR.updated_at]:           now,
+      [TR.synced_at]:            now, // Notion 側が正なので即 synced(syncTreatment で再上書きしない)
+      [TR.error_count]:          0,
+    });
+    trSheet2.appendRow(trRow);
+    incSyncCounter(ss);
+
+    if (attended && creditUsed > 0) {
+      appendCreditEntry(ss, custId, 'use', -Number(creditUsed), '', entryId);
+    }
+    if (attended && referralApplied && referrerId) {
+      var grantCount = countReferralGrants(ss, referrerId);
+      if (grantCount < 3) {
+        appendCreditEntry(ss, referrerId, 'grant', 1000, '', entryId);
+      } else {
+        Logger.log('pollNotionKarte: 紹介クレジット上限 referrerId=' + referrerId + ' count=' + grantCount);
+      }
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  // Notion 側 backfill: 名前空白 → 顧客名+(日付) / 📝 記録する URL / 診察番号 / 顧客マスタ
+  try {
+    var backfill = {};
+    var titleRt = (props['名前'] && props['名前'].title) || [];
+    var currentTitle = titleRt.map(function(x){return x.plain_text || '';}).join('').trim();
+    if (!currentTitle && custData) {
+      var custName = String(custData.row[CM.name] || custId);
+      var dateLabel = String(dateStr).replace(/-/g, '/');
+      backfill['名前'] = { title: [{ text: { content: custName + ' (' + dateLabel + ')' } }] };
+    }
+    var recordUrl = (props['📝 記録する'] && props['📝 記録する'].url) || '';
+    if (!recordUrl && custData) {
+      var custName2 = String(custData.row[CM.name] || custId);
+      var custPhone2 = String(custData.row[CM.phone] || '');
+      backfill['📝 記録する'] = { url: buildTreatmentRecordUrl(cfg, custId, custName2, custPhone2) };
+    }
+    var custIdOnKarte = '';
+    if (props['診察番号'] && props['診察番号'].rich_text && props['診察番号'].rich_text.length > 0) {
+      custIdOnKarte = String(props['診察番号'].rich_text[0].plain_text || '');
+    }
+    if (!custIdOnKarte) {
+      backfill['診察番号'] = richText(custId);
+    }
+    if (relArr.length === 0 && custData && custData.row[CM.notion_page_id]) {
+      backfill['顧客マスタ'] = { relation: [{ id: String(custData.row[CM.notion_page_id]) }] };
+    }
+    if (Object.keys(backfill).length > 0) {
+      notionPatch(cfg, '/pages/' + pageId, { properties: backfill });
+      Utilities.sleep(200);
+    }
+  } catch (e) {
+    Logger.log('pollNotionKarte backfill error pageId=' + pageId + ': ' + e.message);
+  }
+
+  return { imported: true, entryId: entryId, customerId: custId };
+}
+
+// 顧客マスタ Notion page ID → 顧客マスタ シート行を逆引き
+function findCustomerByNotionPageId(ss, notionPageId) {
+  if (!notionPageId) return null;
+  var sheet = ss.getSheetByName('顧客マスタ');
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  // Notion API の id はダッシュ有り。シート側は登録経緯で有無混在しうるため両方比較
+  var normalized = String(notionPageId).replace(/-/g, '');
+  var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var stored = String(vals[i][CM.notion_page_id] || '');
+    if (!stored) continue;
+    if (stored === notionPageId) return { row: vals[i], rowIdx: i + 2 };
+    if (stored.replace(/-/g, '') === normalized) return { row: vals[i], rowIdx: i + 2 };
+  }
+  return null;
+}
+
+// staging スモークテスト(GAS エディタから手動実行)
+function testPollNotionKarte() {
+  var cfg = getConfig('staging');
+  Logger.log('testPollNotionKarte: env=' + (cfg._env || 'production'));
+  Logger.log('KARTE_DB_ID=' + cfg.KARTE_DB_ID);
+  var res = pollNotionKarte(cfg);
+  Logger.log('結果: ' + JSON.stringify(res, null, 2));
+  return res;
+}
+
+/* ============================================================
    バックアップ (REL-H4 対応 2026-09-06)
    ============================================================ */
 
@@ -2511,15 +2760,19 @@ function installTriggers() {
   ScriptApp.newTrigger('backupLedgerToLucas')
     .timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
 
+  // 5. Notion → シート ポーリング: 5分毎 (2026-09-27 追加、Notion-native record flow)
+  ScriptApp.newTrigger('pollNotionKarte')
+    .timeBased().everyMinutes(5).create();
+
   // セーフティチェック: 想定トリガー数を超えたら警告 (2026-09-06 追加)
   var after = ScriptApp.getProjectTriggers().length;
-  var expected = cfg.LEDGER_SPREADSHEET_ID ? 4 : 3;
+  var expected = cfg.LEDGER_SPREADSHEET_ID ? 5 : 4;
   if (after !== expected) {
     var msg = 'installTriggers: 想定外のトリガー数(想定 ' + expected + ' / 実測 ' + after + ')';
     Logger.log('⚠️ ' + msg);
     try { notifyError('installTriggers', new Error(msg)); } catch(e) {}
   }
-  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary + backupLedgerToLucas)');
+  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary + backupLedgerToLucas + pollNotionKarte)');
 
   // production 設定の整合性チェック (REL-H5 2026-09-06)
   try { assertProductionConfig(); } catch(e) { Logger.log('assertProductionConfig error: ' + e.message); }

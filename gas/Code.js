@@ -307,9 +307,12 @@ function isValidPhone(normalized) {
   return /^0\d{9,10}$/.test(normalized);
 }
 
-// 氏名正規化（照合用）。全角英数→半角、空白除去、ラテン文字は小文字化。
-// 例: "山田 太郎" / "山田　太郎" → "山田太郎"、"Lucas Silva" → "lucassilva"
-function normalizeName(raw) {
+// 氏名照合キー正規化（顧客マージ判定専用）。全角英数→半角、空白すべて除去、
+// ラテン文字は小文字化。表記揺れを最大限吸収して同一人物の取りこぼしを防ぐ。
+// 例: "山田 太郎" / "山田　太郎" / "山田太郎" → "山田太郎"、"Lucas Silva" → "lucassilva"
+// 注: 来店ログ表示用の normalizeName()（空白1つに圧縮・大小文字保持）とは別物。
+//     照合は誤マージ防止のため、より厳格にキー化する。
+function normalizeNameKey(raw) {
   if (!raw) return '';
   var s = String(raw);
   s = s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
@@ -324,10 +327,10 @@ function normalizeName(raw) {
 //  - 氏名指定あり・一致なしは null（呼び出し側で新規顧客として採番する）
 function matchCustomerByName(matches, name) {
   if (!matches || !matches.length) return null;
-  var target = normalizeName(name);
+  var target = normalizeNameKey(name);
   if (!target) return matches[0];
   for (var i = 0; i < matches.length; i++) {
-    if (normalizeName(String(matches[i].row[CM.name])) === target) return matches[i];
+    if (normalizeNameKey(String(matches[i].row[CM.name])) === target) return matches[i];
   }
   return null;
 }

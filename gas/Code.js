@@ -1448,7 +1448,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
     [TR.course]:               attended ? courseLabel : '',
     [TR.sales]:                attended ? salesNum : 0, // salesNum は既に isFinite でガード済 (H2 fix)
     [TR.payment]:              attended ? (data.paymentMethod || '') : '',
-    [TR.memo]:                 attended ? sanitizeSheetInput(data.treatmentMemo || '') : ('no-show 理由: ' + noShowReason),
+    [TR.memo]:                 attended ? sanitizeSheetInput((data.changeFromLast ? '【' + String(data.changeFromLast) + '】' : '') + (data.treatmentMemo || '')) : ('no-show 理由: ' + noShowReason),
     [TR.has_questionnaire]:    'FALSE',
     [TR.credit_used]:          attended ? (Number(data.creditUsed) || 0) : 0,
     [TR.referrer_customer_id]: attended ? (data.referrerId || '') : '',
@@ -2141,6 +2141,9 @@ function syncTreatment(ss, cfg) {
       if (r[TR.sales] !== '') props['売上金額']   = { number: Number(r[TR.sales]) };
       if (r[TR.payment])      props['支払い方法'] = { select: { name: String(r[TR.payment]) } };
       if (r[TR.memo])         props['施術メモ']   = richText(String(r[TR.memo]));
+      // 2026-09-27: 施術メモ先頭の【変化なし/変化あり】マーカーから「前回から変化」select を反映
+      var _chg = String(r[TR.memo] || '').match(/^【(変化なし|変化あり)】/);
+      if (_chg) props['前回から変化'] = { select: { name: _chg[1] } };
       // 2026-09-26 修正 M4: 0 も明示的な値として同期(訂正ケースで stale 値が残るのを防ぐ)
       if (r[TR.credit_used] !== '') props['クレジット使用額'] = { number: Number(r[TR.credit_used]) || 0 };
       if (r[TR.referrer_customer_id]) {

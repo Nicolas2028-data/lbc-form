@@ -2073,10 +2073,9 @@ function syncToNotion() {
   }
 
   // 2026-09-27: backfillAllCustomerCounters one-shot (既存 32 顧客の累計キャッシュ埋込)
-  //  一度実行したら _counters_backfilled_vN フラグで再実行しない(冪等)
-  //  v3: 詳細トレース出力を _sync F1/G1 に書き込む
+  //  v5: P007 のトレース情報を H1/I1 に書き込む
   try {
-    var countersKey = '_counters_backfilled_v4';
+    var countersKey = '_counters_backfilled_v5';
     var scriptProps4 = PropertiesService.getScriptProperties();
     if (!scriptProps4.getProperty(countersKey)) {
       var backfillRes = backfillAllCustomerCounters(cfg);
@@ -2085,8 +2084,29 @@ function syncToNotion() {
       if (syncSheetY) {
         syncSheetY.getRange('F1').setValue('counters: updated=' + (backfillRes && backfillRes.updated) + '/' + (backfillRes && backfillRes.total) + ' errors=' + ((backfillRes && backfillRes.errors) ? backfillRes.errors.length : 0));
         syncSheetY.getRange('G1').setValue(JSON.stringify(backfillRes));
+        // DEBUG: P007 の内訳を H1/I1 に
+        var p007Res = updateCustomerCounters(ss, 'P007');
+        syncSheetY.getRange('H1').setValue('P007 debug: ' + JSON.stringify(p007Res));
+        // TR 走査結果詳細を I1 に(施術台帳の record 行の各値を type と count_eligible 含めて JSON 化)
+        var trRowsDbg = getSheetData(ss, '施術台帳');
+        var trDebug = [];
+        for (var td = 0; td < trRowsDbg.length; td++) {
+          var trd = trRowsDbg[td];
+          if (String(trd[TR.customer_id]) !== 'P007') continue;
+          trDebug.push({
+            entry: String(trd[TR.entry_id]).slice(0, 8),
+            type: String(trd[TR.type]),
+            type_typeof: typeof trd[TR.type],
+            elig_raw: trd[TR.count_eligible],
+            elig_typeof: typeof trd[TR.count_eligible],
+            elig_str: String(trd[TR.count_eligible]),
+            elig_upper: String(trd[TR.count_eligible]).toUpperCase(),
+            elig_check: (String(trd[TR.count_eligible]).toUpperCase() === 'TRUE'),
+          });
+        }
+        syncSheetY.getRange('I1').setValue(JSON.stringify(trDebug));
       }
-      Logger.log('syncToNotion: one-shot backfillAllCustomerCounters 完了 res=' + JSON.stringify(backfillRes));
+      Logger.log('syncToNotion: one-shot backfillAllCustomerCounters 完了');
     }
   } catch(countersErr) {
     Logger.log('syncToNotion: backfillAllCustomerCounters error: ' + countersErr.message);

@@ -2037,6 +2037,27 @@ function syncToNotion() {
     Logger.log('syncToNotion: fixExistingPhones error: ' + phoneErr.message);
   }
 
+  // 2026-09-27: 復旧作業由来の重複行を自動 void (one-shot、commit モード)
+  //  pollNotionKarte で復旧カルテを取込んだ結果、既存 sheet 行と 同一条件の 重複が発生した対策
+  //  一度実行したら _dedup_committed_v1 フラグで再実行しない(冪等)
+  try {
+    var dedupKey = '_dedup_committed_v1';
+    var scriptProps2 = PropertiesService.getScriptProperties();
+    if (!scriptProps2.getProperty(dedupKey)) {
+      var report = voidDuplicateRecords(cfg, false); // commit
+      scriptProps2.setProperty(dedupKey, nowISO());
+      // 結果を 詳細ログ用に _sync タブ D1 に JSON で保存(Nicolas が読める)
+      var syncSheetX = ss.getSheetByName('_sync');
+      if (syncSheetX) {
+        syncSheetX.getRange('D1').setValue('dedup: groups=' + report.groups + ' voided=' + report.voidedCount + ' errors=' + report.errors.length);
+        syncSheetX.getRange('E1').setValue(JSON.stringify(report));
+      }
+      Logger.log('syncToNotion: one-shot voidDuplicateRecords 完了 groups=' + report.groups + ' voided=' + report.voidedCount);
+    }
+  } catch(dedupErr) {
+    Logger.log('syncToNotion: voidDuplicateRecords error: ' + dedupErr.message);
+  }
+
   var syncSheet = ss.getSheetByName('_sync');
   var counter   = Number(syncSheet.getRange('A1').getValue());
   var lastFull  = syncSheet.getRange('B1').getValue();

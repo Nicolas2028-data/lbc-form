@@ -598,28 +598,7 @@
     .banner-title { font-weight: 600; font-size: 1.02rem; letter-spacing: -0.01em; }
     .banner-sub { font-size: 0.83rem; margin-top: 3px; opacity: 0.75; }
     .banner.first { background: var(--primary-light); border: 1px solid var(--primary-mid); color: var(--primary-dark); }
-    .banner.return { background: #fff8ec; border: 1px solid #ffd68a; color: #6b4200; }
-
-    /* ── Course radio ── */
-    .course-item {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 0.95rem;
-      background: var(--white);
-      transition: all 0.15s;
-      user-select: none;
-      margin-bottom: 10px;
-    }
-    .course-item:last-child { margin-bottom: 0; }
-    .course-item:hover { border-color: var(--primary-mid); background: var(--bg-secondary); }
-    .course-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
-    .course-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
-    .course-price { margin-left: auto; font-size: 0.88rem; font-weight: 600; color: var(--primary-dark); }
+    /* 2026-09-27 撤去: .banner.return / .course-item / .course-price(2回目以降フロー用)は削除 */
 
     /* ── Name row (split 姓/名) ── */
     .name-row { display: flex; gap: 10px; }
@@ -683,30 +662,12 @@
 <div class="container" id="mainForm">
 
   <!-- ════ PHASE 1: 電話照合 ════ -->
+  <!-- 2026-09-27 撤去: 2回目以降フロー削除。初回客専用フローに変更 -->
   <div id="phase1">
-    <!-- 新規/既存 選択カード(最初に表示) -->
-    <div class="card" id="visitTypeChoiceCard" style="text-align:center">
-      <div class="card-title" style="justify-content:center;border-bottom:none;padding-bottom:0;margin-bottom:20px">
-        <span id="t_visit_choice">本日のご来院は?</span>
-      </div>
-      <div style="display:flex;gap:12px">
-        <button type="button" onclick="chooseVisitType('first')"
-                style="flex:1;padding:22px 12px;font-size:1rem;font-weight:600;background:var(--primary);color:var(--white);border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:background 0.15s,transform 0.1s;display:flex;flex-direction:column;align-items:center;gap:6px;line-height:1.3">
-          <span style="font-size:1.7rem">🌱</span>
-          <span id="t_visit_first">初めて</span>
-        </button>
-        <button type="button" onclick="chooseVisitType('return')"
-                style="flex:1;padding:22px 12px;font-size:1rem;font-weight:600;background:var(--white);color:var(--primary);border:1.5px solid var(--primary);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;gap:6px;line-height:1.3">
-          <span style="font-size:1.7rem">👋</span>
-          <span id="t_visit_returning">2回目以降</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="card" id="phoneCard" style="display:none">
+    <div class="card" id="phoneCard">
       <div class="card-title"><span class="icon">📋</span><span id="t_namePhone">お名前・電話番号</span></div>
 
-      <div class="form-group" id="p1NameGroup" style="display:none">
+      <div class="form-group" id="p1NameGroup">
         <div class="field-label"><span id="lbl_nameGroup_p1">お名前</span><span class="badge-req">必須</span></div>
         <div class="name-row">
           <div class="name-col">
@@ -722,7 +683,7 @@
         </div>
       </div>
 
-      <div class="form-group" id="p1KanaGroup" style="display:none">
+      <div class="form-group" id="p1KanaGroup">
         <div class="field-label"><span id="lbl_furiganaGroup_p1">フリガナ</span><span class="badge-req" id="p1KanaBadge">必須</span></div>
         <div class="name-row">
           <div class="name-col">
@@ -746,61 +707,14 @@
       </div>
     </div>
 
-    <!-- 登録情報確認カード -->
-    <div id="patientInfoCard" style="display:none" class="card">
-      <div class="card-title"><span class="icon">✅</span><span id="t_confirmInfo">ご登録情報の確認</span></div>
-      <div id="patientInfoDisplay" style="margin-bottom:16px;line-height:1.8"></div>
-      <p style="margin:0 0 12px;font-size:0.9rem;opacity:0.8"><span id="t_confirmInfoQ">登録情報に変更はありますか？</span></p>
-      <div style="display:flex;gap:8px">
-        <button class="btn-submit" id="infoNoChangeBtn" onclick="onInfoNoChange()" style="flex:1">
-          <span id="t_infoNoChange">変更なし、このまま続ける</span>
-        </button>
-        <button class="btn-submit" id="infoChangeBtn" onclick="onInfoChange()" style="flex:1;background:var(--white);color:var(--primary-dark);border:1.5px solid var(--primary);box-shadow:none">
-          <span id="t_infoHasChange">変更する</span>
-        </button>
-      </div>
-      <button class="btn-back" id="btn_back_to_phone_info" onclick="backToPhoneInput()" style="margin-top:12px;width:100%">← 電話番号入力に戻る</button>
-    </div>
+    <!-- 2026-09-27 撤去: patientInfoCard / patientEditCard(2回目以降フロー)は削除済み -->
 
-    <!-- 情報変更フォーム -->
-    <div id="patientEditCard" style="display:none" class="card">
-      <div class="card-title"><span class="icon">✏️</span><span id="t_editInfo">情報の変更</span></div>
-      <div class="form-group">
-        <div class="field-label"><span id="lbl_editName">お名前</span><span class="badge-opt">任意</span></div>
-        <input type="text" id="edit_name" autocomplete="name" maxlength="60" style="width:100%">
-      </div>
-      <div class="form-group" id="editKanaGroup">
-        <div class="field-label"><span id="lbl_editKana">フリガナ</span><span class="badge-opt">任意</span></div>
-        <input type="text" id="edit_kana" autocomplete="off" maxlength="60" style="width:100%">
-      </div>
-      <div class="form-group">
-        <div class="field-label"><span id="lbl_editPhone">電話番号</span><span class="badge-opt">任意</span></div>
-        <input type="tel" id="edit_phone" inputmode="numeric" maxlength="20" style="width:100%">
-        <div class="field-error" id="e_edit_phone"></div>
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <div class="field-label"><span id="lbl_editEmail">メールアドレス</span><span class="badge-opt">任意</span></div>
-        <input type="email" id="edit_email" maxlength="100" style="width:100%">
-      </div>
-      <div class="loading-row" id="editLoading" style="display:none;margin-top:12px">
-        <span class="spinner"></span><span id="t_updating">更新中...</span>
-      </div>
-      <button class="btn-submit" id="editSaveBtn" onclick="onInfoEditSave()" style="margin-top:16px">
-        <span id="t_editSave">更新して続ける</span>
-      </button>
-      <button class="btn-back" id="btn_back_to_confirm_edit" onclick="backToPatientInfo()" style="margin-top:10px;width:100%">← 確認画面に戻る</button>
-    </div>
-
-    <div class="card" id="lookupBtnCard" style="display:none">
+    <div class="card" id="lookupBtnCard">
       <div class="loading-row" id="lookupLoading">
         <span class="spinner"></span><span id="t_lookingUp">確認中...</span>
       </div>
       <button class="btn-submit" id="lookupBtn" onclick="lookupPatient()">
         <span id="l_lookup">次へ</span>
-      </button>
-      <button type="button" onclick="backToVisitChoice()"
-              style="display:block;width:100%;margin-top:10px;padding:10px;background:transparent;color:var(--text-muted);border:none;font-size:0.85rem;cursor:pointer;font-family:inherit">
-        <span id="t_back_to_visit_choice">← 選択に戻る</span>
       </button>
     </div>
 
@@ -825,41 +739,7 @@
       </div>
     </div>
 
-    <!-- 再来院バナー -->
-    <div id="returnBanner" class="banner return" style="display:none">
-      <span class="banner-icon">👋</span>
-      <div>
-        <div class="banner-title"><span id="t_welcomeBack">おかえりなさい！</span> <span id="welcomeName"></span></div>
-        <div class="banner-sub" id="t_welcomeSub">本日のご来院をお待ちしておりました</div>
-      </div>
-    </div>
-
-    <!-- コース選択（再来院のみ） -->
-    <div class="card" id="courseCard" style="display:none">
-      <div class="card-title"><span class="icon">💆</span><span id="t_course">ご希望のコース</span></div>
-      <label class="course-item"><input type="radio" name="course" value="chiro"><span id="course_chiro">カイロプラクティック</span><span class="course-price">¥4,000</span></label>
-      <label class="course-item"><input type="radio" name="course" value="fascia"><span id="course_fascia">筋膜リリース</span><span class="course-price">¥5,000</span></label>
-      <label class="course-item"><input type="radio" name="course" value="cupping"><span id="course_cupping">吸玉（カッピング）</span><span class="course-price">¥4,000</span></label>
-      <label class="course-item"><input type="radio" name="course" value="total"><span id="course_total">トータルケア</span><span class="course-price">¥6,000</span></label>
-      <div class="field-error" id="e_course"></div>
-    </div>
-
-    <!-- 体の変化（再来院のみ） -->
-    <div class="card" id="changesCard" style="display:none">
-      <div class="card-title"><span class="icon">🔄</span><span id="t_changes">前回からの体の変化</span></div>
-      <p class="section-hint" id="t_changesQ">前回の来院から、体の変化や新しい症状はありますか？</p>
-      <div class="radio-group">
-        <label class="radio-item">
-          <input type="radio" name="changes" value="no" onchange="toggleChanges()">
-          <span id="changes_no">なし（そのまま進めます）</span>
-        </label>
-        <label class="radio-item">
-          <input type="radio" name="changes" value="yes" onchange="toggleChanges()">
-          <span id="changes_yes">あり（問診票を記入します）</span>
-        </label>
-      </div>
-      <div class="field-error" id="e_changes"></div>
-    </div>
+    <!-- 2026-09-27 撤去: returnBanner / courseCard / changesCard(2回目以降フロー)は削除済み -->
 
     <!-- 基本情報（初回のみ） -->
     <div class="card" id="basicCard" style="display:none">
@@ -941,7 +821,7 @@
       </div>
     </div>
 
-    <!-- ═══ Q セクション（初回は常に表示、再来院は変化ありのみ） ═══ -->
+    <!-- ═══ Q セクション（初回客のみのため常に表示） ═══ -->
     <div id="qSection" style="display:none">
 
       <!-- ── 2. 本日のお悩み ── -->
@@ -1092,7 +972,7 @@
 
     </div><!-- /qSection -->
 
-    <!-- ═══ 5. 撮影同意（初回・変化ありのみ） ═══ -->
+    <!-- ═══ 5. 撮影同意（初回客のみのため常に表示） ═══ -->
     <div id="photoSection" style="display:none">
       <div class="card">
         <div class="card-title"><span class="icon">📸</span><span id="t_s_photo">SNS撮影同意</span></div>
@@ -1212,6 +1092,8 @@ const CONFIG = {
 /* ============================================================
    STATE
    ============================================================ */
+// 2026-09-27 撤去: visitTypeChoice / foundPatient / lookupCandidates は削除
+// (2回目以降フロー削除により、常に 'first' 扱い)
 const Q = {
   lang: 'ja',
   submitting: false,
@@ -1219,13 +1101,10 @@ const Q = {
   baseImageData: null,
   canvasDrawn: false,
   sigDrawn: false,
-  visitType: null,
-  foundPatient: null,   // { customerId, patientNum, name, furigana, email }
-  nameFieldsVisible: false,
+  visitType: 'first',       // 常に 'first' 固定
+  nameFieldsVisible: true,  // 初回客は常に名前入力を開示
   customerId: null,
   patientNum: null,
-  lookupCandidates: [],
-  visitTypeChoice: null, // 'first' | 'return' | null(未選択)
 };
 
 /* ============================================================
@@ -1265,7 +1144,6 @@ function applyTexts() {
   document.title = l.pageTitle;
   set('heroTitle', l.heroTitle);
   set('t_namePhone', l.t_namePhone);
-  set('t_selectPatient', l.t_selectPatient);
   set('lbl_nameGroup', l.lbl_nameGroup); set('lbl_sei', l.lbl_sei); set('lbl_mei', l.lbl_mei);
   set('lbl_furiganaGroup', l.lbl_furiganaGroup); set('lbl_seiKana', l.lbl_seiKana); set('lbl_meiKana', l.lbl_meiKana);
   set('lbl_nameGroup_p1', l.lbl_nameGroup);
@@ -1274,17 +1152,13 @@ function applyTexts() {
   set('lbl_furiganaGroup_p1', l.lbl_furiganaGroup);
   set('lbl_seiKana_p1', l.lbl_seiKana);
   set('lbl_meiKana_p1', l.lbl_meiKana);
-  // 名前・フリガナグループ: 照合失敗後 or 新規客(first)フロー時に表示
+  // 2026-09-27 撤去: 初回客専用のため名前・電話番号は常に開示、フリガナは ja のみ表示
   const nameGrp = document.getElementById('p1NameGroup');
-  if (nameGrp) nameGrp.style.display = Q.nameFieldsVisible ? '' : 'none';
+  if (nameGrp) nameGrp.style.display = '';
   const kanaGrp = document.getElementById('p1KanaGroup');
-  if (kanaGrp) kanaGrp.style.display = (Q.nameFieldsVisible && Q.lang === 'ja') ? '' : 'none';
+  if (kanaGrp) kanaGrp.style.display = Q.lang === 'ja' ? '' : 'none';
   const phoneGrp = document.getElementById('phoneGroup');
-  // 新規客(first)は名前と電話番号を同時に表示する
-  if (phoneGrp) {
-    const showPhone = !Q.nameFieldsVisible || Q.visitTypeChoice === 'first';
-    phoneGrp.style.display = showPhone ? '' : 'none';
-  }
+  if (phoneGrp) phoneGrp.style.display = '';
   set('furigana_hint', l.furigana_hint); set('phone_hint', l.phone_hint);
   set('consent_disclaimer', l.consent_disclaimer);
   const _dp = document.getElementById('detail_pregnant_text');     if (_dp)  _dp.placeholder  = l.ph_detail_pregnant  || '';
@@ -1294,6 +1168,8 @@ function applyTexts() {
   const _di = document.getElementById('detail_recent_injury_text'); if (_di)  _di.placeholder  = l.ph_detail_injury     || '';
   const _fb = document.getElementById('furiganaBadge');
   if (_fb) { _fb.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb.textContent = Q.lang === 'ja' ? l.req : l.opt; }
+  const _fb1 = document.getElementById('p1KanaBadge');
+  if (_fb1) { _fb1.className = Q.lang === 'ja' ? 'badge-req' : 'badge-opt'; _fb1.textContent = Q.lang === 'ja' ? l.req : l.opt; }
   set('lbl_phone', l.lbl_phone);
   const _sei = document.getElementById('sei_p1'); if (_sei) _sei.placeholder = l.ph_sei || '';
   const _mei = document.getElementById('mei_p1'); if (_mei) _mei.placeholder = l.ph_mei || '';
@@ -1305,23 +1181,9 @@ function applyTexts() {
   const _meiK2 = document.getElementById('meiKana_p2'); if (_meiK2) _meiK2.placeholder = l.ph_meiKana || '';
   const _ph = document.getElementById('phone'); if (_ph) _ph.placeholder = l.ph_phone || '';
   set('l_lookup', l.l_lookup); set('t_lookingUp', l.t_lookingUp);
-  set('t_confirmInfo', l.t_confirmInfo); set('t_confirmInfoQ', l.t_confirmInfoQ);
-  set('t_infoNoChange', l.t_infoNoChange); set('t_infoHasChange', l.t_infoHasChange);
-  set('btn_back_to_phone_info', l.btn_back_to_phone);
   set('btn_back_to_phone_p2', l.btn_back_to_phone);
-  set('t_editInfo', l.t_editInfo); set('t_editSave', l.t_editSave); set('t_updating', l.t_updating);
-  set('btn_back_to_confirm_edit', l.btn_back_to_confirm);
-  set('lbl_editName', l.lbl_editName); set('lbl_editKana', l.lbl_editKana);
-  set('lbl_editPhone', l.lbl_editPhone); set('lbl_editEmail', l.lbl_editEmail);
-  const editKanaGrp = document.getElementById('editKanaGroup');
-  if (editKanaGrp) editKanaGrp.style.display = Q.lang === 'ja' ? '' : 'none';
+  // 2026-09-27 撤去: 2回目以降フロー削除により、確認カード / 情報変更 / 再来院バナー / コース / 変化 の翻訳セットは不要
   set('t_firstBanner', l.t_firstBanner);
-  set('t_welcomeBack', l.t_welcomeBack); set('t_welcomeSub', l.t_welcomeSub);
-  set('t_course', l.t_course);
-  set('course_chiro', l.course_chiro); set('course_fascia', l.course_fascia);
-  set('course_cupping', l.course_cupping); set('course_total', l.course_total);
-  set('t_changes', l.t_changes); set('t_changesQ', l.t_changesQ);
-  set('changes_no', l.changes_no); set('changes_yes', l.changes_yes);
   set('t_basic', l.t_basic);
   set('lbl_dob', l.lbl_dob);
   document.querySelectorAll('.badge-req').forEach(el => el.textContent = l.req);
@@ -1537,13 +1399,10 @@ function formatPhone(input) {
    LOOKUP FLOW
    ============================================================ */
 function onPhoneBlur() {
+  // 2026-09-27 撤去: 初回客専用のため phone blur 時の名前フィールドリセット不要。
+  // 電話番号が十分な長さになれば lookupPatient() を発火して照合(既存患者ならエラー)。
   const rawPhone = document.getElementById('phone').value.trim();
   if (!rawPhone) return;
-  // 電話番号が変わったら名前フィールド表示状態をリセット
-  if (Q.nameFieldsVisible) {
-    Q.nameFieldsVisible = false;
-    applyTexts();
-  }
   const phone = normPhone(rawPhone);
   if (phone.length >= 7) {
     lookupPatient();
@@ -1565,79 +1424,19 @@ function validateP1Name() {
   return ok;
 }
 
-/* ────────────── 新規/既存 選択フロー ────────────── */
-function chooseVisitType(type) {
-  // type: 'first'(初めて) or 'return'(2回目以降)
-  Q.visitTypeChoice = type;
-  document.getElementById('visitTypeChoiceCard').style.display = 'none';
-
-  if (type === 'first') {
-    // 新規: 電話番号カード + 氏名入力を表示
-    document.getElementById('phoneCard').style.display = '';
-    document.getElementById('lookupBtnCard').style.display = 'block';
-    revealNameFieldsForFirstVisit();
-  } else {
-    // 既存: 電話番号入力のみ(氏名は非表示)
-    document.getElementById('phoneCard').style.display = '';
-    document.getElementById('lookupBtnCard').style.display = 'block';
-    Q.nameFieldsVisible = false;
-    document.getElementById('phoneGroup').style.display = '';
-    document.getElementById('p1NameGroup').style.display = 'none';
-    document.getElementById('p1KanaGroup').style.display = 'none';
-    document.getElementById('phone').focus();
-  }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function backToVisitChoice() {
-  Q.visitTypeChoice = null;
-  Q.nameFieldsVisible = false;
-  Q.foundPatient = null;
-  document.getElementById('visitTypeChoiceCard').style.display = '';
-  document.getElementById('phoneCard').style.display = 'none';
-  document.getElementById('lookupBtnCard').style.display = 'none';
-  document.getElementById('patientInfoCard').style.display = 'none';
-  document.getElementById('patientEditCard').style.display = 'none';
-  document.getElementById('phoneGroup').style.display = '';
-  document.getElementById('p1NameGroup').style.display = 'none';
-  document.getElementById('p1KanaGroup').style.display = 'none';
-  document.getElementById('phone').value = '';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// 新規客用: 氏名フィールドを即開示(電話番号も残す)
-function revealNameFieldsForFirstVisit() {
-  Q.nameFieldsVisible = true;
-  document.getElementById('phoneGroup').style.display = '';  // 新規でも電話番号は必要
-  document.getElementById('p1NameGroup').style.display = '';
-  if (Q.lang === 'ja') document.getElementById('p1KanaGroup').style.display = '';
-}
+/* ────────────── 初回客専用フロー ──────────────
+   2026-09-27 撤去: 2回目以降フロー削除。
+   - chooseVisitType / backToVisitChoice / revealNameFields / showPatientInfo
+     / onInfoNoChange / onInfoChange / onInfoEditSave / backToPatientInfo
+     / backToPhoneInput は削除
+   - lookupPatient は「電話番号が既存患者と一致した場合はエラー」表示のみに単純化
+   ------------------------------------------------ */
 
 async function lookupPatient() {
-  // 名前フィールドが表示済み = 照合失敗後 or 新規客の初回フロー確定ステップ
-  if (Q.nameFieldsVisible) {
-    if (!validateP1Name()) return;
-    // 新規客(first)フローでは電話番号も同時入力なので必須バリデーション
-    if (Q.visitTypeChoice === 'first') {
-      const phone2 = normPhone(document.getElementById('phone').value);
-      const rawPhone2 = document.getElementById('phone').value.trim()
-        .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
-        .replace(/[－]/g, '-');
-      if (!phone2) { showErr('e_phone', L('e_phone'), 'phone'); return; }
-      if (!PHONE_PATTERNS[Q.lang].test(rawPhone2.replace(/[-\s]/g, ''))) {
-        showErr('e_phone', L('e_phone'), 'phone'); return;
-      }
-      clearErr('e_phone', 'phone');
-    }
-    showPhase2('first', null, null, '');
-    return;
-  }
-
-  // 前回の照合結果をリセット
-  Q.foundPatient = null;
-  document.getElementById('patientInfoCard').style.display = 'none';
-  document.getElementById('patientEditCard').style.display = 'none';
-  document.getElementById('lookupBtnCard').style.display = 'block';
+  // 初回客専用: 氏名 + 電話番号を検証してから照合。
+  //  - 電話番号が既存患者と一致 → エラー(受付にお声がけください)
+  //  - 未登録 → showPhase2 で本編に進む
+  if (!validateP1Name()) return;
 
   const phone    = normPhone(document.getElementById('phone').value);
   const rawPhone = document.getElementById('phone').value.trim()
@@ -1660,12 +1459,7 @@ async function lookupPatient() {
     await new Promise(r => setTimeout(r, 700));
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
-    const demoType = new URLSearchParams(window.location.search).get('demo');
-    if (demoType === 'return') {
-      showPatientInfo({ customerId: 'demo-id', patientNum: 'P001', name: '田中 太郎', furigana: 'タナカ タロウ', email: 'tanaka@example.com' });
-    } else {
-      revealNameFields();
-    }
+    showPhase2();
     return;
   }
 
@@ -1675,15 +1469,11 @@ async function lookupPatient() {
     btn.disabled = false;
     if (!data.success) { toast(L('err_lookup'), 'error'); return; }
     if (data.found) {
-      showPatientInfo(data);
-    } else {
-      // 「2回目以降」を選んだのに登録が見つからない場合はエラー表示
-      if (Q.visitTypeChoice === 'return') {
-        toast(L('t_not_found_returning') || '登録が見つかりませんでした。初めての方は上に戻り「初めて」を選択してください', 'error');
-        return;
-      }
-      revealNameFields();
+      // 電話番号が既存患者と一致 → 進めずエラー表示
+      toast(L('err_phone_registered') || 'この電話番号は既にご登録があります。受付にお声がけください。', 'error');
+      return;
     }
+    showPhase2();
   } catch {
     document.getElementById('lookupLoading').style.display = 'none';
     btn.disabled = false;
@@ -1691,162 +1481,38 @@ async function lookupPatient() {
   }
 }
 
-function showPatientInfo(data) {
-  Q.foundPatient = data;
-  const disp = document.getElementById('patientInfoDisplay');
-  const phone = document.getElementById('phone').value.trim();
-  const rows = [
-    [L('lbl_nameGroup') || '名前', data.name || '—'],
-    [L('lbl_phone')     || '電話', phone || '—'],
-  ];
-  if (data.email) rows.push([L('lbl_email') || 'メール', data.email]);
-  disp.innerHTML = rows.map(([k, v]) =>
-    '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:6px 0">' +
-    '<span style="opacity:0.6;min-width:56px;font-size:0.85rem">' + escHtml(k) + '</span>' +
-    '<span style="font-weight:600">' + escHtml(v) + '</span></div>'
-  ).join('');
-  document.getElementById('patientInfoCard').style.display = 'block';
-  document.getElementById('lookupBtnCard').style.display = 'none';
-  document.getElementById('patientInfoCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function onInfoNoChange() {
-  const p = Q.foundPatient;
-  showPhase2('return', p.customerId, p.patientNum, p.name);
-}
-
-function onInfoChange() {
-  const p = Q.foundPatient;
-  document.getElementById('edit_name').value  = p.name || '';
-  document.getElementById('edit_kana').value  = p.furigana || '';
-  document.getElementById('edit_phone').value = document.getElementById('phone').value.trim();
-  document.getElementById('edit_email').value = p.email || '';
-  document.getElementById('patientInfoCard').style.display = 'none';
-  document.getElementById('patientEditCard').style.display = 'block';
-  document.getElementById('patientEditCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-async function onInfoEditSave() {
-  const name  = document.getElementById('edit_name').value.trim();
-  const kana  = document.getElementById('edit_kana').value.trim();
-  const phone = normPhone(document.getElementById('edit_phone').value);
-  const email = document.getElementById('edit_email').value.trim();
-
-  if (document.getElementById('edit_phone').value.trim() && !phone) {
-    showErr('e_edit_phone', L('e_phone'), 'edit_phone'); return;
-  }
-  clearErr('e_edit_phone', 'edit_phone');
-
-  const saveBtn = document.getElementById('editSaveBtn');
-  saveBtn.disabled = true;
-  document.getElementById('editLoading').style.display = 'block';
-
-  try {
-    // phone = 認証用の登録済み電話番号(所有権証明・GAS 側で照合)
-    // newPhone = 変更後の電話番号(ユーザーが電話も変更した場合のみ)
-    const payload = { action: 'updateCustomerInfo', customerId: Q.foundPatient.customerId, phone: Q.foundPatient.phone, lang: Q.lang, env: CONFIG.ENV_PARAM, email };
-    if (name)  payload.name     = name;
-    if (kana)  payload.furigana = kana;
-    if (phone && phone !== Q.foundPatient.phone) payload.newPhone = phone;
-
-    const res = await gasPost(CONFIG.GAS_URL, payload, 15000);
-    document.getElementById('editLoading').style.display = 'none';
-    if (!res.success) { toast(res.error || L('err_srv'), 'error'); saveBtn.disabled = false; return; }
-
-    if (name)  Q.foundPatient.name     = name;
-    if (kana)  Q.foundPatient.furigana = kana;
-    if (phone) Q.foundPatient.phone    = phone;
-    Q.foundPatient.email = email;
-
-    showPhase2('return', Q.foundPatient.customerId, Q.foundPatient.patientNum, Q.foundPatient.name);
-  } catch {
-    document.getElementById('editLoading').style.display = 'none';
-    saveBtn.disabled = false;
-    toast(L('err_net'), 'error');
-  }
-}
-
-function backToPatientInfo() {
-  document.getElementById('patientEditCard').style.display = 'none';
-  document.getElementById('patientInfoCard').style.display = 'block';
-  document.getElementById('patientInfoCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function backToPhoneInput() {
-  document.getElementById('patientInfoCard').style.display = 'none';
-  document.getElementById('patientEditCard').style.display = 'none';
-  document.getElementById('lookupBtnCard').style.display = 'block';
-}
-
 function backToPhase1() {
   document.getElementById('phase2').style.display = 'none';
   document.getElementById('phase1').style.display = 'block';
-  document.getElementById('patientInfoCard').style.display = 'none';
-  document.getElementById('patientEditCard').style.display = 'none';
-
-  if (Q.visitTypeChoice === 'first') {
-    // 新規客: 電話番号 + 氏名入力に戻す
-    document.getElementById('phoneCard').style.display = '';
-    document.getElementById('lookupBtnCard').style.display = 'block';
-    revealNameFieldsForFirstVisit();
-  } else if (Q.visitTypeChoice === 'return') {
-    // 既存客: 電話番号入力に戻す
-    document.getElementById('lookupBtnCard').style.display = 'block';
-    document.getElementById('phoneCard').style.display = '';
-    document.getElementById('phoneGroup').style.display = '';
-    document.getElementById('p1NameGroup').style.display = 'none';
-    document.getElementById('p1KanaGroup').style.display = 'none';
-    Q.nameFieldsVisible = false;
-  } else {
-    // フォールバック: 完全リセット
-    if (typeof backToVisitChoice === 'function') backToVisitChoice();
-  }
+  document.getElementById('phoneCard').style.display = '';
+  document.getElementById('lookupBtnCard').style.display = 'block';
+  document.getElementById('phoneGroup').style.display = '';
+  document.getElementById('p1NameGroup').style.display = '';
+  if (Q.lang === 'ja') document.getElementById('p1KanaGroup').style.display = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function revealNameFields() {
-  Q.nameFieldsVisible = true;
-  document.getElementById('phoneGroup').style.display = 'none';
-  document.getElementById('p1NameGroup').style.display = '';
-  if (Q.lang === 'ja') document.getElementById('p1KanaGroup').style.display = '';
-  document.getElementById('p1NameGroup').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function showPhase2(visitType, customerId, patientNum, patientName) {
-  Q.visitType  = visitType;
-  Q.customerId = customerId;
-  Q.patientNum = patientNum;
+// 2026-09-27 撤去: showPhase2 は引数不要 (常に 'first' 扱い)
+// toggleChanges は削除 (changesCard を撤去したため)
+function showPhase2() {
+  Q.visitType  = 'first';
+  Q.customerId = null;
+  Q.patientNum = null;
 
   document.getElementById('phase1').style.display  = 'none';
   document.getElementById('phase2').style.display  = 'block';
 
-  // 前回フローの残留状態をリセット
-  document.getElementById('firstBanner').style.display    = 'none';
-  document.getElementById('returnBanner').style.display   = 'none';
-  document.getElementById('basicCard').style.display      = 'none';
-  document.getElementById('changesCard').style.display    = 'none';
-  document.getElementById('qSection').style.display       = 'none';
-  document.getElementById('photoSection').style.display   = 'none';
-  document.getElementById('consentSection').style.display = 'none';
+  document.getElementById('firstBanner').style.display    = 'flex';
+  document.getElementById('basicCard').style.display      = 'block';
+  document.getElementById('qSection').style.display       = 'block';
+  document.getElementById('photoSection').style.display   = 'block';
+  document.getElementById('consentSection').style.display = 'block';
+  // Name/furigana fields are hidden in phase2 (entered in phase1 instead)
+  document.getElementById('nameGroupWrap').style.display   = 'none';
+  document.getElementById('furiganaGroupWrap').style.display = 'none';
+  const hint = document.getElementById('firstWelcomeName');
+  if (hint) hint.textContent = '';
 
-  if (visitType === 'first') {
-    document.getElementById('firstBanner').style.display   = 'flex';
-    document.getElementById('basicCard').style.display     = 'block';
-    document.getElementById('qSection').style.display      = 'block';
-    document.getElementById('photoSection').style.display   = 'block';
-    document.getElementById('consentSection').style.display = 'block';
-    // Name/furigana fields are hidden in phase2 (entered in phase1 instead)
-    document.getElementById('nameGroupWrap').style.display   = 'none';
-    document.getElementById('furiganaGroupWrap').style.display = 'none';
-    const hint = document.getElementById('firstWelcomeName');
-    if (hint) hint.textContent = '';
-  } else {
-    document.getElementById('returnBanner').style.display  = 'flex';
-    document.getElementById('changesCard').style.display   = 'block';
-    // courseCard は施術記録シートで選択するため非表示
-    // consentSection は変化ありの場合のみ toggleChanges() で表示
-    if (patientName) document.getElementById('welcomeName').textContent = patientName;
-  }
   document.getElementById('todayDate').textContent = formatDate(Q.lang);
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1857,14 +1523,6 @@ function formatDate(lang) {
   const y = t.getFullYear(), m = t.getMonth() + 1, d = t.getDate();
   if (lang === 'ja') return `${y}年${m}月${d}日`;
   return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-}
-
-function toggleChanges() {
-  const val = document.querySelector('input[name="changes"]:checked')?.value;
-  clearErr('e_changes');
-  document.getElementById('qSection').style.display       = val === 'yes' ? 'block' : 'none';
-  document.getElementById('photoSection').style.display   = val === 'yes' ? 'block' : 'none';
-  document.getElementById('consentSection').style.display = val === 'yes' ? 'block' : 'none';
 }
 
 /* ============================================================
@@ -2102,18 +1760,11 @@ function clearSig() {
    VALIDATION
    ============================================================ */
 function validate() {
-  if (!Q.visitType) return false;
+  // 2026-09-27 撤去: 2回目以降フロー削除。常に visitType='first' で validation 実施。
   let ok = true;
+  const showQ = true;
 
-  const showQ = Q.visitType === 'first' || document.querySelector('input[name="changes"]:checked')?.value === 'yes';
-
-  if (Q.visitType === 'return') {
-    if (!document.querySelector('input[name="changes"]:checked')) {
-      showErr('e_changes', L('e_changes')); ok = false;
-    } else clearErr('e_changes');
-  }
-
-  if (Q.visitType === 'first') {
+  {
     const sei = normName(document.getElementById('sei_p1').value);
     const mei = normName(document.getElementById('mei_p1').value);
     if (!sei) { showErr('e_sei_p1', L('e_sei'), 'sei_p1'); ok = false; } else clearErr('e_sei_p1', 'sei_p1');
@@ -2246,10 +1897,8 @@ async function submitQuestionnaire() {
   document.getElementById('loadingRow').style.display = 'block';
   showQuSubmitBlocker();
 
-  const showQ = Q.visitType === 'first' || document.querySelector('input[name="changes"]:checked')?.value === 'yes';
-  const hasChanges = document.querySelector('input[name="changes"]:checked')?.value || '';
-  const consentVisible = document.getElementById('consentSection').style.display !== 'none';
-
+  // 2026-09-27 撤去: 2回目以降フロー削除により visitType は 'first' 固定、
+  // hasChanges / courseId / changesCard 経由の分岐は不要
   const dob_y = document.getElementById('dob_y').value;
   const dob_m = document.getElementById('dob_m').value;
   const dob_d = document.getElementById('dob_d').value;
@@ -2258,48 +1907,48 @@ async function submitQuestionnaire() {
     : '';
 
   const today = new Date().toISOString().split('T')[0];
-  const _sei     = Q.visitType === 'first' ? normName(document.getElementById('sei_p1').value) : '';
-  const _mei     = Q.visitType === 'first' ? normName(document.getElementById('mei_p1').value) : '';
-  const _seiKana = Q.visitType === 'first' ? toKatakana(normName(document.getElementById('seiKana_p1').value)) : '';
-  const _meiKana = Q.visitType === 'first' ? toKatakana(normName(document.getElementById('meiKana_p1').value)) : '';
+  const _sei     = normName(document.getElementById('sei_p1').value);
+  const _mei     = normName(document.getElementById('mei_p1').value);
+  const _seiKana = toKatakana(normName(document.getElementById('seiKana_p1').value));
+  const _meiKana = toKatakana(normName(document.getElementById('meiKana_p1').value));
 
   const payload = {
     action:     'submitAll',
     requestId:  CONFIG.requestId,
     lang:       Q.lang,
-    visitType:  Q.visitType,
-    customerId: Q.customerId || '',
-    patientNum: Q.patientNum || '',
+    visitType:  'first',
+    customerId: '',
+    patientNum: '',
     name:       (_sei + ' ' + _mei).trim(),
     furigana:   (_seiKana || _meiKana) ? (_seiKana + ' ' + _meiKana).trim() : '',
     phone:      normPhone(document.getElementById('phone').value),
     date:       today,
-    courseId:   document.querySelector('input[name="course"]:checked')?.value || '',
-    hasChanges,
+    courseId:   '',
+    hasChanges: '',
     dob,
     email:      document.getElementById('email').value.trim(),
     howFound:   document.querySelector('input[name="howFound"]:checked')?.value || '',
     referrerName:    document.getElementById('referrerName').value.trim(),
     howFoundOther:   document.getElementById('howFoundOther').value.trim(),
-    bodyImage: (() => { try { return showQ ? document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8) : ''; } catch { if (showQ) toast(L('err_canvas') || '人体図の保存に失敗しました', 'error'); return ''; } })(),
-    mainSymptom:      showQ ? [...document.querySelectorAll('input[name="mainSymptom"]:checked')].map(c => c.value) : [],
-    mainSymptomOther: showQ ? document.getElementById('mainSymptom_other_text').value.trim() : '',
-    symptomDuration:  showQ ? (() => { const v = document.querySelector('input[name="symptomDuration"]:checked')?.value || ''; return v === 'other' ? 'other: ' + (document.getElementById('dur_other_text').value.trim() || 'その他') : v; })() : '',
-    painLevel:        showQ ? parseInt(document.getElementById('painRange').value) : null,
-    safetyCheck:      showQ ? [...document.querySelectorAll('input[name="safety"]:checked')].map(c => c.value) : [],
-    safetyNote:       showQ ? document.getElementById('safetyNote').value.trim() : '',
-    safetyDetail: showQ ? {
+    bodyImage: (() => { try { return document.getElementById('bodyCanvas').toDataURL('image/jpeg', 0.8); } catch { toast(L('err_canvas') || '人体図の保存に失敗しました', 'error'); return ''; } })(),
+    mainSymptom:      [...document.querySelectorAll('input[name="mainSymptom"]:checked')].map(c => c.value),
+    mainSymptomOther: document.getElementById('mainSymptom_other_text').value.trim(),
+    symptomDuration:  (() => { const v = document.querySelector('input[name="symptomDuration"]:checked')?.value || ''; return v === 'other' ? 'other: ' + (document.getElementById('dur_other_text').value.trim() || 'その他') : v; })(),
+    painLevel:        parseInt(document.getElementById('painRange').value),
+    safetyCheck:      [...document.querySelectorAll('input[name="safety"]:checked')].map(c => c.value),
+    safetyNote:       document.getElementById('safetyNote').value.trim(),
+    safetyDetail: {
       pregnant:      document.getElementById('detail_pregnant_text').value.trim(),
       hospital:      document.getElementById('detail_hospital_text').value.trim(),
       blood_thinner: document.getElementById('detail_blood_thinner_text').value.trim(),
       numbness:      document.getElementById('detail_numbness_text').value.trim(),
       recent_injury: document.getElementById('detail_recent_injury_text').value.trim(),
-    } : {},
-    treatmentGoal:    showQ ? (document.querySelector('input[name="treatmentGoal"]:checked')?.value || '') : '',
-    treatmentStrength: showQ ? (document.querySelector('input[name="treatmentStrength"]:checked')?.value || '') : '',
-    dislikedTreatment: showQ ? [...document.querySelectorAll('input[name="disliked"]:checked')].map(c => c.value) : [],
-    consentAgreed:  consentVisible ? document.getElementById('consentCheck').checked : true,
-    signatureImage: consentVisible ? (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { toast(L('err_canvas') || '署名の保存に失敗しました', 'error'); return ''; } })() : '',
+    },
+    treatmentGoal:    document.querySelector('input[name="treatmentGoal"]:checked')?.value || '',
+    treatmentStrength: document.querySelector('input[name="treatmentStrength"]:checked')?.value || '',
+    dislikedTreatment: [...document.querySelectorAll('input[name="disliked"]:checked')].map(c => c.value),
+    consentAgreed:  document.getElementById('consentCheck').checked,
+    signatureImage: (() => { try { return document.getElementById('sigCanvas').toDataURL('image/png'); } catch { toast(L('err_canvas') || '署名の保存に失敗しました', 'error'); return ''; } })(),
     consentDate:    today,
     photoConsent:   document.querySelector('input[name="photoConsent"]:checked')?.value || '',
     facePreference: document.querySelector('input[name="facePreference"]:checked')?.value || '',

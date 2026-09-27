@@ -2076,7 +2076,7 @@ function syncToNotion() {
   //  一度実行したら _counters_backfilled_vN フラグで再実行しない(冪等)
   //  v3: 詳細トレース出力を _sync F1/G1 に書き込む
   try {
-    var countersKey = '_counters_backfilled_v3';
+    var countersKey = '_counters_backfilled_v4';
     var scriptProps4 = PropertiesService.getScriptProperties();
     if (!scriptProps4.getProperty(countersKey)) {
       var backfillRes = backfillAllCustomerCounters(cfg);
@@ -5023,7 +5023,7 @@ function updateCustomerCounters(ss, customerId) {
       // 累計来院数 / 最終来院日
       if (trCid === String(customerId)
           && trType === 'record'
-          && String(tr[TR.count_eligible]) === 'TRUE') {
+          && String(tr[TR.count_eligible]).toUpperCase() === 'TRUE') {
         totalVisits++;
         var d = toDateStr(tr[TR.date]);
         if (d && d > lastVisit) lastVisit = d;
@@ -5031,7 +5031,7 @@ function updateCustomerCounters(ss, customerId) {
       // 累計紹介人数(自分が紹介者になっている record 行の件数)
       if (String(tr[TR.referrer_customer_id]) === String(customerId)
           && trType === 'record'
-          && String(tr[TR.count_eligible]) === 'TRUE') {
+          && String(tr[TR.count_eligible]).toUpperCase() === 'TRUE') {
         totalReferrals++;
       }
     }

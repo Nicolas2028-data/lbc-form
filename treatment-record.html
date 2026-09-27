@@ -767,19 +767,7 @@
         </div>
       </div>
 
-      <!-- 前回から変化 (2026-09-27 追加: 再来院者の変化有無) -->
-      <div class="card" id="changeCard">
-        <div class="card-title"><span>🔁</span>前回から変化</div>
-        <div class="payment-list">
-          <label class="payment-item">
-            <input type="radio" name="changeFromLast" value="変化なし" checked> 🟢 変化なし
-          </label>
-          <label class="payment-item">
-            <input type="radio" name="changeFromLast" value="変化あり"> 🟠 変化あり
-          </label>
-        </div>
-        <p style="margin-top:8px;font-size:0.85rem;color:var(--text-sub)">※ 変化ありのときは下の施術メモに詳細を記入してください</p>
-      </div>
+      <!-- 前回から変化 は check-in タイミング (Notion カルテで) に設定する運用に変更 (2026-09-27 撤去) -->
 
       <!-- no-show 理由入力 (attended=no 時のみ表示) -->
       <div class="card" id="noShowReasonCard" style="display:none">
@@ -1389,8 +1377,7 @@ async function submitRecord() {
 
   // 施術有無トグル(2026-09-26 追加)
   const attended = (document.querySelector('input[name="attended"]:checked')?.value) !== 'no';
-  // 前回から変化(2026-09-27 追加): 施術を受けた場合のみ有効
-  const changeFromLast = (document.querySelector('input[name="changeFromLast"]:checked')?.value) || '';
+  // 前回から変化 は check-in 時 (Notion カルテ) で設定する運用に変更 (2026-09-27 撤去)
 
   let ok = true;
   let courseId, paymentMethod, salesAmount, memo, noShowReason;
@@ -1448,7 +1435,6 @@ async function submitRecord() {
       paymentMethod:   paymentMethod || '',
       salesAmount:     attended ? Number(salesAmount) : 0,
       treatmentMemo:   memo || '',
-      changeFromLast:  attended ? changeFromLast : '',
       referrerId:      attended ? (S.referrerId || null) : null,
       referrerName:    attended ? (S.referrerName || null) : null,
       referralDiscount: attended ? S.referralApplied : false,

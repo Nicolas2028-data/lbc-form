@@ -1458,7 +1458,7 @@ function handleSubmitTreatmentRecord(data, cfg) {
     [TR.course]:               attended ? courseLabel : '',
     [TR.sales]:                attended ? salesNum : 0, // salesNum は既に isFinite でガード済 (H2 fix)
     [TR.payment]:              attended ? (data.paymentMethod || '') : '',
-    [TR.memo]:                 attended ? sanitizeSheetInput((data.changeFromLast ? '【' + String(data.changeFromLast) + '】' : '') + (data.treatmentMemo || '')) : ('no-show 理由: ' + noShowReason),
+    [TR.memo]:                 attended ? sanitizeSheetInput(data.treatmentMemo || '') : ('no-show 理由: ' + noShowReason),
     [TR.has_questionnaire]:    'FALSE',
     [TR.credit_used]:          attended ? (Number(data.creditUsed) || 0) : 0,
     [TR.referrer_customer_id]: attended ? (data.referrerId || '') : '',
@@ -2175,9 +2175,8 @@ function syncTreatment(ss, cfg) {
       if (r[TR.sales] !== '') props['売上金額']   = { number: Number(r[TR.sales]) };
       if (r[TR.payment])      props['支払い方法'] = { select: { name: String(r[TR.payment]) } };
       if (r[TR.memo])         props['施術メモ']   = richText(String(r[TR.memo]));
-      // 2026-09-27: 施術メモ先頭の【変化なし/変化あり】マーカーから「前回から変化」select を反映
-      var _chg = String(r[TR.memo] || '').match(/^【(変化なし|変化あり)】/);
-      if (_chg) props['前回から変化'] = { select: { name: _chg[1] } };
+      // 2026-09-27 撤去: 前回から変化 は check-in 時に Notion カルテで直接設定する運用
+      //  → syncTreatment から書き戻しすると check-in の値を上書きする危険があるため取得のみ
       // 2026-09-26 修正 M4: 0 も明示的な値として同期(訂正ケースで stale 値が残るのを防ぐ)
       if (r[TR.credit_used] !== '') props['クレジット使用額'] = { number: Number(r[TR.credit_used]) || 0 };
       if (r[TR.referrer_customer_id]) {
@@ -2549,11 +2548,9 @@ function _pollNotionKarteImportOne(ss, cfg, page) {
   if (props['施術メモ'] && props['施術メモ'].rich_text && props['施術メモ'].rich_text.length > 0) {
     memoRaw = String(props['施術メモ'].rich_text.map(function(x){return x.plain_text||'';}).join(''));
   }
-  var changeMarker = (props['前回から変化'] && props['前回から変化'].select && props['前回から変化'].select.name) || '';
+  // 2026-09-27 撤去: 前回から変化 は Notion 側が source of truth。sheet memo にマーカー付与しない
+  //  (syncTreatment の書き戻しロジックも撤去済み、check-in 時の Notion 値が保持される)
   var memoWithMarker = memoRaw;
-  if (changeMarker && !/^【(変化なし|変化あり)】/.test(memoRaw)) {
-    memoWithMarker = '【' + changeMarker + '】' + memoRaw;
-  }
 
   // 紹介者 customer_id: 「田中太郎 (P006)」形式から抽出
   var referrerId = '';

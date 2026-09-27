@@ -307,6 +307,31 @@ function isValidPhone(normalized) {
   return /^0\d{9,10}$/.test(normalized);
 }
 
+// 氏名正規化（照合用）。全角英数→半角、空白除去、ラテン文字は小文字化。
+// 例: "山田 太郎" / "山田　太郎" → "山田太郎"、"Lucas Silva" → "lucassilva"
+function normalizeName(raw) {
+  if (!raw) return '';
+  var s = String(raw);
+  s = s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+  s = s.replace(/　/g, ' ');   // 全角スペース→半角
+  s = s.replace(/\s+/g, '');        // 空白すべて除去
+  return s.toLowerCase();           // ラテン文字のみ影響（日本語は不変）
+}
+
+// 電話番号でヒットした候補から氏名一致で 1 件を選ぶ（家族共用番号対策）。
+//  - 氏名未指定時は従来どおり先頭を返す（重複作成を避ける安全側）
+//  - 氏名指定あり・一致ありは該当候補
+//  - 氏名指定あり・一致なしは null（呼び出し側で新規顧客として採番する）
+function matchCustomerByName(matches, name) {
+  if (!matches || !matches.length) return null;
+  var target = normalizeName(name);
+  if (!target) return matches[0];
+  for (var i = 0; i < matches.length; i++) {
+    if (normalizeName(String(matches[i].row[CM.name])) === target) return matches[i];
+  }
+  return null;
+}
+
 /* ============================================================
    採番（LockService 保護）
    ============================================================ */
@@ -847,9 +872,15 @@ function handleSubmitAll(data, cfg) {
       if (matched.length === 1) {
         customerId = String(matched[0].row[CM.customer_id]);
       } else if (matched.length > 1) {
-        // 複数ヒット: フロントが選択した customerId を使用（整合チェック）
+        // 複数ヒット（家族共用番号）: フロント選択 customerId を優先。
+        // 候補外（stale）なら氏名一致で救済し、それも無ければ先頭。
         var ids = matched.map(function(m) { return String(m.row[CM.customer_id]); });
-        customerId = ids.indexOf(data.customerId) >= 0 ? data.customerId : ids[0];
+        if (ids.indexOf(data.customerId) >= 0) {
+          customerId = data.customerId;
+        } else {
+          var nm = matchCustomerByName(matched, data.name);
+          customerId = nm ? String(nm.row[CM.customer_id]) : ids[0];
+        }
       } else if (data.customerId) {
         customerId = data.customerId; // 電話番号不明の場合フロント値を補助的に使用
       }
@@ -863,18 +894,21 @@ function handleSubmitAll(data, cfg) {
         if (Object.keys(upd).length) updateCustomerRow(ss, existing.rowIndex, upd);
       }
     } else {
-      // 初回 or 再来院フォールバック: 電話番号で照合
+      // 初回 or 再来院フォールバック: 電話番号 + 氏名で照合
+      // 家族が電話番号を共有しているケースで、電話番号だけで先頭顧客に
+      // 誤マージ（他人のカルテ・生年月日の上書き）が起きるのを防ぐ。
       var existingMatches = phone ? findCustomersByPhone(ss, phone) : [];
-      if (existingMatches.length >= 1) {
-        customerId = String(existingMatches[0].row[CM.customer_id]);
+      var nameMatch = matchCustomerByName(existingMatches, data.name);
+      if (nameMatch) {
+        customerId = String(nameMatch.row[CM.customer_id]);
         var upd2 = {};
         if (data.dob)      upd2[CM.dob]      = data.dob;
         if (data.furigana) upd2[CM.furigana]  = data.furigana;
         if (data.lang)     upd2[CM.lang]      = data.lang;
         if (data.howFound) upd2[CM.how_found] = data.howFound;
-        if (Object.keys(upd2).length) updateCustomerRow(ss, existingMatches[0].rowIndex, upd2);
+        if (Object.keys(upd2).length) updateCustomerRow(ss, nameMatch.rowIndex, upd2);
       } else {
-        // 新規作成（ロック内）
+        // 新規作成（ロック内）。電話一致・氏名不一致（＝家族の別メンバー）もここ。
         customerId = nextCustomerId(ss);
         appendCustomer(ss, data, customerId);
         incSyncCounter(ss);

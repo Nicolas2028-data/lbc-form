@@ -5043,6 +5043,8 @@ function testMonthly2Detection() {
 
 /* ============================================================
    ダッシュボード集計APIハンドラー
+   2026-09-27 refactor: lean 版へ書き換え
+   売上・来客数特化 (直近6ヶ月/3ヶ月, 前月比%, 移動平均, コース売上ランキング)
    ============================================================ */
 function handleGetDashboardData(cfg) {
   // 顧客マスタ: pageId → 初回訪問月(YYYY-MM)
@@ -5054,19 +5056,22 @@ function handleGetDashboardData(cfg) {
     if (start) firstVisitMap[page.id] = start.slice(0, 7);
   });
 
-  // 施術カルテ: 全ページ取得して集計
+  // 施術カルテ: 全ページ取得
   var kartePages = notionQueryAll(cfg, cfg.KARTE_DB_ID, null, null);
 
-  var visits        = {}; // { 'YYYY-MM': { newKeys:{}, retKeys:{} } }
-  var sales         = {}; // { 'YYYY-MM': number }
-  var courses       = {}; // { コース名: count }
-  var payments      = {}; // { 支払い方法: count }
-  var totalSalesSum = 0;
-  var recordedCount = 0;
+  // 月別集計
+  //   visits[ym] = { newKeys:{}, retKeys:{} }        来院数
+  //   sales[ym]  = number                           月別売上
+  //   priceStat[ym] = { sum: number, count: number }  平均単価用
+  var visits    = {};
+  var sales     = {};
+  var priceStat = {};
+  // コース売上(月別) - 直近3ヶ月抽出用
+  //   courseSalesByMonth[ym] = { コース名: 売上 }
+  var courseSalesByMonth = {};
 
   kartePages.forEach(function(page) {
     var props = page.properties;
-
     var dateVal = props['日付'];
     var dateStr = dateVal && dateVal.date && dateVal.date.start;
     if (!dateStr) return;
@@ -5075,20 +5080,7 @@ function handleGetDashboardData(cfg) {
     var salesProp = props['売上金額'];
     var amount    = (salesProp && salesProp.number != null) ? salesProp.number : null;
 
-    if (amount != null) {
-      sales[ym]    = (sales[ym] || 0) + amount;
-      totalSalesSum += amount;
-      recordedCount++;
-
-      var cn = (props['コース'] && props['コース'].select) ? props['コース'].select.name : '未記入';
-      courses[cn] = (courses[cn] || 0) + 1;
-
-      var pn = (props['支払い方法'] && props['支払い方法'].select) ? props['支払い方法'].select.name : '未記入';
-      payments[pn] = (payments[pn] || 0) + 1;
-    } else {
-      if (!sales[ym]) sales[ym] = 0;
-    }
-
+    // 来院数(記録有無に関わらず全カルテを対象)
     if (!visits[ym]) visits[ym] = { newKeys: {}, retKeys: {} };
     var rel    = props['顧客マスタ'];
     var relIds = rel && rel.relation ? rel.relation.map(function(r) { return r.id; }) : [];
@@ -5096,23 +5088,90 @@ function handleGetDashboardData(cfg) {
     var fvYm   = custId ? (firstVisitMap[custId] || '') : '';
     var isNew  = fvYm && fvYm === ym;
     if (isNew) visits[ym].newKeys[page.id] = 1;
-    else       visits[ym].retKeys[page.id]  = 1;
+    else       visits[ym].retKeys[page.id] = 1;
+
+    // 売上・平均単価・コース売上は「完了カルテ(売上金額あり)」のみ
+    if (amount != null) {
+      sales[ym] = (sales[ym] || 0) + amount;
+      if (!priceStat[ym]) priceStat[ym] = { sum: 0, count: 0 };
+      priceStat[ym].sum   += amount;
+      priceStat[ym].count += 1;
+
+      var cn = (props['コース'] && props['コース'].select) ? props['コース'].select.name : '未記入';
+      if (!courseSalesByMonth[ym]) courseSalesByMonth[ym] = {};
+      courseSalesByMonth[ym][cn] = (courseSalesByMonth[ym][cn] || 0) + amount;
+    }
   });
 
-  var allYm  = Object.keys(Object.assign({}, visits, sales)).sort();
+  // 直近6ヶ月の月ラベルを生成(データがなくても 0 埋め)
+  //   最新月 = 現在月(=今月). 過去のデータしかなくても最新月起点で6ヶ月
+  var now = new Date();
+  function ymFromDate(d) {
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    return y + '-' + (m < 10 ? '0' + m : String(m));
+  }
+  function shiftMonth(d, delta) {
+    return new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  }
+
+  var months6 = [];
+  for (var i = 5; i >= 0; i--) months6.push(ymFromDate(shiftMonth(now, -i)));
+
+  var newVisits = months6.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].newKeys).length : 0; });
+  var retVisits = months6.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].retKeys).length : 0; });
+  var salesArr  = months6.map(function(ym) { return Math.round(sales[ym] || 0); });
+
+  // 3ヶ月移動平均(入手可能分で平均、null にしない)
+  var salesMA3 = salesArr.map(function(_, i) {
+    var start = Math.max(0, i - 2);
+    var slice = salesArr.slice(start, i + 1);
+    var sum = slice.reduce(function(a, b) { return a + b; }, 0);
+    return Math.round(sum / slice.length);
+  });
+
+  // 直近3ヶ月のコース別売上ランキング
+  var months3 = months6.slice(-3);
+  var courseAgg = {};
+  months3.forEach(function(ym) {
+    var byCourse = courseSalesByMonth[ym] || {};
+    Object.keys(byCourse).forEach(function(k) {
+      courseAgg[k] = (courseAgg[k] || 0) + byCourse[k];
+    });
+  });
+  var courseSales3m = Object.keys(courseAgg)
+    .map(function(k) { return { name: k, sales: Math.round(courseAgg[k]) }; })
+    .sort(function(a, b) { return b.sales - a.sales; });
+
+  // KPI: 当月 vs 前月
+  var curYm  = months6[5];
+  var prevYm = months6[4];
+
+  function safeVisits(ym) { return visits[ym] ? Object.keys(visits[ym].newKeys).length + Object.keys(visits[ym].retKeys).length : 0; }
+  function safeSales(ym)  { return Math.round(sales[ym] || 0); }
+  function safeNew(ym)    { return visits[ym] ? Object.keys(visits[ym].newKeys).length : 0; }
+  function safeAvg(ym)    { var s = priceStat[ym]; return (s && s.count > 0) ? Math.round(s.sum / s.count) : 0; }
+
+  function kpi(curVal, prevVal) {
+    var pct = null;
+    if (prevVal > 0) pct = Math.round((curVal - prevVal) / prevVal * 1000) / 10;
+    return { current: curVal, prev: prevVal, pct: pct };
+  }
+
   var result = {
-    months:        allYm,
-    newVisits:     allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].newKeys).length : 0; }),
-    retVisits:     allYm.map(function(ym) { return visits[ym] ? Object.keys(visits[ym].retKeys).length : 0; }),
-    sales:         allYm.map(function(ym) { return Math.round(sales[ym] || 0); }),
-    courses:       courses,
-    payments:      payments,
-    totalSales:    Math.round(totalSalesSum),
-    recordedCount: recordedCount,
-    totalVisits:   allYm.reduce(function(acc, ym) {
-      return acc + (visits[ym] ? Object.keys(visits[ym].newKeys).length + Object.keys(visits[ym].retKeys).length : 0);
-    }, 0),
-    updatedAt:     new Date().toISOString()
+    months:        months6,
+    newVisits:     newVisits,
+    retVisits:     retVisits,
+    sales:         salesArr,
+    salesMA3:      salesMA3,
+    courseSales3m: courseSales3m,
+    kpi: {
+      visits:   kpi(safeVisits(curYm), safeVisits(prevYm)),
+      sales:    kpi(safeSales(curYm),  safeSales(prevYm)),
+      newAcq:   kpi(safeNew(curYm),    safeNew(prevYm)),
+      avgPrice: kpi(safeAvg(curYm),    safeAvg(prevYm))
+    },
+    updatedAt: new Date().toISOString()
   };
 
   var output = ContentService.createTextOutput(JSON.stringify(result));

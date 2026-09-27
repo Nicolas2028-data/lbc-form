@@ -18,6 +18,7 @@
   <style>
     /* ============================================================
        LBC Care Dashboard — Apple-inspired Minimal (light theme)
+       2026-09-27 refactor: lean 版へ書き換え
        ============================================================ */
     :root {
       --bg:       #fbfbfd;
@@ -33,6 +34,7 @@
       --blue:     #0071e3;
       --purple:   #7b3fa9;
       --red:      #d70015;
+      --green-up: #248a3d;
       --text:     #1d1d1f;
       --sub:      #48484a;
       --faint:    #86868b;
@@ -51,7 +53,7 @@
       letter-spacing: -0.003em;
     }
 
-    /* ── Header (deep green) ── */
+    /* ── Header ── */
     header {
       background: linear-gradient(135deg, var(--pri-dk) 0%, var(--primary) 100%);
       color: #fff;
@@ -104,10 +106,10 @@
     }
     .section-label:first-child { margin-top: 0; }
 
-    /* ── KPI Cards ── */
+    /* ── KPI Cards (4 個) ── */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
     }
     .kpi {
@@ -130,7 +132,7 @@
     }
     .kpi.accent::before { background: var(--accent); }
     .kpi.blue::before   { background: var(--blue); }
-    .kpi.red::before    { background: var(--red); }
+    .kpi.purple::before { background: var(--purple); }
     .kpi-label { font-size: 0.72rem; color: var(--sub); margin-bottom: 10px; font-weight: 500; letter-spacing: -0.005em; }
     .kpi-val {
       font-size: 2rem;
@@ -143,9 +145,12 @@
     .kpi-val .unit { font-size: 0.85rem; font-weight: 500; color: var(--faint); margin-left: 4px; letter-spacing: normal; }
     .kpi.accent .kpi-val { color: var(--accent); }
     .kpi.blue   .kpi-val { color: var(--blue); }
-    .kpi.red    .kpi-val { color: var(--red); }
-    .kpi-sub { font-size: 0.7rem; color: var(--faint); margin-top: 8px; line-height: 1.45; }
-    .kpi-sub .warn { color: var(--accent); font-weight: 500; }
+    .kpi.purple .kpi-val { color: var(--purple); }
+    .kpi-sub { font-size: 0.72rem; margin-top: 10px; line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .kpi-sub .delta-up   { color: var(--green-up); }
+    .kpi-sub .delta-down { color: var(--red); }
+    .kpi-sub .delta-none { color: var(--faint); }
+    .kpi-sub .prev-note  { color: var(--faint); font-weight: 400; margin-left: 6px; }
 
     /* ── Charts ── */
     .charts-grid { display: grid; gap: 18px; }
@@ -173,9 +178,8 @@
       letter-spacing: 0.08em;
     }
     .chart-meta { font-size: 0.7rem; color: var(--faint); }
-    .chart-wrap          { position: relative; height: 240px; }
-    .chart-wrap.donut-h  { height: 220px; }
-    .chart-wrap.tall     { height: 280px; }
+    .chart-wrap        { position: relative; height: 260px; }
+    .chart-wrap.tall   { position: relative; height: 320px; }
     .no-data {
       display: flex; align-items: center; justify-content: center;
       height: 100%; font-size: 0.85rem; color: var(--faint);
@@ -243,18 +247,13 @@
 
   <div id="content" style="display:none">
 
-    <!-- KPI -->
-    <div class="section-label">今月のサマリー</div>
+    <!-- KPI: 4 個 (前月比 %) -->
+    <div class="section-label">今月のサマリー（前月比）</div>
     <div class="kpi-grid">
       <div class="kpi">
         <div class="kpi-label">当月来院数</div>
         <div class="kpi-val" id="kpiVisits"></div>
         <div class="kpi-sub" id="kpiVisitsSub"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">当月新規</div>
-        <div class="kpi-val" id="kpiNew"></div>
-        <div class="kpi-sub" id="kpiNewSub"></div>
       </div>
       <div class="kpi accent">
         <div class="kpi-label">当月売上</div>
@@ -262,87 +261,45 @@
         <div class="kpi-sub" id="kpiSalesSub"></div>
       </div>
       <div class="kpi blue">
-        <div class="kpi-label">累計来院</div>
-        <div class="kpi-val" id="kpiTotal"></div>
-        <div class="kpi-sub" id="kpiTotalSub"></div>
+        <div class="kpi-label">当月新規</div>
+        <div class="kpi-val" id="kpiNew"></div>
+        <div class="kpi-sub" id="kpiNewSub"></div>
       </div>
-      <div class="kpi">
+      <div class="kpi purple">
         <div class="kpi-label">平均客単価</div>
         <div class="kpi-val" id="kpiAvg"></div>
         <div class="kpi-sub" id="kpiAvgSub"></div>
       </div>
-      <div class="kpi accent">
-        <div class="kpi-label">累計売上</div>
-        <div class="kpi-val" id="kpiTotalSales"></div>
-        <div class="kpi-sub" id="kpiTotalSalesSub"></div>
-      </div>
     </div>
 
-    <!-- Monthly trends -->
-    <div class="section-label">月別推移</div>
+    <!-- 月別トレンド -->
+    <div class="section-label">月別トレンド（直近 6 ヶ月）</div>
     <div class="charts-grid two">
       <div class="chart-card">
         <div class="chart-head">
-          <div class="chart-title">月別来院数</div>
-          <div class="chart-meta" id="totalVisitsLabel"></div>
+          <div class="chart-title">月別来院数（新規 / 既存）</div>
+          <div class="chart-meta" id="visitsMeta"></div>
         </div>
         <div class="chart-wrap"><canvas id="chartVisits"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-head">
-          <div class="chart-title">月別売上</div>
-          <div class="chart-meta" id="totalSalesLabel"></div>
+          <div class="chart-title">月別売上 + 3ヶ月移動平均</div>
+          <div class="chart-meta" id="salesMeta"></div>
         </div>
         <div class="chart-wrap"><canvas id="chartSales"></canvas></div>
       </div>
     </div>
 
-    <!-- New vs Returning -->
-    <div class="charts-grid one" style="margin-top:16px">
+    <!-- コース売上ランキング -->
+    <div class="section-label">コース別売上ランキング（直近 3 ヶ月）</div>
+    <div class="charts-grid one">
       <div class="chart-card">
         <div class="chart-head">
-          <div class="chart-title">新規 / 既存 内訳</div>
-          <div class="chart-meta" id="breakdownMeta"></div>
-        </div>
-        <div class="chart-wrap tall"><canvas id="chartBreakdown"></canvas></div>
-      </div>
-    </div>
-
-    <!-- Breakdowns -->
-    <div class="section-label">施術内訳（記録済み）</div>
-    <div class="charts-grid two">
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">コース内訳</div>
+          <div class="chart-title">コース売上</div>
           <div class="chart-meta" id="courseMeta"></div>
         </div>
-        <div class="chart-wrap donut-h" id="courseWrap"><canvas id="chartCourses"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">支払い方法</div>
-          <div class="chart-meta" id="payMeta"></div>
-        </div>
-        <div class="chart-wrap donut-h" id="payWrap"><canvas id="chartPayments"></canvas></div>
-      </div>
-    </div>
-
-    <!-- 拡張指標 (2026-09-06) -->
-    <div class="section-label">追加指標</div>
-    <div class="charts-grid two">
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">平均単価推移</div>
-          <div class="chart-meta" id="avgPriceMeta">売上 ÷ 来院数</div>
-        </div>
-        <div class="chart-wrap"><canvas id="chartAvgPrice"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">新規獲得数</div>
-          <div class="chart-meta" id="newAcqMeta">初回来院者数</div>
-        </div>
-        <div class="chart-wrap"><canvas id="chartNewAcq"></canvas></div>
+        <div class="chart-wrap tall" id="courseWrap"><canvas id="chartCourses"></canvas></div>
       </div>
     </div>
 
@@ -365,8 +322,7 @@ const C = {
   grid    : 'rgba(0,0,0,0.05)',
   text    : '#48484a',
 };
-const COURSE_COLORS  = ['#0071e3','#b25000','#7b3fa9','#d70015','#2C7A5C','#e08a3a','#00a878'];
-const PAYMENT_COLORS = ['#2C7A5C','#0071e3','#b25000','#d70015','#7b3fa9'];
+const COURSE_COLORS = ['#0071e3','#b25000','#7b3fa9','#d70015','#2C7A5C','#e08a3a','#00a878'];
 
 /* ── Chart.js グローバル設定 ── */
 Chart.defaults.color = C.text;
@@ -398,6 +354,18 @@ function noDataMsg(wrapId, msg) {
   const w = document.getElementById(wrapId);
   if (!w) return;
   w.innerHTML = '<div class="no-data">' + msg + '</div>';
+}
+
+/* ── 前月比 HTML 生成 ── */
+function deltaHTML(kpi, prevFmt) {
+  if (kpi.pct === null || kpi.pct === undefined) {
+    return '<span class="delta-none">— <span class="prev-note">前月データなし</span></span>';
+  }
+  const sign = kpi.pct > 0 ? '+' : '';
+  const cls  = kpi.pct > 0 ? 'delta-up' : (kpi.pct < 0 ? 'delta-down' : 'delta-none');
+  const arrow = kpi.pct > 0 ? '▲' : (kpi.pct < 0 ? '▼' : '—');
+  return '<span class="' + cls + '">' + arrow + ' ' + sign + kpi.pct.toFixed(1) + '%</span>'
+       + '<span class="prev-note">前月 ' + prevFmt + '</span>';
 }
 
 /* ── グラデーション生成 ── */
@@ -441,34 +409,6 @@ const TT = {
   bodyFont        : { size: 11 },
 };
 
-/* ── ドーナツ共通オプション ── */
-function donutOpts(total, unit) {
-  return {
-    responsive: true, maintainAspectRatio: false,
-    cutout: '66%',
-    plugins: {
-      legend: {
-        position: 'right',
-        labels: {
-          boxWidth: 10, boxHeight: 10,
-          borderRadius: 3, useBorderRadius: true,
-          padding: 11,
-          font: { size: 11 },
-          color: C.text,
-        }
-      },
-      tooltip: {
-        ...TT,
-        callbacks: {
-          label: ctx =>
-            '  ' + ctx.label + ': ' + ctx.raw + (unit || '件') +
-            '  (' + Math.round(ctx.raw / total * 100) + '%)'
-        }
-      }
-    }
-  };
-}
-
 /* ── メイン ── */
 async function loadData() {
   try {
@@ -479,110 +419,38 @@ async function loadData() {
     document.getElementById('content').style.display = 'block';
 
     const {
-      months, newVisits, retVisits, sales,
-      courses, payments,
-      totalSales, recordedCount, totalVisits,
-      updatedAt,
+      months, newVisits, retVisits, sales, salesMA3,
+      courseSales3m, kpi, updatedAt,
     } = data;
 
-    const labels       = months.map(fmtMonth);
-    const totalByMonth = months.map((_, i) => (newVisits[i] || 0) + (retVisits[i] || 0));
-    const last         = months.length - 1;
-    const lastVisits   = totalByMonth[last] || 0;
-    const lastNew      = newVisits[last]    || 0;
-    const lastRet      = retVisits[last]    || 0;
-    const lastSales    = sales[last]        || 0;
-    const avg          = recordedCount > 0 ? Math.round(totalSales / recordedCount) : 0;
-    const unrecorded   = totalVisits - recordedCount;
-    const sumVisits    = totalByMonth.reduce((a, b) => a + b, 0);
+    const labels    = months.map(fmtMonth);
+    const totalByMo = months.map((_, i) => (newVisits[i] || 0) + (retVisits[i] || 0));
+    const sumVisits = totalByMo.reduce((a, b) => a + b, 0);
+    const sumSales  = sales.reduce((a, b) => a + b, 0);
 
     /* 更新時刻 */
     document.getElementById('updatedAt').textContent =
       new Date(updatedAt).toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
 
-    /* KPI */
-    setV('kpiVisits',     lastVisits, '人');
-    setV('kpiNew',        lastNew,    '人');
-    setV('kpiSales',      fmtYen(lastSales), '円');
-    setV('kpiTotal',      totalVisits, '件');
-    setV('kpiAvg',        fmtYen(avg), '円');
-    setV('kpiTotalSales', fmtYen(totalSales), '円');
+    /* ── KPI (4 個) ── */
+    setV('kpiVisits', kpi.visits.current, '人');
+    setS('kpiVisitsSub', deltaHTML(kpi.visits, kpi.visits.prev + '人'));
 
-    setS('kpiVisitsSub', lastNew + '人新規 / ' + lastRet + '人既存');
-    setS('kpiNewSub', lastVisits > 0
-      ? '来院数の ' + Math.round(lastNew / lastVisits * 100) + '%'
-      : '—');
-    setS('kpiSalesSub', unrecorded > 0
-      ? '<span class="warn">⚠ 未記録 ' + unrecorded + '件あり</span>'
-      : '全件記録済み');
-    setS('kpiTotalSub', months.length + 'ヶ月間の合計');
-    setS('kpiAvgSub', '記録済み ' + recordedCount + '件の平均');
-    setS('kpiTotalSalesSub', recordedCount + '件の記録から集計');
+    setV('kpiSales', fmtYen(kpi.sales.current), '円');
+    setS('kpiSalesSub', deltaHTML(kpi.sales, '¥' + kpi.sales.prev.toLocaleString()));
+
+    setV('kpiNew', kpi.newAcq.current, '人');
+    setS('kpiNewSub', deltaHTML(kpi.newAcq, kpi.newAcq.prev + '人'));
+
+    setV('kpiAvg', fmtYen(kpi.avgPrice.current), '円');
+    setS('kpiAvgSub', deltaHTML(kpi.avgPrice, '¥' + kpi.avgPrice.prev.toLocaleString()));
 
     /* サブラベル */
-    setS('totalVisitsLabel', '累計 ' + sumVisits + '件');
-    setS('totalSalesLabel',  '累計 ¥' + totalSales.toLocaleString());
-    setS('breakdownMeta', sumVisits + '件 / ' + months.length + 'ヶ月');
+    setS('visitsMeta', '直近 6 ヶ月 合計 ' + sumVisits + '人');
+    setS('salesMeta',  '直近 6 ヶ月 合計 ¥' + sumSales.toLocaleString());
 
-    /* ── Chart①: 月別来院数（グラデーション棒） ── */
-    const gVisits = makeGrad('chartVisits', 'rgba(44,122,92,0.88)', 'rgba(44,122,92,0.07)');
+    /* ── Chart 1: 月別来院数 stacked bar (新規/既存) ── */
     new Chart(document.getElementById('chartVisits'), {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: '来院数',
-          data: totalByMonth,
-          backgroundColor: gVisits,
-          borderColor: C.primary,
-          borderWidth: 1.5,
-          borderRadius: 7,
-          borderSkipped: false,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { ...TT, callbacks: { label: ctx => '  ' + ctx.parsed.y + '人' } },
-        },
-        scales: xy(v => v + '人'),
-      }
-    });
-
-    /* ── Chart②: 月別売上（折れ線＋エリア） ── */
-    const gSalesArea = makeGrad('chartSales', 'rgba(232,168,56,0.28)', 'rgba(232,168,56,0.01)');
-    new Chart(document.getElementById('chartSales'), {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: '売上',
-          data: sales,
-          borderColor: C.accent,
-          backgroundColor: gSalesArea,
-          fill: true,
-          tension: 0.42,
-          pointRadius: 6,
-          pointBackgroundColor: C.accent,
-          pointBorderColor: '#101e1b',
-          pointBorderWidth: 2.5,
-          pointHoverRadius: 9,
-          borderWidth: 2.5,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { ...TT, callbacks: { label: ctx => '  ¥' + ctx.parsed.y.toLocaleString() } },
-        },
-        scales: xy(v => '¥' + fmtYen(v)),
-      }
-    });
-
-    /* ── Chart③: 新規・既存内訳（横棒・積み上げ） ── */
-    new Chart(document.getElementById('chartBreakdown'), {
       type: 'bar',
       data: {
         labels,
@@ -591,20 +459,21 @@ async function loadData() {
             label: '新規',
             data: newVisits,
             backgroundColor: C.blue,
-            borderRadius: 5,
+            borderRadius: 6,
+            borderSkipped: false,
             stack: 'st',
           },
           {
             label: '既存',
             data: retVisits,
             backgroundColor: C.primary,
-            borderRadius: 5,
+            borderRadius: 6,
+            borderSkipped: false,
             stack: 'st',
           },
         ]
       },
       options: {
-        indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: {
@@ -614,157 +483,119 @@ async function loadData() {
             labels: {
               boxWidth: 10, boxHeight: 10,
               borderRadius: 3, useBorderRadius: true,
-              padding: 14, font: { size: 11 },
+              padding: 12, font: { size: 11 },
             }
           },
           tooltip: {
             ...TT,
             callbacks: {
-              label: ctx => '  ' + ctx.dataset.label + ': ' + ctx.parsed.x + '人',
-              footer: items => '合計 ' + items.reduce((s, i) => s + i.parsed.x, 0) + '人',
+              label: ctx => '  ' + ctx.dataset.label + ': ' + ctx.parsed.y + '人',
+              footer: items => '合計 ' + items.reduce((s, i) => s + i.parsed.y, 0) + '人',
             }
           }
         },
         scales: {
-          x: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, beginAtZero: true, ticks: { font: { size: 11 } } },
-          y: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, ticks: { font: { size: 12 } } },
+          x: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, ticks: { font: { size: 11 } } },
+          y: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, stacked: true, beginAtZero: true, ticks: { callback: v => v + '人', font: { size: 11 } } },
         }
       }
     });
 
-    /* ── Chart④: コース内訳（ドーナツ） ── */
-    const courseKeys = Object.keys(courses || {});
-    const courseVals = courseKeys.map(k => courses[k]);
-    const courseTotal = courseVals.reduce((s, v) => s + v, 0);
-    setS('courseMeta', courseTotal + '件');
-    if (courseTotal > 0) {
-      new Chart(document.getElementById('chartCourses'), {
-        type: 'doughnut',
-        data: {
-          labels: courseKeys,
-          datasets: [{
-            data: courseVals,
-            backgroundColor: courseKeys.map((_, i) => COURSE_COLORS[i % COURSE_COLORS.length]),
-            borderColor: '#101e1b',
-            borderWidth: 2.5,
-            hoverOffset: 10,
-          }]
-        },
-        options: donutOpts(courseTotal)
-      });
-    } else {
-      noDataMsg('courseWrap', 'コースデータなし');
-    }
-
-    /* ── Chart⑤: 支払い方法（極座標） ── */
-    const payKeys  = Object.keys(payments || {});
-    const payVals  = payKeys.map(k => payments[k]);
-    const payTotal = payVals.reduce((s, v) => s + v, 0);
-    setS('payMeta', payTotal + '件');
-    if (payTotal > 0) {
-      const payBg = payKeys.map((_, i) => PAYMENT_COLORS[i % PAYMENT_COLORS.length]);
-      new Chart(document.getElementById('chartPayments'), {
-        type: 'polarArea',
-        data: {
-          labels: payKeys,
-          datasets: [{
-            data: payVals,
-            backgroundColor: payBg.map(c => c + 'cc'),
-            borderColor: payBg,
-            borderWidth: 2,
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'right',
-              labels: {
-                boxWidth: 10, boxHeight: 10,
-                borderRadius: 3, useBorderRadius: true,
-                padding: 11, font: { size: 11 }, color: C.text,
-              }
-            },
-            tooltip: {
-              ...TT,
-              callbacks: {
-                label: ctx => '  ' + ctx.label + ': ' + ctx.raw + '件  (' + Math.round(ctx.raw / payTotal * 100) + '%)'
-              }
-            }
-          },
-          scales: {
-            r: {
-              ticks: { backdropColor: 'transparent', font: { size: 10 }, color: '#86868b', stepSize: 1 },
-              grid: { color: C.grid },
-              angleLines: { color: C.grid },
-            }
-          }
-        }
-      });
-    } else {
-      noDataMsg('payWrap', '支払いデータなし');
-    }
-
-    /* ── Chart⑥: 平均単価推移 (2026-09-06 追加) ── */
-    const avgPrice = totalByMonth.map((v, i) => v > 0 ? Math.round((sales[i] || 0) / v) : 0);
-    const gAvg = makeGrad('chartAvgPrice', 'rgba(94,159,127,0.45)', 'rgba(94,159,127,0.02)');
-    new Chart(document.getElementById('chartAvgPrice'), {
+    /* ── Chart 2: 月別売上 line + 3ヶ月移動平均 ── */
+    const gSalesArea = makeGrad('chartSales', 'rgba(232,168,56,0.28)', 'rgba(232,168,56,0.01)');
+    new Chart(document.getElementById('chartSales'), {
       type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: '平均単価',
-          data: avgPrice,
-          borderColor: '#5e9f7f',
-          backgroundColor: gAvg,
-          fill: true,
-          tension: 0.35,
-          pointRadius: 5,
-          pointBackgroundColor: '#5e9f7f',
-          pointBorderColor: '#101e1b',
-          pointBorderWidth: 2,
-          borderWidth: 2.2,
-        }]
+        datasets: [
+          {
+            label: '月別売上',
+            data: sales,
+            borderColor: C.accent,
+            backgroundColor: gSalesArea,
+            fill: true,
+            tension: 0.42,
+            pointRadius: 5,
+            pointBackgroundColor: C.accent,
+            pointBorderColor: '#101e1b',
+            pointBorderWidth: 2,
+            pointHoverRadius: 8,
+            borderWidth: 2.5,
+          },
+          {
+            label: '3ヶ月移動平均',
+            data: salesMA3,
+            borderColor: C.primary,
+            backgroundColor: 'transparent',
+            fill: false,
+            tension: 0.35,
+            pointRadius: 3,
+            pointBackgroundColor: C.primary,
+            borderWidth: 2,
+            borderDash: [6, 4],
+          }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: { ...TT, callbacks: { label: ctx => '  ¥' + ctx.parsed.y.toLocaleString() + ' / 回' } },
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 10, boxHeight: 10,
+              borderRadius: 3, useBorderRadius: true,
+              padding: 12, font: { size: 11 },
+            }
+          },
+          tooltip: { ...TT, callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ¥' + ctx.parsed.y.toLocaleString() } },
         },
         scales: xy(v => '¥' + fmtYen(v)),
       }
     });
-    setS('avgPriceMeta', '直近平均 ¥' + (avgPrice[avgPrice.length - 1] || 0).toLocaleString());
 
-    /* ── Chart⑦: 新規獲得数 (breakdown データの new を月別) ── */
-    const newByMonth = labels.map((_, i) => newVisits[i] || 0);
-    const gNew = makeGrad('chartNewAcq', 'rgba(232,168,56,0.4)', 'rgba(232,168,56,0.02)');
-    new Chart(document.getElementById('chartNewAcq'), {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: '新規',
-          data: newByMonth,
-          backgroundColor: gNew,
-          borderColor: C.accent,
-          borderWidth: 1.5,
-          borderRadius: 7,
-          borderSkipped: false,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { ...TT, callbacks: { label: ctx => '  ' + ctx.parsed.y + '人 (初回)' } },
+    /* ── Chart 3: コース別売上ランキング bar (直近3ヶ月) ── */
+    if (courseSales3m && courseSales3m.length > 0) {
+      const courseLabels = courseSales3m.map(c => c.name);
+      const courseVals   = courseSales3m.map(c => c.sales);
+      const courseSum    = courseVals.reduce((a, b) => a + b, 0);
+      setS('courseMeta', '合計 ¥' + courseSum.toLocaleString());
+
+      new Chart(document.getElementById('chartCourses'), {
+        type: 'bar',
+        data: {
+          labels: courseLabels,
+          datasets: [{
+            label: '売上',
+            data: courseVals,
+            backgroundColor: courseLabels.map((_, i) => COURSE_COLORS[i % COURSE_COLORS.length]),
+            borderRadius: 6,
+            borderSkipped: false,
+          }]
         },
-        scales: xy(v => v + '人'),
-      }
-    });
-    const sumNew = newByMonth.reduce((a, b) => a + b, 0);
-    setS('newAcqMeta', '累計 ' + sumNew + '人');
+        options: {
+          indexAxis: 'y',
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              ...TT,
+              callbacks: {
+                label: ctx => '  ¥' + ctx.parsed.x.toLocaleString() + '  (' + Math.round(ctx.parsed.x / courseSum * 100) + '%)'
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: C.grid, drawBorder: false }, border: { display: false }, beginAtZero: true, ticks: { callback: v => '¥' + fmtYen(v), font: { size: 11 } } },
+            y: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 12 } } },
+          }
+        }
+      });
+    } else {
+      setS('courseMeta', '—');
+      noDataMsg('courseWrap', '直近 3 ヶ月のコース売上データなし');
+    }
 
   } catch (err) {
     document.getElementById('loading').style.display  = 'none';

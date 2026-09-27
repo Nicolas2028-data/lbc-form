@@ -1783,6 +1783,15 @@ function syncToNotion() {
     return;
   }
 
+  // 2026-09-27: Notion → シート ポーリング (early return より前・毎回実行)
+  //  Notion-native record flow: Lucas が Notion カルテを ✅ 完了 に変更したら取込む
+  //  冪等性は pollNotionKarte 内の TR.notion_page_id チェックで担保
+  try {
+    pollNotionKarte(cfg);
+  } catch(pollErr) {
+    Logger.log('syncToNotion: pollNotionKarte error: ' + pollErr.message);
+  }
+
   var syncSheet = ss.getSheetByName('_sync');
   var counter   = Number(syncSheet.getRange('A1').getValue());
   var lastFull  = syncSheet.getRange('B1').getValue();
@@ -2760,19 +2769,18 @@ function installTriggers() {
   ScriptApp.newTrigger('backupLedgerToLucas')
     .timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
 
-  // 5. Notion → シート ポーリング: 5分毎 (2026-09-27 追加、Notion-native record flow)
-  ScriptApp.newTrigger('pollNotionKarte')
-    .timeBased().everyMinutes(5).create();
+  // 2026-09-27: pollNotionKarte は syncToNotion (1分毎) に piggyback する運用に変更
+  //  → installTriggers を Nicolas が再実行しなくても Notion-native record flow が動く
 
   // セーフティチェック: 想定トリガー数を超えたら警告 (2026-09-06 追加)
   var after = ScriptApp.getProjectTriggers().length;
-  var expected = cfg.LEDGER_SPREADSHEET_ID ? 5 : 4;
+  var expected = cfg.LEDGER_SPREADSHEET_ID ? 4 : 3;
   if (after !== expected) {
     var msg = 'installTriggers: 想定外のトリガー数(想定 ' + expected + ' / 実測 ' + after + ')';
     Logger.log('⚠️ ' + msg);
     try { notifyError('installTriggers', new Error(msg)); } catch(e) {}
   }
-  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary + backupLedgerToLucas + pollNotionKarte)');
+  Logger.log('トリガー設置完了: ' + after + ' 個 (syncToNotion + onLedgerEdit + sendDailySummary + backupLedgerToLucas)');
 
   // production 設定の整合性チェック (REL-H5 2026-09-06)
   try { assertProductionConfig(); } catch(e) { Logger.log('assertProductionConfig error: ' + e.message); }

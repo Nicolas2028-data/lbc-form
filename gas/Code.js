@@ -183,6 +183,20 @@ function doGet(e) {
       fixExistingPhones(cfg);
       return jsonRes({ success: true });
     }
+    // 2026-09-27: 施術台帳の重複行検出(read-only)
+    if (p.action === 'runDetectDuplicates') {
+      var authDD = verifyStaffPassword(p.pw, cfg);
+      if (!authDD.ok) return jsonRes({ success: false, error: authDD.error, remainingSec: authDD.remainingSec });
+      return jsonRes({ success: true, duplicates: detectDuplicateRecords(cfg) });
+    }
+    // 2026-09-27: 施術台帳の重複行を自動 void(赤伝方式)
+    //  デフォルトは dry-run(検出のみ)、mode=commit で実行
+    if (p.action === 'runVoidDuplicates') {
+      var authVD = verifyStaffPassword(p.pw, cfg);
+      if (!authVD.ok) return jsonRes({ success: false, error: authVD.error, remainingSec: authVD.remainingSec });
+      var dryRun = String(p.mode || 'dry') !== 'commit';
+      return jsonRes(voidDuplicateRecords(cfg, dryRun));
+    }
     // 2026-09-27: 追加カラム(監査対応) — 顧客マスタ 累計キャッシュ 一括再構築
     if (p.action === 'runBackfillCustomerCounters') {
       var authBC = verifyStaffPassword(p.pw, cfg);
@@ -1780,6 +1794,130 @@ function handleAdminForceVoid(data, cfg) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ============================================================
+   重複行検出・自動 void (2026-09-27 追加、監査対応)
+   ============================================================
+   復旧作業由来の重複検出 → 最古 1 件を残して残りを void 化する。
+   pollNotionKarte で復旧カルテを取込んだ結果、既存 sheet 行と
+   同一 (customer_id + date + course + sales + type=record) の 重複が
+   発生した場合に対応。
+   ============================================================ */
+
+// 重複候補を検出して返す(read-only)
+//   戻り値: [ { key, rows: [{ rowIdx, entryId, createdAt, notionPageId }, ...] }, ... ]
+//   key = customer_id|date|course|sales
+function detectDuplicateRecords(cfg) {
+  cfg = cfg || getConfig();
+  var ss = getLedger(cfg);
+  var sheet = ss.getSheetByName('施術台帳');
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, TR_COLS).getValues();
+
+  // 既に void されている entry_id を収集
+  var voidedSet = {};
+  for (var v = 0; v < rows.length; v++) {
+    if (String(rows[v][TR.type]) === 'void' && rows[v][TR.target_entry_id]) {
+      voidedSet[String(rows[v][TR.target_entry_id])] = true;
+    }
+  }
+
+  // record 行をグループ化
+  var groups = {};
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[TR.type]) !== 'record') continue;
+    var entryId = String(r[TR.entry_id] || '');
+    if (voidedSet[entryId]) continue; // 既に void 済み
+    var cid = String(r[TR.customer_id] || '');
+    var dt = toDateStr(r[TR.date]);
+    var course = String(r[TR.course] || '');
+    var sales = Number(r[TR.sales]) || 0;
+    var key = cid + '|' + dt + '|' + course + '|' + sales;
+    if (!groups[key]) groups[key] = [];
+    var createdAtVal = r[TR.created_at];
+    var createdAt = (createdAtVal instanceof Date) ? createdAtVal.toISOString() : String(createdAtVal || '');
+    groups[key].push({
+      rowIdx:        i + 2,
+      entryId:       entryId,
+      createdAt:     createdAt,
+      notionPageId:  String(r[TR.notion_page_id] || ''),
+      customer_id:   cid,
+      date:          dt,
+      course:        course,
+      sales:         sales,
+      payment:       String(r[TR.payment] || ''),
+    });
+  }
+
+  // 2 件以上ある group のみ抽出
+  var duplicates = [];
+  for (var key in groups) {
+    if (groups[key].length >= 2) {
+      // created_at 昇順ソート(最古を先頭に = 保持対象)
+      groups[key].sort(function(a, b) { return String(a.createdAt).localeCompare(String(b.createdAt)); });
+      duplicates.push({ key: key, rows: groups[key] });
+    }
+  }
+  return duplicates;
+}
+
+// 重複行を自動 void。最古 1 件を残し、残りを void 化する。
+//   dryRun=true (デフォルト): 検出のみ、void しない
+//   dryRun=false: 実際に void 行を追加
+function voidDuplicateRecords(cfg, dryRun) {
+  cfg = cfg || getConfig();
+  if (dryRun === undefined) dryRun = true;
+  var duplicates = detectDuplicateRecords(cfg);
+  var report = { dryRun: dryRun, groups: duplicates.length, wouldVoidCount: 0, voidedCount: 0, actions: [], errors: [] };
+
+  duplicates.forEach(function(g) {
+    // g.rows は created_at 昇順、[0] を保持、[1..] を void
+    var keep = g.rows[0];
+    for (var i = 1; i < g.rows.length; i++) {
+      var target = g.rows[i];
+      report.wouldVoidCount++;
+      var action = {
+        key:      g.key,
+        keepEntry: keep.entryId,
+        keepRow:  keep.rowIdx,
+        keepPageId: keep.notionPageId,
+        voidEntry: target.entryId,
+        voidRow:  target.rowIdx,
+        voidPageId: target.notionPageId,
+        customer_id: target.customer_id,
+        date:     target.date,
+        course:   target.course,
+        sales:    target.sales,
+      };
+      if (dryRun) {
+        report.actions.push(action);
+      } else {
+        // 実際に void
+        try {
+          var res = handleAdminForceVoid({
+            targetEntryId: target.entryId,
+            customerId:    target.customer_id,
+            reason:        '重複行(復旧作業由来)自動 void: 最古 ' + keep.entryId + ' を保持',
+            requestId:     '',
+          }, cfg);
+          if (res.success) {
+            report.voidedCount++;
+            action.voidEntryIdNew = res.voidEntryId;
+            report.actions.push(action);
+          } else {
+            action.error = res.error;
+            report.errors.push(action);
+          }
+        } catch (e) {
+          action.error = e.message;
+          report.errors.push(action);
+        }
+      }
+    }
+  });
+  return report;
 }
 
 /* ============================================================

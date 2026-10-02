@@ -5,22 +5,22 @@
 凡例: [ ] 未着手 / [~] 作業中 / [x] 完了 / 🙋 Nicolas の操作が必要
 
 ## 1. 土台
-- [ ] 1-1 `supabase/migrations/`: 組織・人・メニュー(stores, staff, customers, customer_consents, menus, products)+ RLS + 共通関数(updated_at, audit)
-- [ ] 1-2 DB テスト基盤(Docker なしで動く PGlite + auth スタブ)と RLS テスト
-- [ ] 1-3 `app/`: Vite + React + TS + i18next(ja/es/pt)+ Supabase クライアント + PWA の雛形
-- [ ] 1-4 スタッフログイン画面
-- [ ] 1-5 GitHub Actions: テスト(PR ごと)
-- [ ] 1-6 🙋 Supabase アカウント作成 → `lbc-staging` プロジェクト(東京)作成 → アクセストークン発行
+- [x] 1-1 `supabase/migrations/`: 組織・人・メニュー(stores, staff, customers, customer_consents, menus, products)+ RLS + 共通関数(updated_at, audit)
+- [x] 1-2 DB テスト基盤(Docker なしで動く PGlite + auth スタブ)と RLS テスト
+- [x] 1-3 `app/`: Vite + React + TS + i18next(ja/es/pt)+ Supabase クライアント + PWA の雛形
+- [x] 1-4 スタッフログイン画面
+- [x] 1-5 GitHub Actions: テスト(PR ごと)
+- [~] 1-6 🙋 Supabase アカウント作成 → `lbc-staging` プロジェクト(東京)作成 → アクセストークン発行
 - [ ] 1-7 🙋 Cloudflare アカウント作成 → Pages にリポジトリ接続(`platform-rebuild` ブランチ = テスト環境)
 - [ ] 1-8 テスト環境へマイグレーション適用、スタッフ(Nicolas・ルカス)作成
 - [ ] 1-9 日次バックアップ(pg_dump → 暗号化 → R2)🙋 R2 バケットと鍵の作成
 
 ## 2. 施術記録・お金・移行
-- [ ] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log
-- [ ] 2-2 DB 関数: record_visit / void_visit / get_patient_card / expire_credits
-- [ ] 2-3 DB テスト: FIFO・失効・紹介 3 件上限・自己紹介拒否・残高超過拒否・回数券・赤伝・冪等性
-- [ ] 2-4 画面: 患者検索・施術記録・訂正・顧客詳細(送信は request_id + 自動再送)
-- [ ] 2-5 画面: ダッシュボード(ビュー v_monthly_*)
+- [x] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log
+- [x] 2-2 DB 関数: record_visit / void_visit / get_patient_card / expire_credits
+- [x] 2-3 DB テスト: FIFO・失効・紹介 3 件上限・自己紹介拒否・残高超過拒否・回数券・赤伝・冪等性
+- [x] 2-4 画面: 患者検索・施術記録・訂正・顧客詳細(送信は request_id + 自動再送)
+- [x] 2-5 画面: ダッシュボード(ビュー v_monthly_*)
 - [ ] 2-6 移行スクリプト(シート → Supabase)+ 突き合わせ検証
 - [ ] 2-7 ルカスにテスト環境で記録業務を試してもらう
 

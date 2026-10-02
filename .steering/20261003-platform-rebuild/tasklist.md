@@ -19,7 +19,7 @@
 - [x] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log
 - [x] 2-2 DB 関数: record_visit / void_visit / get_patient_card / expire_credits
 - [x] 2-3 DB テスト: FIFO・失効・紹介 3 件上限・自己紹介拒否・残高超過拒否・回数券・赤伝・冪等性
-- [x] 2-4 画面: 患者検索・施術記録・訂正・顧客詳細(送信は request_id + 自動再送)
+- [~] 2-4 画面: 患者検索・施術記録・訂正(送信は request_id + 自動再送)は完了。顧客詳細(履歴一覧・情報編集)は未着手
 - [x] 2-5 画面: ダッシュボード(ビュー v_monthly_*)
 - [ ] 2-6 移行スクリプト(シート → Supabase)+ 突き合わせ検証
 - [ ] 2-7 ルカスにテスト環境で記録業務を試してもらう

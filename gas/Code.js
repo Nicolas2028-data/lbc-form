@@ -1258,6 +1258,15 @@ function handleGetPatientList(cfg) {
   var treatRows    = getSheetData(ss, '施術台帳');
   var today        = todayStr();
 
+  // 2026-10-02: クレジット台帳を 1 回だけ読んで顧客別残高を集計
+  //  (以前は顧客ごとに computeCreditBalance → シート読込 N 回で 14〜21 秒かかっていた)
+  var creditRows = getSheetData(ss, 'クレジット台帳');
+  var creditByCustomer = {};
+  for (var c = 0; c < creditRows.length; c++) {
+    var ccid = String(creditRows[c][CR.customer_id]);
+    creditByCustomer[ccid] = (creditByCustomer[ccid] || 0) + (Number(creditRows[c][CR.amount]) || 0);
+  }
+
   // 今日の void 済みエントリIDを先に収集
   var voidedEntryIds = {};
   for (var v = 0; v < treatRows.length; v++) {
@@ -1295,7 +1304,7 @@ function handleGetPatientList(cfg) {
       patientNum:       cid2,
       name:             String(cr[CM.name]),
       furigana:         String(cr[CM.furigana]),
-      creditBalance:    Number(computeCreditBalance(ss, cid2)) || 0,
+      creditBalance:    creditByCustomer[cid2] || 0,
       treatmentPending: today2 ? !today2.hasSales : false,
     });
   }
@@ -1312,8 +1321,9 @@ function handleGetPatientDetails(customerId, cfg) {
   var ss = getLedger(cfg);
 
   // クレジット残高・期限切れ予告
-  var creditBalance  = computeCreditBalance(ss, customerId);
-  var expiringCredits = computeExpiringCredits(ss, customerId);
+  var creditRows     = getSheetData(ss, 'クレジット台帳');
+  var creditBalance  = computeCreditBalance(ss, customerId, creditRows);
+  var expiringCredits = computeExpiringCredits(ss, customerId, creditRows);
 
   // 来院履歴（施術台帳から）
   var treatRows  = getSheetData(ss, '施術台帳');
@@ -1337,7 +1347,7 @@ function handleGetPatientDetails(customerId, cfg) {
     var eid      = String(r[TR.entry_id]);
     var isVoided = !!voidedIds[eid];
     var rDate    = toDateStr(r[TR.date]);
-    if (!isVoided && String(r[TR.count_eligible]) !== 'FALSE') {
+    if (!isVoided && String(r[TR.count_eligible]).toUpperCase() !== 'FALSE') {
       visitDates.push(rDate);
     }
     if (rDate === today && !isVoided) {
@@ -1948,8 +1958,9 @@ function appendCreditEntry(ss, customerId, type, amount, relEntryId, grantEntryI
   incSyncCounter(ss);
 }
 
-function computeCreditBalance(ss, customerId) {
-  var rows = getSheetData(ss, 'クレジット台帳');
+// rows を渡すとシート読込を省略(同一リクエスト内で複数回呼ぶ場合の高速化 2026-10-02)
+function computeCreditBalance(ss, customerId, rows) {
+  rows = rows || getSheetData(ss, 'クレジット台帳');
   var total = 0;
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][CR.customer_id]) === customerId) {
@@ -1959,8 +1970,8 @@ function computeCreditBalance(ss, customerId) {
   return total;
 }
 
-function computeExpiringCredits(ss, customerId) {
-  var rows  = getSheetData(ss, 'クレジット台帳');
+function computeExpiringCredits(ss, customerId, rows) {
+  rows = rows || getSheetData(ss, 'クレジット台帳');
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var result = [];
   for (var i = 0; i < rows.length; i++) {
@@ -3194,7 +3205,7 @@ function sendDailySummary() {
       var r = treatRows[i];
       var rDate = toDateStr(r[TR.date]);
       var rType = String(r[TR.type]);
-      if (rDate === yesterday && rType === 'record' && String(r[TR.count_eligible]) !== 'FALSE') {
+      if (rDate === yesterday && rType === 'record' && String(r[TR.count_eligible]).toUpperCase() !== 'FALSE') {
         if (!voidedIds[String(r[TR.entry_id])]) {
           visits++;
           sales += Number(r[TR.sales]) || 0;

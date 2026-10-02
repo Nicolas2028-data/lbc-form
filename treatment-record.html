@@ -894,6 +894,8 @@ const S = {
   toastTm:         null,
 };
 let allPatients = [];
+// 2026-10-02: URL 指定患者の詳細を患者リストと並列で先読み(直列待ちの解消)
+let _prefetchedDetails = null; // { customerId, promise }
 let _acMatches  = [];
 let _refMatches = [];
 
@@ -938,6 +940,9 @@ async function loadPatients() {
   document.getElementById('loadingPatients').style.display = 'flex';
   document.getElementById('searchArea').style.display      = 'none';
   document.getElementById('loadError').style.display       = 'none';
+  if (URL_PREFILL && URL_PREFILL.customerId && !_prefetchedDetails) {
+    _prefetchedDetails = { customerId: URL_PREFILL.customerId, promise: fetchPatientDetails(URL_PREFILL.customerId) };
+  }
   try {
     const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientList', env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
@@ -1002,13 +1007,20 @@ async function selectPendingPatient(idx) {
   if (!p) return;
   document.getElementById('nameSearch').value = p.name;
   S.creditBalance = p.creditBalance || 0;
+  var pre = _prefetchedDetails;
+  _prefetchedDetails = null;
+  var usePre = pre && pre.customerId === String(p.customerId || '').trim().toUpperCase();
   try {
-    var res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, env: CONFIG.ENV_PARAM }) });
-    var data = await res.json();
+    var data = await (usePre ? pre.promise : fetchPatientDetails(p.customerId));
     showPhase2(p.customerId, p.patientNum, p.name, data.success ? data : {});
   } catch {
     showPhase2(p.customerId, p.patientNum, p.name, {});
   }
+}
+
+function fetchPatientDetails(customerId) {
+  return fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: customerId, env: CONFIG.ENV_PARAM }) })
+    .then(function(res) { return res.json(); });
 }
 
 /* ── 患者オートコンプリート ──────────────────── */

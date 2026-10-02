@@ -1,0 +1,28 @@
+name: test
+
+on:
+  push:
+    branches: [platform-rebuild]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: DB tests (PGlite)
+        run: |
+          npm ci
+          npm run test:db
+      - name: App tests & build
+        working-directory: app
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
+        run: |
+          npm ci
+          npm test
+          npm run build

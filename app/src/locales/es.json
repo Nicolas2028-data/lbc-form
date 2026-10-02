@@ -1,0 +1,47 @@
+{
+  "app": { "title": "LBC Care", "staff": "Personal", "logout": "Cerrar sesión", "loading": "Cargando…", "retry": "Reintentar", "back": "Volver" },
+  "login": {
+    "title": "Acceso del personal", "email": "Correo electrónico", "password": "Contraseña", "submit": "Entrar",
+    "failed": "Correo o contraseña incorrectos", "notStaff": "Esta cuenta no está registrada como personal"
+  },
+  "nav": { "patients": "Pacientes", "dashboard": "Panel" },
+  "patients": {
+    "search": "Buscar por nombre, furigana, nº de ficha o teléfono", "none": "No se encontraron pacientes", "count": "{{count}} personas"
+  },
+  "record": {
+    "title": "Registro de tratamiento", "visitCount": "Visita nº {{count}}", "firstVisit": "Primera visita", "lastVisit": "Última: {{date}}",
+    "attended": "Recibió el tratamiento", "noShow": "No recibió el tratamiento", "noShowReason": "Motivo (obligatorio)",
+    "change": "Cambios desde la última vez", "changeNone": "Sin cambios", "changeYes": "Con cambios",
+    "menu": "Tratamiento", "pass": "Bono", "usePass": "Usar bono (quedan {{remaining}} · hasta {{until}})",
+    "buyProduct": "Comprar bono", "buyNone": "No comprar", "useNow": "Usar en este tratamiento",
+    "payment": "Forma de pago", "cash": "Efectivo", "card": "Tarjeta", "paypay": "PayPay", "unpaid": "No pagado", "other": "Otro",
+    "credit": "Usar crédito", "creditAvailable": "Saldo {{amount}}", "creditExpiring": "{{amount}} vence el {{date}}",
+    "referral": "Referido por (solo 1ª visita · ¥1.000 de descuento)", "referralNone": "Sin referido", "referralSearch": "Buscar quién lo refirió",
+    "memo": "Notas", "summary": "Cuenta",
+    "lineMenu": "Tratamiento", "lineProduct": "Bono", "lineReferral": "Descuento por referido", "lineCredit": "Crédito", "lineTotal": "Total",
+    "submit": "Registrar", "sending": "Enviando…",
+    "saved": "Registrado", "queued": "Sin conexión: guardado en el dispositivo. Se enviará automáticamente al reconectar",
+    "referralLimit": "Quien lo refirió ya alcanzó el límite (3) y no recibió crédito",
+    "today": "Registros de hoy", "void": "Anular", "voidReason": "Motivo de la anulación", "voided": "Anulado", "voidDone": "Anulado",
+    "required": "Complete los campos obligatorios"
+  },
+  "outbox": { "pending": "{{count}} pendientes de envío", "sendNow": "Enviar ahora", "failed": "Un registro no se pudo enviar: {{label}} ({{error}})" },
+  "dashboard": {
+    "title": "Panel", "month": "Mes", "visits": "Visitas", "newCustomers": "Nuevos", "sales": "Ventas", "unpaid": "Por cobrar", "avg": "Ticket medio"
+  },
+  "errors": {
+    "not_staff": "No registrado como personal", "customer_not_found": "Paciente no encontrado (puede estar archivado)",
+    "menu_invalid": "Elija el tratamiento", "payment_method_required": "Elija la forma de pago",
+    "no_show_reason_required": "Indique por qué no recibió el tratamiento",
+    "insufficient_credit": "Crédito insuficiente (saldo ¥{{detail}})", "credit_exceeds_amount": "El crédito no puede superar el importe",
+    "credit_invalid": "Importe de crédito no válido",
+    "referrer_invalid": "Referido no válido", "referral_not_first_visit": "El descuento por referido es solo en la primera visita",
+    "referral_and_credit": "No se pueden combinar referido y crédito",
+    "pass_invalid": "Este bono no se puede usar", "pass_used_up": "El bono ya está agotado",
+    "pass_menu_not_allowed": "Este bono no vale para este tratamiento", "pass_conflict": "Bono indicado dos veces",
+    "product_invalid": "Bono no válido",
+    "already_voided": "Ya está anulado", "void_past_requires_owner": "Solo Nicolas puede anular registros de días anteriores",
+    "void_reason_required": "Indique el motivo de la anulación", "pass_in_use": "El bono comprado ya se usó; no se puede anular",
+    "unknown": "Se produjo un error ({{code}})"
+  }
+}

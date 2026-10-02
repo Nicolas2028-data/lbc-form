@@ -1,0 +1,8 @@
+{
+  "name": "LBC Care",
+  "short_name": "LBC Care",
+  "start_url": "/staff",
+  "display": "standalone",
+  "background_color": "#fbfbfd",
+  "theme_color": "#1e5c42"
+}

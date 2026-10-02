@@ -674,7 +674,7 @@
           </div>
         </div>
         <div id="loadError" style="display:none">
-          <p style="color:var(--danger);font-size:0.88rem;margin-bottom:12px">患者データの読み込みに失敗しました。</p>
+          <p id="loadErrorMsg" style="color:var(--danger);font-size:0.88rem;margin-bottom:12px">患者データの読み込みに失敗しました。</p>
           <button class="btn-submit" onclick="loadPatients()">再読み込み</button>
         </div>
       </div>
@@ -894,6 +894,33 @@ const S = {
   toastTm:         null,
 };
 let allPatients = [];
+
+// 2026-10-02: 端末トークン(スタッフ系 API の認証)
+//  Notion リンクの #k=... で受け取り端末に保存。#以降はサーバーに送られない。
+//  取得後は URL から消す(画面共有・スクショでの漏えい防止)
+const STAFF_TOKEN = (function() {
+  var t = '';
+  try {
+    var m = (window.location.hash || '').match(/[#&]k=([A-Za-z0-9_-]{32,})/);
+    if (m) {
+      t = m[1];
+      localStorage.setItem('lbc_staff_token', t);
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } else {
+      t = localStorage.getItem('lbc_staff_token') || '';
+    }
+  } catch (e) {}
+  return t;
+})();
+
+function staffBody(obj) {
+  obj.deviceToken = STAFF_TOKEN;
+  return JSON.stringify(obj);
+}
+
+function isUnauthorized(data) {
+  return data && data.error === 'unauthorized_device';
+}
 // 2026-10-02: URL 指定患者の詳細を患者リストと並列で先読み(直列待ちの解消)
 let _prefetchedDetails = null; // { customerId, promise }
 let _acMatches  = [];
@@ -944,8 +971,9 @@ async function loadPatients() {
     _prefetchedDetails = { customerId: URL_PREFILL.customerId, promise: fetchPatientDetails(URL_PREFILL.customerId) };
   }
   try {
-    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientList', env: CONFIG.ENV_PARAM }) });
+    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: staffBody({ action: 'getPatientList', env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
+    if (isUnauthorized(data)) { showUnauthorized(); return; }
     if (!data.success) throw new Error(data.error || 'load failed');
     allPatients = data.patients || [];
     document.getElementById('loadingPatients').style.display = 'none';
@@ -985,6 +1013,13 @@ async function loadPatients() {
   }
 }
 
+function showUnauthorized() {
+  document.getElementById('loadingPatients').style.display = 'none';
+  document.getElementById('loadError').style.display       = 'block';
+  document.getElementById('loadErrorMsg').textContent =
+    'この端末は未登録です。Notion の「記録する」リンクから開き直してください。解決しない場合は Nicolas に連絡してください。';
+}
+
 /* ── 今日の未記録患者 ──────────────────────── */
 function renderPendingPatients() {
   var pending = allPatients.filter(function(p) { return p.treatmentPending; });
@@ -1019,7 +1054,7 @@ async function selectPendingPatient(idx) {
 }
 
 function fetchPatientDetails(customerId) {
-  return fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: customerId, env: CONFIG.ENV_PARAM }) })
+  return fetch(CONFIG.GAS_URL, { method: 'POST', body: staffBody({ action: 'getPatientDetails', customerId: customerId, env: CONFIG.ENV_PARAM }) })
     .then(function(res) { return res.json(); });
 }
 
@@ -1064,7 +1099,7 @@ async function selectPatient(idx) {
 
   // 詳細情報（通算回数・前回日付・期限切れクレジット）をロード
   try {
-    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'getPatientDetails', customerId: p.customerId, env: CONFIG.ENV_PARAM }) });
+    const res  = await fetch(CONFIG.GAS_URL, { method: 'POST', body: staffBody({ action: 'getPatientDetails', customerId: p.customerId, env: CONFIG.ENV_PARAM }) });
     const data = await res.json();
     if (data.success) {
       showPhase2(p.customerId, p.patientNum, p.name, data);
@@ -1460,7 +1495,7 @@ async function submitRecord() {
     const res  = await fetch(CONFIG.GAS_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify(payload),
+      body:    staffBody(payload),
     });
     const data = await res.json();
     document.getElementById('loadingRow').style.display = 'none';
@@ -1471,8 +1506,10 @@ async function submitRecord() {
       showSuccess(attended ? courseId : null, attended ? Number(salesAmount) : 0, attended, noShowReason);
       return;
     } else {
-      // 2026-09-26: パスワード認証廃止で auth_locked 分岐は不要になった
-      toast(data.error || 'エラーが発生しました。', 'error');
+      toast(isUnauthorized(data) ? 'この端末は未登録のため送信できません。Notion のリンクから開き直してください。'
+        : data.error === 'customer_not_found' ? '患者が見つかりません。選び直してください。'
+        : data.error === 'referrer_invalid'   ? '紹介者が正しくありません。選び直してください。'
+        : (data.error || 'エラーが発生しました。'), 'error');
       document.getElementById('submitBtn').disabled = false;
       S.submitting = false;
       hideSubmitBlocker();
@@ -1562,7 +1599,7 @@ async function voidRecord(entryId, courseLabel, amount) {
   try {
     var res = await fetch(CONFIG.GAS_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'submitVoidRecord', targetEntryId: entryId, customerId: S.customerId, env: CONFIG.ENV_PARAM }),
+      body: staffBody({ action: 'submitVoidRecord', targetEntryId: entryId, customerId: S.customerId, env: CONFIG.ENV_PARAM }),
     });
     var data = await res.json();
     if (data.success) {

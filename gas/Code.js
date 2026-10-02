@@ -89,6 +89,11 @@ function doPost(e) {
     var data   = JSON.parse(e.postData.contents);
     action     = data.action || '?';
     var cfg    = getConfig(resolveEnv(data.env));
+    // 2026-10-02: スタッフ系 API は端末トークン必須(GAS URL は公開ソースにあるため URL 秘匿は前提にできない)
+    if (STAFF_TOKEN_ACTIONS[action] && !verifyStaffToken(data.deviceToken, cfg)) {
+      Logger.log('doPost unauthorized_device: ' + action);
+      return jsonRes({ success: false, error: 'unauthorized_device' });
+    }
     if (action === 'verifyStaff')           return jsonRes(handleVerifyStaff(data, cfg));
     if (action === 'lookupPatient')         return jsonRes(handleLookupPatient(data, cfg));
     if (action === 'updateCustomerInfo')    return jsonRes(handleUpdateCustomerInfo(data, cfg));
@@ -96,10 +101,8 @@ function doPost(e) {
     if (action === 'submitQuestionnaire')   return jsonRes(handleSubmitQuestionnaire(data, cfg));
     if (action === 'submitTreatmentRecord') return jsonRes(handleSubmitTreatmentRecord(data, cfg));
     if (action === 'submitBooking')         return jsonRes(handleSubmitBooking(data, cfg));
-    // 2026-09-26: 施術記録シートのパスワード認証廃止(Nicolas 指示)
-    //  - Lucas が Notion 未記録リストからワンタップで開ける運用に切替
-    //  - URL パラメータで患者事前選択済なので UX 優先
-    //  - adminForceVoid のみ引き続きパスワード保護(管理操作)
+    // スタッフ系(端末トークンは上で検証済み)。パスワードは adminForceVoid 等の管理操作のみ
+    if (action === 'getDashboardData')   return handleGetDashboardData(cfg);
     if (action === 'getPatientList')     return jsonRes(handleGetPatientList(cfg));
     if (action === 'getPatientDetails')  return jsonRes(handleGetPatientDetails(data.customerId, cfg));
     if (action === 'submitVoidRecord')   return jsonRes(handleSubmitVoidRecord(data, cfg));
@@ -276,14 +279,7 @@ function doGet(e) {
       });
     }
     if (p.action === 'validateToken')     return jsonRes({ valid: false });
-    // 2026-09-26: パスワード認証廃止(Nicolas 指示)
-    if (p.action === 'getPatientList')    return jsonRes(handleGetPatientList(cfg));
-    if (p.action === 'getPatientDetails') return jsonRes(handleGetPatientDetails(p.customerId, cfg));
-
-    // ダッシュボード集計データ（集計値のみ・PII なし）
-    if (p.action === 'getDashboardData') {
-      return handleGetDashboardData(cfg);
-    }
+    // 2026-10-02: getPatientList / getPatientDetails / getDashboardData は doPost(端末トークン必須)へ移動
 
     // レガシー JSONP（index.html カレンダーのグレーアウト用。凍結）
     if (p.date && p.callback) {
@@ -594,19 +590,16 @@ function normalizeName(name) {
     .replace(/\s+/g, ' ');
 }
 
-// 施術記録シートの事前入力済み URL を組み立てる
-//  ルカスが Notion の「📝 記録する」からタップしたときに氏名・電話番号が入力済み
+// 施術記録シートの URL を組み立てる(Notion「📝 記録する」用)
+//  2026-10-02: 氏名・電話番号は URL に載せない(履歴・キャッシュへの PII 残留防止)。
+//  端末トークンはフラグメント #k= で渡す(サーバー・ログに送られない)。name/phone 引数は互換のため残置。
 function buildTreatmentRecordUrl(cfg, customerId, name, phone) {
   var base = cfg.SITE_URL || 'https://nicolas2028-data.github.io/lbc-form';
   base = base.replace(/\/+$/, '');
   var envParam = cfg._env === 'staging' ? '&env=staging' : '';
-  // 2026-09-27: phone は必ず normalizePhone を通す(シート数値化で先頭 0 消失した値も復元)
-  var phoneNorm = normalizePhone(phone || '');
-  var q = 'customer_id=' + encodeURIComponent(customerId) +
-          '&name='       + encodeURIComponent(name || '') +
-          '&phone='      + encodeURIComponent(phoneNorm) +
-          envParam;
-  return base + '/treatment-record.html?' + q;
+  var tokens = getStaffTokens(cfg);
+  var frag = tokens.length ? '#k=' + encodeURIComponent(tokens[0]) : '';
+  return base + '/treatment-record.html?customer_id=' + encodeURIComponent(customerId) + envParam + frag;
 }
 
 // 来店ログに 1 行追加(冪等: checkin_id=UUID)
@@ -1207,6 +1200,30 @@ function resetAuthLock() {
   Logger.log('Auth lock cleared for production and staging.');
 }
 
+// 2026-10-02: スタッフ系 API の端末トークン認証
+//  スクリプトプロパティ STAFF_ACCESS_TOKEN(カンマ区切りで複数可・ローテーション用。先頭を Notion リンクに埋め込む)
+//  未設定時は全拒否(fail-closed)
+var STAFF_TOKEN_ACTIONS = {
+  getPatientList: true, getPatientDetails: true,
+  submitTreatmentRecord: true, submitVoidRecord: true,
+  getDashboardData: true,
+};
+
+function getStaffTokens(cfg) {
+  return String(cfg.STAFF_ACCESS_TOKEN || '').split(',')
+    .map(function(t) { return t.trim(); })
+    .filter(function(t) { return t.length >= 32; });
+}
+
+function verifyStaffToken(token, cfg) {
+  var tokens = getStaffTokens(cfg);
+  var ok = false;
+  for (var i = 0; i < tokens.length; i++) {
+    if (safeCompare(token, tokens[i])) ok = true;
+  }
+  return ok;
+}
+
 // タイミング攻撃耐性のある文字列比較(同じ長さのものだけ constant-time で比較)
 function safeCompare(a, b) {
   a = String(a || '');
@@ -1456,6 +1473,18 @@ function handleSubmitTreatmentRecord(data, cfg) {
   }
   if (!String(data.customerId || '').trim()) {
     return { success: false, error: 'customerId_required' };
+  }
+  // 2026-10-02: 実在しない顧客・自己紹介・存在しない紹介者へのクレジット付与を拒否
+  var custHit = findCustomerById(ss, customerId);
+  if (!custHit || String(custHit.row[CM.status]) === 'archived') {
+    return { success: false, error: 'customer_not_found' };
+  }
+  if (attended && data.referralDiscount && data.referrerId) {
+    var refId = String(data.referrerId);
+    var refHit = refId !== customerId ? findCustomerById(ss, refId) : null;
+    if (!refHit || String(refHit.row[CM.status]) === 'archived') {
+      return { success: false, error: 'referrer_invalid' };
+    }
   }
 
   // ── 多層 dedup(2026-09-06 強化) ─────────────────────────

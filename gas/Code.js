@@ -2114,6 +2114,38 @@ function syncToNotion() {
     if (syncSheetZ) syncSheetZ.getRange('F1').setValue('counters error: ' + countersErr.message);
   }
 
+  // 2026-09-28: 同期ヘルスページを Notion に 5 分毎更新 (LBC ダッシュボード配下 3e988446-...)
+  try {
+    var healthKey  = '_sync_health_last_ms';
+    var healthProp = PropertiesService.getScriptProperties();
+    var lastHealth = Number(healthProp.getProperty(healthKey) || 0);
+    if (Date.now() - lastHealth > 5 * 60 * 1000) {
+      var hRes = syncHealthToNotion();
+      healthProp.setProperty(healthKey, String(Date.now()));
+      Logger.log('syncToNotion: syncHealthToNotion ' + JSON.stringify(hRes));
+    }
+  } catch(hErr) {
+    Logger.log('syncToNotion: syncHealthToNotion error: ' + hErr.message);
+  }
+
+  // 2026-09-28: 2026-09-03 の重複ゴミカルテ(9/27 リカバリ暴走の残骸)を一括アーカイブ
+  try {
+    var archKey = '_archive_20260903_dupes_v1';
+    var scriptProps5 = PropertiesService.getScriptProperties();
+    if (!scriptProps5.getProperty(archKey)) {
+      var archRes = archiveNotionDupes20260903_(cfg);
+      scriptProps5.setProperty(archKey, nowISO());
+      var syncSheetA = ss.getSheetByName('_sync');
+      if (syncSheetA) {
+        syncSheetA.getRange('J1').setValue('archive 20260903: ok=' + archRes.ok + ' fail=' + archRes.fail);
+        syncSheetA.getRange('K1').setValue(JSON.stringify(archRes));
+      }
+      Logger.log('syncToNotion: one-shot archiveNotionDupes20260903_ 完了 ok=' + archRes.ok + ' fail=' + archRes.fail);
+    }
+  } catch(archErr) {
+    Logger.log('syncToNotion: archiveNotionDupes20260903_ error: ' + archErr.message);
+  }
+
   var syncSheet = ss.getSheetByName('_sync');
   var counter   = Number(syncSheet.getRange('A1').getValue());
   var lastFull  = syncSheet.getRange('B1').getValue();
@@ -3407,6 +3439,268 @@ function getDetailedReport(targetDate) {
   });
 
   return { date: date, authFails: authFailDetails, submitOk: successDetails, treatments: allTreatRows };
+}
+
+/**
+ * 2026-09-28: Notion 同期ヘルスページ (LBC ダッシュボード配下)
+ * 5 分毎に syncToNotion piggyback から呼ばれ、ページ本文を丸ごと上書きする。
+ * 内容: 疎通確認 / スタック行 / 直近 24h エラー / one-shot flags
+ */
+var SYNC_HEALTH_PAGE_ID = '3e988446-d062-8197-af8d-d6255a14ebd3';
+
+function syncHealthToNotion() {
+  var cfg = getConfig();
+  if (!cfg.NOTION_TOKEN) return { skipped: 'no_token' };
+  var ss;
+  try { ss = getLedger(cfg); } catch(e) { return { error: 'getLedger:' + e.message }; }
+
+  var data   = _buildSyncHealthData_(cfg, ss);
+  var blocks = _buildSyncHealthBlocks_(data);
+  return _replaceNotionPageContent_(cfg, SYNC_HEALTH_PAGE_ID, blocks);
+}
+
+function _buildSyncHealthData_(cfg, ss) {
+  var d = {
+    generatedAt: nowISO(),
+    apiOk: false, customerDbOk: false, karteDbOk: false,
+    triggers: {}, stuckRows: {}, recentErrors: [],
+    lastFullSync: '', oneshotFlags: {},
+  };
+  var hdrs = { 'Authorization': 'Bearer ' + cfg.NOTION_TOKEN, 'Notion-Version': '2022-06-28' };
+  try {
+    var r1 = UrlFetchApp.fetch('https://api.notion.com/v1/users/me', { headers: hdrs, muteHttpExceptions: true });
+    d.apiOk = r1.getResponseCode() === 200;
+  } catch(e) {}
+  if (cfg.CUSTOMER_DB_ID) {
+    try {
+      var r2 = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + cfg.CUSTOMER_DB_ID, { headers: hdrs, muteHttpExceptions: true });
+      d.customerDbOk = r2.getResponseCode() === 200;
+    } catch(e) {}
+  }
+  if (cfg.KARTE_DB_ID) {
+    try {
+      var r3 = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + cfg.KARTE_DB_ID, { headers: hdrs, muteHttpExceptions: true });
+      d.karteDbOk = r3.getResponseCode() === 200;
+    } catch(e) {}
+  }
+  var triggerNames = ScriptApp.getProjectTriggers().map(function(t){ return t.getHandlerFunction(); });
+  ['syncToNotion','sendDailySummary','backupLedgerToLucas','onLedgerEdit'].forEach(function(n){
+    d.triggers[n] = triggerNames.indexOf(n) >= 0;
+  });
+  [
+    { name: '施術台帳',    errCol: TR.error_count },
+    { name: '問診台帳',    errCol: QU.error_count },
+    { name: 'クレジット台帳', errCol: CR.error_count },
+    { name: '来店ログ',    errCol: CL.error_count },
+  ].forEach(function(def){
+    try {
+      var sh = ss.getSheetByName(def.name);
+      if (!sh) { d.stuckRows[def.name] = null; return; }
+      var vals = sh.getDataRange().getValues().slice(1);
+      var stuck = [];
+      vals.forEach(function(r, i){
+        var cnt = Number(r[def.errCol]) || 0;
+        if (cnt >= 5) stuck.push({ row: i + 2, count: cnt });
+      });
+      d.stuckRows[def.name] = stuck;
+    } catch(e) { d.stuckRows[def.name] = null; }
+  });
+  try {
+    var logRows = getSheetData(ss, 'アクセスログ') || [];
+    var cutoff = Date.now() - 24 * 3600 * 1000;
+    for (var li = logRows.length - 1; li >= 0 && d.recentErrors.length < 20; li--) {
+      var r = logRows[li];
+      var ts = new Date(r[AL.timestamp]).getTime();
+      if (isNaN(ts) || ts < cutoff) continue;
+      if (String(r[AL.result]) === 'ok') continue;
+      d.recentErrors.push({
+        at:  String(r[AL.timestamp]).slice(11, 19),
+        op:  String(r[AL.action] || ''),
+        err: String(r[AL.error_msg] || '').slice(0, 120),
+        cid: String(r[AL.customer_id_hint] || ''),
+      });
+    }
+  } catch(e) {}
+  try {
+    var syncSheet = ss.getSheetByName('_sync');
+    if (syncSheet) d.lastFullSync = String(syncSheet.getRange('B1').getValue() || '');
+  } catch(e) {}
+  var props = PropertiesService.getScriptProperties().getProperties();
+  d.oneshotFlags = {
+    phones_fixed:        !!props['_phones_fixed_v1'],
+    dedup_committed:     !!props['_dedup_committed_v1'],
+    reformat:            !!props['_reformat_v2'],
+    counters_backfilled: !!props['_counters_backfilled_v5'],
+    archive_20260903:    !!props['_archive_20260903_dupes_v1'],
+  };
+  return d;
+}
+
+function _buildSyncHealthBlocks_(d) {
+  var stuckTotal = 0;
+  Object.keys(d.stuckRows).forEach(function(k){ if (d.stuckRows[k]) stuckTotal += d.stuckRows[k].length; });
+  var allOk = d.apiOk && d.customerDbOk && d.karteDbOk
+    && d.triggers.syncToNotion && d.triggers.sendDailySummary
+    && stuckTotal === 0 && d.recentErrors.length === 0;
+  var statusIcon  = allOk ? '🟢' : '🔴';
+  var statusText  = allOk ? '全て正常' : '要確認';
+  var statusColor = allOk ? 'green_background' : 'red_background';
+
+  var mk = {
+    para: function(txt) {
+      return { object:'block', type:'paragraph', paragraph:{ rich_text:[{ type:'text', text:{ content: String(txt || '') } }] } };
+    },
+    h2: function(txt) {
+      return { object:'block', type:'heading_2', heading_2:{ rich_text:[{ type:'text', text:{ content: String(txt) } }] } };
+    },
+    code: function(txt) {
+      return { object:'block', type:'code', code:{ language:'plain text', rich_text:[{ type:'text', text:{ content: String(txt || '(なし)') } }] } };
+    },
+    call: function(icon, color, txt) {
+      return { object:'block', type:'callout', callout:{ icon:{ type:'emoji', emoji: icon }, color: color, rich_text:[{ type:'text', text:{ content: String(txt) } }] } };
+    },
+  };
+
+  var blocks = [];
+  blocks.push(mk.call(statusIcon, statusColor,
+    statusText + '  |  最終更新: ' + d.generatedAt + '  |  最終フル同期: ' + (d.lastFullSync || '未実行')
+  ));
+
+  blocks.push(mk.h2('📡 疎通確認'));
+  blocks.push(mk.code([
+    (d.apiOk                     ? '✅' : '❌') + ' Notion API',
+    (d.customerDbOk              ? '✅' : '❌') + ' 顧客管理DB',
+    (d.karteDbOk                 ? '✅' : '❌') + ' 施術カルテDB',
+    (d.triggers.syncToNotion     ? '✅' : '❌') + ' syncToNotion トリガー (1分毎)',
+    (d.triggers.sendDailySummary ? '✅' : '❌') + ' sendDailySummary トリガー (毎日 08:00)',
+    (d.triggers.backupLedgerToLucas ? '✅' : '❌') + ' backupLedgerToLucas トリガー',
+    (d.triggers.onLedgerEdit     ? '✅' : '❌') + ' onLedgerEdit トリガー',
+  ].join('\n')));
+
+  blocks.push(mk.h2('⚠️ スタック行 (error_count >= 5)'));
+  var stuckLines = [];
+  Object.keys(d.stuckRows).forEach(function(name){
+    var s = d.stuckRows[name];
+    if (s === null) { stuckLines.push('  ' + name + ': タブなし'); return; }
+    if (s.length === 0) { stuckLines.push('✅ ' + name + ': スタックなし'); return; }
+    stuckLines.push('⚠️ ' + name + ': ' + s.length + ' 件');
+    s.slice(0, 10).forEach(function(r){ stuckLines.push('   - 行 ' + r.row + ' (失敗 ' + r.count + ' 回)'); });
+    if (s.length > 10) stuckLines.push('   ... 他 ' + (s.length - 10) + ' 件');
+  });
+  stuckLines.push('');
+  stuckLines.push('※ 対処: GAS で resetSyncErrors() を実行するか、runResetSyncErrors エンドポイントを叩く');
+  blocks.push(mk.code(stuckLines.join('\n')));
+
+  blocks.push(mk.h2('📋 直近 24h のエラー (最大 20 件)'));
+  var errLines = d.recentErrors.length === 0
+    ? ['🟢 エラーなし']
+    : d.recentErrors.map(function(e){
+        return e.at + '  ' + e.op + '  ' + (e.cid ? '(' + maskCustomerId(e.cid) + ') ' : '') + e.err;
+      });
+  blocks.push(mk.code(errLines.join('\n')));
+
+  blocks.push(mk.h2('🔧 One-shot 処理履歴'));
+  var flagLines = Object.keys(d.oneshotFlags).map(function(k){
+    return (d.oneshotFlags[k] ? '✅' : '⏳') + ' ' + k;
+  });
+  blocks.push(mk.code(flagLines.join('\n')));
+
+  return blocks;
+}
+
+function _replaceNotionPageContent_(cfg, pageId, newBlocks) {
+  var hdrs = {
+    'Authorization': 'Bearer ' + cfg.NOTION_TOKEN,
+    'Notion-Version': '2022-06-28',
+    'Content-Type':   'application/json',
+  };
+  var listRes = UrlFetchApp.fetch('https://api.notion.com/v1/blocks/' + pageId + '/children?page_size=100', {
+    headers: hdrs, muteHttpExceptions: true,
+  });
+  if (listRes.getResponseCode() !== 200) return { error: 'list_failed:' + listRes.getResponseCode() };
+  var childIds = (JSON.parse(listRes.getContentText()).results || []).map(function(b){ return b.id; });
+
+  var deleted = 0, delErrors = 0;
+  for (var i = 0; i < childIds.length; i++) {
+    try {
+      var delRes = UrlFetchApp.fetch('https://api.notion.com/v1/blocks/' + childIds[i], {
+        method:'delete', headers: hdrs, muteHttpExceptions: true,
+      });
+      if (delRes.getResponseCode() < 300) deleted++; else delErrors++;
+    } catch(e) { delErrors++; }
+    Utilities.sleep(80);
+  }
+
+  var appRes = UrlFetchApp.fetch('https://api.notion.com/v1/blocks/' + pageId + '/children', {
+    method:'patch', headers: hdrs,
+    payload: JSON.stringify({ children: newBlocks }),
+    muteHttpExceptions: true,
+  });
+  if (appRes.getResponseCode() >= 300) {
+    return { error: 'append_failed:' + appRes.getResponseCode() + ':' + appRes.getContentText().slice(0, 300) };
+  }
+  return { ok: true, deleted: deleted, delErrors: delErrors, appended: newBlocks.length };
+}
+
+/**
+ * 2026-09-03 の重複ゴミカルテを Notion 側でアーカイブ(=削除)する one-shot 関数
+ * 9/27 のリカバリ暴走で create_pages がリトライして生成された 42 件の残骸:
+ *   - P006 x10 (🔴 未記録・完全空)
+ *   - P007 x30 (🔴 未記録・完全空) + P007 x1 (❌ 取消 の重複片方)
+ *   - P009 x1 (❌ 取消 の重複片方)
+ * Sheet 台帳(source of truth)には影響しない(Notion→シート逆同期はしない)
+ */
+function archiveNotionDupes20260903_(cfg) {
+  cfg = cfg || getConfig();
+  var ids = [
+    // P006 (10)
+    '3e888446-d062-8189-8e3c-efeaf5290cef','3e888446-d062-81e8-a40c-f1c8d2c85c8f',
+    '3e888446-d062-8132-b679-fb005a93a4b0','3e888446-d062-8136-9c36-c55e475d387b',
+    '3e888446-d062-8169-bea4-f6f84f98826d','3e888446-d062-816a-951b-cb29cee087af',
+    '3e888446-d062-81ba-8524-f29d5ef265ab','3e888446-d062-81ca-beba-ccb6a4b3faed',
+    '3e888446-d062-81f3-9a4d-c88b01adc20b','3e888446-d062-8108-8025-dde2c24deb3c',
+    // P007 empty 未記録 (30)
+    '3e888446-d062-8104-af7b-fcff0ce6dbd9','3e888446-d062-8113-8fa5-fa6f21316805',
+    '3e888446-d062-8125-a6d8-fd0196d2ada3','3e888446-d062-8129-b2e0-d8030bc2d149',
+    '3e888446-d062-8131-828d-ecc9b6e1cf9c','3e888446-d062-8135-8882-f789f7df8223',
+    '3e888446-d062-8143-8f54-f258a242a718','3e888446-d062-8151-b328-d247025a0121',
+    '3e888446-d062-8151-b3ee-cf7288981e95','3e888446-d062-8159-88fd-ed742841a232',
+    '3e888446-d062-8163-a9a8-e5ad7d1f7adf','3e888446-d062-8167-888e-c0586c23813a',
+    '3e888446-d062-816b-9eca-e35637992431','3e888446-d062-8172-a1e0-dc88c5eebf32',
+    '3e888446-d062-8175-9b2d-dfdaf60c31a0','3e888446-d062-8176-9d85-c4c9ec333854',
+    '3e888446-d062-817f-90d5-f80b52b02848','3e888446-d062-817f-a81f-f9d508381e8d',
+    '3e888446-d062-81b0-91b4-c049bce57c09','3e888446-d062-81b4-8c32-c8d64848b62b',
+    '3e888446-d062-81cc-9d06-dc01439b7c0e','3e888446-d062-81e1-b60e-c665896294c3',
+    '3e888446-d062-81e1-b96b-c40137edb98e','3e888446-d062-81e3-b904-ca4e9e07fab7',
+    '3e888446-d062-81e4-94af-ede8c8a84f04','3e888446-d062-81e9-ae52-e2ef03bc810b',
+    '3e888446-d062-81ec-90dc-cf93b6bbde35','3e888446-d062-81ed-9606-c1ae0783eefa',
+    '3e888446-d062-81f5-ae15-c4c8c73755ff','3e888446-d062-8100-80a9-cc7402f355e4',
+    // P007 ❌ 取消 の重複片方 (1) — keep 3e888446-d062-81e1-b8cb-f52cd9ec67ba
+    '3e888446-d062-8109-b401-ce88104208fd',
+    // P009 ❌ 取消 の重複片方 (1) — keep 3e888446-d062-8168-893d-d6244f0502a5
+    '3e888446-d062-81c1-80e2-c53cbc54a1e7',
+  ];
+  var ok = 0, fail = 0, errors = [];
+  ids.forEach(function(id) {
+    try {
+      var r = UrlFetchApp.fetch('https://api.notion.com/v1/pages/' + id, {
+        method: 'patch',
+        headers: {
+          'Authorization': 'Bearer ' + cfg.NOTION_TOKEN,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json',
+        },
+        payload: JSON.stringify({ archived: true }),
+        muteHttpExceptions: true,
+      });
+      if (r.getResponseCode() < 300) { ok++; }
+      else { fail++; errors.push(id.slice(0,8) + ':' + r.getResponseCode()); }
+    } catch(e) {
+      fail++; errors.push(id.slice(0,8) + ':' + e.message);
+    }
+    Utilities.sleep(150); // Notion rate limit
+  });
+  return { ok: ok, fail: fail, total: ids.length, errors: errors };
 }
 
 // GASエディタから実行して Notion 接続・トリガー・スタック行を一括診断する

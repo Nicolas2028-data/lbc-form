@@ -1,0 +1,11 @@
+{
+  "name": "lbc-care",
+  "private": true,
+  "scripts": {
+    "test:db": "node --test supabase/tests/*.test.mjs",
+    "test:gas": "node --test tests/auth.test.js tests/treatment-validation.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
+  }
+}

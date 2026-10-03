@@ -1,2 +1,5 @@
 .DS_Store
 node_modules/
+
+# 接続情報(秘密)
+supabase/.env*

@@ -5,6 +5,7 @@
 凡例: [ ] 未着手 / [~] 作業中 / [x] 完了 / 🙋 Nicolas の操作が必要
 
 ## 0. 横断
+- [x] DB 管理: スキーマの指紋によるずれ照合(scripts/db)、Supabase Advisors 対応(migration 0010)、スキーマの自動検査(lint.test.mjs)、docs/database.md
 - [x] デザイン刷新(shadcn/Linear 風、ライト/ダーク、iPad 向け)
 - [x] ロジックのファズテスト(300 シナリオ × 40 操作、CI では 100)
 
@@ -29,6 +30,7 @@
 - [ ] 2-7 ルカスにテスト環境で記録業務を試してもらう
 
 ## 3. 問診・予約(→ 本番切替)
+> 予約は 2026-10-03 Nicolas の判断で一時停止(画面非表示・未ログインからの実行停止)。問診は継続
 - [x] 3-1 questionnaires + submit_questionnaire + 画像(Storage)
 - [x] 3-2 予約枠(staff_schedules, schedule_exceptions, bookings + 排他制約)+ get_available_slots / create_booking / cancel_booking
 - [x] 3-3 画面: 予約(/book)・予約確認/キャンセル(/b/:token)・問診(/q)(ja/es/pt)、予約管理・営業時間/休み設定(スタッフ)
@@ -36,7 +38,7 @@
 - [ ] 3-5 本番環境構築 → 切替手順のリハーサル → 🙋 切替日の決定
 
 ## 4〜8. 新機能
-- [ ] 4 リマインド(メール → LINE)🙋 LINE 公式アカウント・Messaging API チャネル
+- [-] 4 リマインド(予約の一時停止に伴い保留)
 - [ ] 5 Stripe(回数券・サブスク購入、Webhook)🙋 Stripe アカウント
 - [ ] 6 マイページ(LINE ログイン)🙋 LINE ログインチャネル
 - [ ] 7 複数スタッフ・複数店舗の管理画面

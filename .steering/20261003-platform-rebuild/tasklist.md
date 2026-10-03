@@ -4,6 +4,10 @@
 
 凡例: [ ] 未着手 / [~] 作業中 / [x] 完了 / 🙋 Nicolas の操作が必要
 
+## 0. 横断
+- [x] デザイン刷新(shadcn/Linear 風、ライト/ダーク、iPad 向け)
+- [x] ロジックのファズテスト(300 シナリオ × 40 操作、CI では 100)
+
 ## 1. 土台
 - [x] 1-1 `supabase/migrations/`: 組織・人・メニュー(stores, staff, customers, customer_consents, menus, products)+ RLS + 共通関数(updated_at, audit)
 - [x] 1-2 DB テスト基盤(Docker なしで動く PGlite + auth スタブ)と RLS テスト
@@ -19,15 +23,15 @@
 - [x] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log
 - [x] 2-2 DB 関数: record_visit / void_visit / get_patient_card / expire_credits
 - [x] 2-3 DB テスト: FIFO・失効・紹介 3 件上限・自己紹介拒否・残高超過拒否・回数券・赤伝・冪等性
-- [~] 2-4 画面: 患者検索・施術記録・訂正(送信は request_id + 自動再送)は完了。顧客詳細(履歴一覧・情報編集)は未着手
+- [x] 2-4 画面: 患者検索・施術記録・訂正・顧客詳細(履歴・編集・アーカイブ・クレジット履歴・問診表示)
 - [x] 2-5 画面: ダッシュボード(ビュー v_monthly_*)
 - [ ] 2-6 移行スクリプト(シート → Supabase)+ 突き合わせ検証
 - [ ] 2-7 ルカスにテスト環境で記録業務を試してもらう
 
 ## 3. 問診・予約(→ 本番切替)
-- [ ] 3-1 questionnaires + submit_questionnaire + 画像(Storage)
-- [ ] 3-2 予約枠(staff_schedules, schedule_exceptions, bookings + 排他制約)+ get_available_slots / create_booking / cancel_booking
-- [ ] 3-3 画面: 予約・問診(ja/es/pt)、予約管理(スタッフ)
+- [x] 3-1 questionnaires + submit_questionnaire + 画像(Storage)
+- [x] 3-2 予約枠(staff_schedules, schedule_exceptions, bookings + 排他制約)+ get_available_slots / create_booking / cancel_booking
+- [x] 3-3 画面: 予約(/book)・予約確認/キャンセル(/b/:token)・問診(/q)(ja/es/pt)、予約管理・営業時間/休み設定(スタッフ)
 - [ ] 3-4 予約確認メール(Resend)🙋 Resend アカウント
 - [ ] 3-5 本番環境構築 → 切替手順のリハーサル → 🙋 切替日の決定
 

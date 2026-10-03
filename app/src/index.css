@@ -369,3 +369,18 @@ button.list-item { width: 100%; border: 0; border-top: 1px solid var(--border); 
 .consent-list details { margin-top: 6px; }
 .consent-list summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; font-weight: 600; }
 .consent-list p { margin: 6px 0 0; }
+
+/* ── 予約 ── */
+.date-strip { display: grid; grid-auto-flow: column; grid-auto-columns: 92px; gap: 8px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+.date-chip { scroll-snap-align: start; display: grid; gap: 4px; justify-items: center; min-height: 72px; padding: 10px 6px; border-radius: var(--radius); }
+.date-chip .dc-day { font-weight: 650; font-size: 0.9rem; }
+.date-chip .dc-count { display: inline-flex; align-items: center; gap: 3px; font-size: 0.75rem; color: var(--accent); font-weight: 650; }
+.date-chip:disabled .dc-count { color: var(--muted); }
+.date-chip.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.slot { font-variant-numeric: tabular-nums; font-weight: 650; }
+.slot.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.sched-list { display: grid; gap: 6px; }
+.sched-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+.sched-row.add { border-style: dashed; }
+.tabbar { grid-template-columns: repeat(3, 1fr); }

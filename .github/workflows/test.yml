@@ -13,10 +13,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: DB tests (PGlite)
+      - name: DB tests + logic fuzz (PGlite)
         run: |
           npm ci
           npm run test:db
+          FUZZ_SCENARIOS=100 npm run test:fuzz
       - name: App tests & build
         working-directory: app
         env:

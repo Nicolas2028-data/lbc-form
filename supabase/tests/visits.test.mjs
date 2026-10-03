@@ -303,3 +303,12 @@ test('電話番号の正規化は現行 GAS と同じ', async () => {
     assert.equal(r.v, want, `normalize_phone(${input})`);
   }
 });
+
+test('顧客番号は P999 の次が P1000(桁あふれで重複しない)', async () => {
+  await db.query(`select setval('public.customer_code_seq', 998)`);
+  const codes = [];
+  for (let i = 0; i < 3; i++) {
+    codes.push((await one(db, `insert into public.customers (name) values ('Code') returning code`)).code);
+  }
+  assert.deepEqual(codes, ['P999', 'P1000', 'P1001']);
+});

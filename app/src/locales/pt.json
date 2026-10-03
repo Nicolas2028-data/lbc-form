@@ -165,6 +165,8 @@
     "noShow": "Sem atendimento",
     "changed": "Com mudança",
     "unchanged": "Sem mudança",
-    "voidedBecause": "Cancelado: {{reason}}"
+    "voidedBecause": "Cancelado: {{reason}}",
+    "questionnaire": "Questionário",
+    "noQuestionnaire": "Ainda não há questionário"
   }
 }

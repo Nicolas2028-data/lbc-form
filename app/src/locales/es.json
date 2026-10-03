@@ -165,6 +165,8 @@
     "noShow": "Sin tratamiento",
     "changed": "Con cambios",
     "unchanged": "Sin cambios",
-    "voidedBecause": "Anulado: {{reason}}"
+    "voidedBecause": "Anulado: {{reason}}",
+    "questionnaire": "Cuestionario",
+    "noQuestionnaire": "Aún no hay cuestionario"
   }
 }

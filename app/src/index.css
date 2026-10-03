@@ -338,3 +338,34 @@ button.list-item { width: 100%; border: 0; border-top: 1px solid var(--border); 
 .choice.tile-choice .choice-label { flex: 0; line-height: 1.35; }
 .choice.tile-choice .choice-meta { font-size: 1rem; font-weight: 650; color: var(--text-2); }
 .choice.tile-choice.on .choice-meta { color: var(--accent); }
+
+/* ── 問診票(お客様用) ── */
+.q-wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 18px; }
+.q-top { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+.q-hero { display: flex; align-items: center; gap: 14px; padding: 18px 4px 4px; }
+.q-hero-icon { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, #2fa36f, #1f7a57); box-shadow: 0 10px 24px -10px rgba(31, 122, 87, 0.7); }
+.q-hero h1 { font-size: 1.8rem; }
+.q-form { display: grid; gap: 18px; }
+.q-done { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 48px 24px; }
+.grid-2.tight { gap: 10px; grid-template-columns: 1fr 1fr; }
+.tick { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--border-strong); display: grid; place-items: center;
+  font-size: 0.8rem; font-weight: 800; color: var(--accent-fg); flex-shrink: 0; transition: background 0.15s, border-color 0.15s; }
+.tick.on { background: var(--accent); border-color: var(--accent); }
+.drawpad { display: grid; gap: 8px; }
+.drawpad canvas { width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius); background: #fff; touch-action: none; cursor: crosshair; }
+.drawpad-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pain { display: grid; gap: 10px; }
+.pain-value { display: flex; align-items: baseline; gap: 12px; }
+.pain-value strong { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--accent); }
+.pain-value span { color: var(--text-2); font-weight: 600; }
+.pain input[type='range'] { -webkit-appearance: none; appearance: none; padding: 0; min-height: 0; height: 10px; border: 0; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0 var(--p), var(--surface-2) var(--p) 100%); box-shadow: inset 0 0 0 1px var(--border); }
+.pain input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: #fff;
+  border: 2px solid var(--accent); box-shadow: var(--shadow); cursor: pointer; }
+.pain input[type='range']::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
+.pain-scale { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
+.consent-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.consent-list details { margin-top: 6px; }
+.consent-list summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+.consent-list p { margin: 6px 0 0; }

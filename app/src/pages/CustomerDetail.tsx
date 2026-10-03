@@ -10,6 +10,7 @@ import {
 import { yen } from '../lib/pricing';
 import { pickName } from '../i18n';
 import { Alert, Avatar, Card, ErrorBox, Loading } from '../ui';
+import { QuestionnaireCard } from '../components/QuestionnaireCard';
 
 export default function CustomerDetail() {
   const { customerId } = useParams();
@@ -57,6 +58,7 @@ export default function CustomerDetail() {
         <CreditCard customerId={c.id} />
       </div>
       <HistoryCard customerId={c.id} />
+      <QuestionnaireCard customerId={c.id} />
     </>
   );
 }

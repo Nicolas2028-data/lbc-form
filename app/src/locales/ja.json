@@ -165,6 +165,8 @@
     "noShow": "施術なし",
     "changed": "変化あり",
     "unchanged": "変化なし",
-    "voidedBecause": "取消: {{reason}}"
+    "voidedBecause": "取消: {{reason}}",
+    "questionnaire": "問診票",
+    "noQuestionnaire": "問診票はまだありません"
   }
 }

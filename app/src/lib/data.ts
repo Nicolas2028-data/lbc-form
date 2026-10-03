@@ -154,3 +154,32 @@ export type CustomerPatch = Partial<Pick<CustomerFull,
 export async function updateCustomer(id: string, patch: CustomerPatch): Promise<void> {
   await must(supabase.from('customers').update(patch).eq('id', id).select('id'));
 }
+
+// ── 問診 ──
+export interface QuestionnaireRow {
+  id: string; submitted_at: string; lang: string; answers: Record<string, unknown>;
+  image_paths: { body?: string; signature?: string };
+}
+
+export const useQuestionnaires = (customerId: string | undefined) =>
+  useQuery({
+    queryKey: ['questionnaires', customerId],
+    enabled: !!customerId,
+    queryFn: () =>
+      must<QuestionnaireRow[]>(supabase.from('questionnaires')
+        .select('id, submitted_at, lang, answers, image_paths')
+        .eq('customer_id', customerId!).order('submitted_at', { ascending: false }).limit(20)),
+  });
+
+/** 非公開の画像を一時的に見るための URL(10 分有効) */
+export const useSignedImage = (path: string | undefined) =>
+  useQuery({
+    queryKey: ['signed', path],
+    enabled: !!path,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from('questionnaire').createSignedUrl(path!, 600);
+      if (error) throw new Error(error.message);
+      return data.signedUrl;
+    },
+  });

@@ -3,6 +3,10 @@ import { initReactI18next } from 'react-i18next';
 import ja from './locales/ja.json';
 import pt from './locales/pt.json';
 import es from './locales/es.json';
+// 問診票の文言(旧 questionnaire.html の i18n/*.json をそのまま引き継ぐ)
+import qJa from './locales/q/ja.json';
+import qPt from './locales/q/pt.json';
+import qEs from './locales/q/es.json';
 
 export const LANGS = ['ja', 'pt', 'es'] as const;
 export type Lang = (typeof LANGS)[number];
@@ -21,7 +25,11 @@ function initialLang(): Lang {
 }
 
 void i18n.use(initReactI18next).init({
-  resources: { ja: { translation: ja }, pt: { translation: pt }, es: { translation: es } },
+  resources: {
+    ja: { translation: ja, q: qJa },
+    pt: { translation: pt, q: qPt },
+    es: { translation: es, q: qEs },
+  },
   lng: initialLang(),
   fallbackLng: 'ja',
   interpolation: { escapeValue: false },

@@ -89,7 +89,11 @@
   "outbox": {
     "pending": "{{count}} aguardando envio",
     "sendNow": "Enviar agora",
-    "failed": "Um registro não pôde ser enviado: {{label}} ({{error}})"
+    "failed": "Um registro não pôde ser enviado: {{label}} ({{error}})",
+    "retry": "Reenviar",
+    "discard": "Descartar",
+    "otherUser": "Há {{count}} envio(s) pendente(s) de outro membro da equipe (enviados quando ele entrar)",
+    "logoutWarn": "Há {{count}} envio(s) pendente(s). Ao sair, só serão enviados quando você entrar de novo"
   },
   "dashboard": {
     "title": "Painel",
@@ -137,7 +141,12 @@
     "range_invalid": "Período inválido",
     "input_invalid": "Verifique os dados",
     "name_invalid": "Informe o nome",
-    "phone_invalid": "Verifique o telefone"
+    "phone_invalid": "Verifique o telefone",
+    "request_id_required": "Falta o número de envio. Abra a tela de novo",
+    "visit_not_found": "Registro não encontrado",
+    "visit_date_invalid": "Data da visita inválida (registros de antes de ontem: fale com o Nicolas)",
+    "request_id_conflict": "Número de envio duplicado. Abra a tela de novo",
+    "answers_invalid": "Respostas do questionário inválidas"
   },
   "customer": {
     "title": "Ficha do paciente",
@@ -178,7 +187,8 @@
     "unchanged": "Sem mudança",
     "voidedBecause": "Cancelado: {{reason}}",
     "questionnaire": "Questionário",
-    "noQuestionnaire": "Ainda não há questionário"
+    "noQuestionnaire": "Ainda não há questionário",
+    "matchedExisting": "Coincide com paciente existente (confirme se foi o próprio paciente)"
   },
   "book": {
     "title": "Agendamento",
@@ -248,5 +258,12 @@
     "staff": "Equipe",
     "ownerOnly": "Só o Nicolas (dono) pode mudar o horário normal",
     "publicLink": "Página de agendamento (clientes)"
+  },
+  "kiosk": {
+    "open": "Questionário",
+    "lockedTitle": "Modo questionário",
+    "lockedHint": "Digite a senha para voltar à tela da equipe",
+    "unlock": "Voltar à tela da equipe",
+    "backToQ": "Voltar ao questionário"
   }
 }

@@ -35,14 +35,21 @@ void i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
-export function setLang(lang: Lang) {
+/** persist=false はその場だけ切り替える(お客様が問診票で変えた言語をスタッフ画面に持ち越さない) */
+export function setLang(lang: Lang, persist = true) {
   void i18n.changeLanguage(lang);
   document.documentElement.lang = lang;
+  if (!persist) return;
   try {
     localStorage.setItem(LANG_KEY, lang);
   } catch {
     // 保存できなくても切替は有効
   }
+}
+
+/** スタッフが保存した言語に戻す */
+export function restoreSavedLang() {
+  setLang(initialLang(), false);
 }
 
 /** DB の多言語 JSON({ja, pt, es})から現在の言語の文字列を取る */

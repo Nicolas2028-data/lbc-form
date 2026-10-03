@@ -1,123 +1,138 @@
-// 指・ペンで描けるキャンバス(人体図のマーク・署名)。描いた内容は PNG の Blob で取り出せる
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+// 指・ペンで描けるキャンバス(人体図のマーク・署名)
+//  - 内部の解像度は固定(画面の回転・サイズ変更で描いた線が消えない)。表示は CSS で拡大縮小
+//  - 背景画像と描いた線は別の層。画像の読込が遅くても線は消えない
+//  - 最初に触れた 1 本の指・ペンだけを使う(2 本指や手のひらで線が飛ばない)
+//  - 書き出しは背景 + 線を合成した画像(人体図は JPEG で軽く、署名は PNG)
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { Eraser } from 'lucide-react';
 
 export interface DrawPadHandle {
   isEmpty: () => boolean;
+  /** 描いた内容が変わるたびに増える番号(前回アップロードした内容と同じか判定する) */
+  version: () => number;
   toBlob: () => Promise<Blob | null>;
   clear: () => void;
 }
 
 interface Props {
-  background?: string;        // 背景画像(人体図)。書き出し時も一緒に描く
-  aspect: number;             // 横 / 縦
+  background?: string;        // 背景画像(人体図)
+  width: number;              // 内部の解像度
+  height: number;
   color?: string;
   lineWidth?: number;
+  format?: 'image/png' | 'image/jpeg';
   clearLabel: string;
   hint?: string;
   onChange?: (empty: boolean) => void;
 }
 
 export const DrawPad = forwardRef<DrawPadHandle, Props>(function DrawPad(
-  { background, aspect, color = '#d1343e', lineWidth = 4, clearLabel, hint, onChange }, ref,
+  { background, width, height, color = '#d1343e', lineWidth = 5, format = 'image/png', clearLabel, hint, onChange }, ref,
 ) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const img = useRef<HTMLImageElement | null>(null);
-  const drawing = useRef(false);
+  const ink = useRef<HTMLCanvasElement>(null);
+  const activePointer = useRef<number | null>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
+  const versionRef = useRef(0);
   const [empty, setEmpty] = useState(true);
 
-  const paintBackground = useCallback(() => {
-    const c = canvas.current;
-    if (!c) return;
-    const ctx = c.getContext('2d')!;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, c.width, c.height);
-    if (img.current?.complete) ctx.drawImage(img.current, 0, 0, c.width, c.height);
-  }, []);
+  const markDrawn = () => {
+    versionRef.current++;
+    if (empty) { setEmpty(false); onChange?.(false); }
+  };
 
-  // 表示サイズに合わせて内部解像度を決める(高解像度画面でもにじまない)
-  const resize = useCallback(() => {
-    const c = canvas.current;
-    if (!c) return;
-    const w = c.clientWidth;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    c.width = Math.round(w * dpr);
-    c.height = Math.round((w / aspect) * dpr);
-    paintBackground();
-    setEmpty(true);
-    onChange?.(true);
-  }, [aspect, paintBackground, onChange]);
-
-  useEffect(() => {
-    if (background) {
-      const i = new Image();
-      i.onload = () => { img.current = i; paintBackground(); };
-      i.src = background;
-    }
-    resize();
-    // 向きの変更などでサイズが変わったら描き直し(描いた内容は消える)
-    let w = canvas.current?.clientWidth;
-    const onResize = () => {
-      if (canvas.current && canvas.current.clientWidth !== w) { w = canvas.current.clientWidth; resize(); }
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [background, resize, paintBackground]);
-
-  const point = (e: React.PointerEvent) => {
-    const c = canvas.current!;
+  const point = (e: { clientX: number; clientY: number }) => {
+    const c = ink.current!;
     const r = c.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * c.width, y: ((e.clientY - r.top) / r.height) * c.height };
   };
+  const ctx = () => {
+    const g = ink.current!.getContext('2d')!;
+    g.strokeStyle = color;
+    g.fillStyle = color;
+    g.lineWidth = lineWidth;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    return g;
+  };
 
-  const down = (e: React.PointerEvent) => {
+  const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointer.current !== null || !e.isPrimary) return;
     e.preventDefault();
-    canvas.current!.setPointerCapture(e.pointerId);
-    drawing.current = true;
-    last.current = point(e);
-  };
-  const move = (e: React.PointerEvent) => {
-    if (!drawing.current || !last.current) return;
-    const c = canvas.current!;
-    const ctx = c.getContext('2d')!;
+    activePointer.current = e.pointerId;
+    e.currentTarget.setPointerCapture(e.pointerId);
     const p = point(e);
-    const scale = c.width / c.clientWidth;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth * scale;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(last.current.x, last.current.y);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
     last.current = p;
-    if (empty) { setEmpty(false); onChange?.(false); }
+    // タップだけでも点を打つ
+    const g = ctx();
+    g.beginPath();
+    g.arc(p.x, p.y, lineWidth / 2, 0, Math.PI * 2);
+    g.fill();
+    markDrawn();
   };
-  const up = () => { drawing.current = false; last.current = null; };
+  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerId !== activePointer.current || !last.current) return;
+    const g = ctx();
+    // Apple Pencil などの細かい点も拾ってなめらかに
+    const events = typeof e.nativeEvent.getCoalescedEvents === 'function' ? e.nativeEvent.getCoalescedEvents() : [e.nativeEvent];
+    g.beginPath();
+    g.moveTo(last.current.x, last.current.y);
+    for (const ev of events.length ? events : [e.nativeEvent]) {
+      const p = point(ev);
+      g.lineTo(p.x, p.y);
+      last.current = p;
+    }
+    g.stroke();
+    versionRef.current++;
+  };
+  const up = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerId !== activePointer.current) return;
+    activePointer.current = null;
+    last.current = null;
+  };
 
   const clear = useCallback(() => {
-    paintBackground();
+    const c = ink.current;
+    if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height);
+    versionRef.current++;
     setEmpty(true);
     onChange?.(true);
-  }, [paintBackground, onChange]);
+  }, [onChange]);
 
   useImperativeHandle(ref, () => ({
     isEmpty: () => empty,
+    version: () => versionRef.current,
     clear,
-    toBlob: () => new Promise((resolve) => canvas.current ? canvas.current.toBlob(resolve, 'image/png') : resolve(null)),
-  }), [empty, clear]);
+    toBlob: async () => {
+      const out = document.createElement('canvas');
+      out.width = width;
+      out.height = height;
+      const g = out.getContext('2d')!;
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, width, height);
+      if (background) {
+        const img = new Image();
+        img.src = background;
+        await img.decode().catch(() => undefined);
+        if (img.complete && img.naturalWidth) g.drawImage(img, 0, 0, width, height);
+      }
+      if (ink.current) g.drawImage(ink.current, 0, 0);
+      return new Promise<Blob | null>((resolve) => out.toBlob(resolve, format, 0.85));
+    },
+  }), [empty, clear, background, width, height, format]);
 
   return (
     <div className="drawpad">
-      <canvas
-        ref={canvas}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
-        style={{ aspectRatio: String(aspect) }}
-      />
+      <div className="drawpad-stage" style={{ aspectRatio: `${width} / ${height}`, backgroundImage: background ? `url(${background})` : undefined }}>
+        <canvas
+          ref={ink}
+          width={width}
+          height={height}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={up}
+        />
+      </div>
       <div className="drawpad-foot">
         {hint && <span className="muted small">{hint}</span>}
         <button type="button" className="btn-sm" onClick={clear}><Eraser size={14} />{clearLabel}</button>

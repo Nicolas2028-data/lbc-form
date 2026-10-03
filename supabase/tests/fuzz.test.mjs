@@ -119,8 +119,11 @@ class Scenario {
 
   // ── 操作 ──
   randomRecordPayload() {
-    const { r, m, today } = this;
+    const { r, m } = this;
     const c = r.pick(this.customerIds);
+    const vd = r.next();
+    const visitDate = vd < 0.1 ? addDays(this.today, -1) : vd < 0.13 ? addDays(this.today, -2) : vd < 0.15 ? addDays(this.today, 1) : null;
+    const today = visitDate ?? this.today;
     const hasToday = m.visitsOf(c).some((v) => v.date === today && v.status === 'recorded');
     const p = {
       request_id: uuid(), customer_id: c,
@@ -128,6 +131,7 @@ class Scenario {
       allow_same_day: hasToday ? r.chance(0.5) : r.chance(0.05),
       memo: r.chance(0.3) ? 'memo' : '',
     };
+    if (visitDate) p.visit_date = visitDate;
     if (!p.attended) { p.no_show_reason = r.chance(0.85) ? '体調不良' : ' '; return p; }
     p.menu_id = r.chance(0.97) ? r.pick([...m.menus.keys()]) : uuid();
     const passes = [...m.passes.values()];
@@ -161,9 +165,9 @@ class Scenario {
       this.finding('wrong-referral-limit', `model=${pred.limitReached}, db=${d.referral_limit_reached}`);
       return null;
     }
-    const visit = this.m.applyRecord(p, pred, d, this.today);
-    if (pred.attended && d.credit_available !== this.m.available(p.customer_id, this.today)) {
-      this.finding('wrong-credit-after-record', `model=${this.m.available(p.customer_id, this.today)}, db=${d.credit_available}`);
+    const visit = this.m.applyRecord(p, pred, d);
+    if (pred.attended && d.credit_available !== this.m.available(p.customer_id, pred.date)) {
+      this.finding('wrong-credit-after-record', `model=${this.m.available(p.customer_id, pred.date)}, db=${d.credit_available}`);
     }
     // 紹介割引が料金の中で使い切れなかった(割引が無駄になった)
     if (pred.discount > 0 && pred.menuCharge + pred.productCharge < pred.discount) {
@@ -302,6 +306,23 @@ class Scenario {
       const n = [...m.visits.values()].filter((v) => v.customer === d.customer_id && v.date === d.visit_date && v.status === 'recorded').length;
       if (n !== d.n) this.finding('same-day-count', `model=${n}, db=${d.n}`);
     }
+    // クレジットの割当(モデルに頼らない検査)
+    const ids = this.customerIds;
+    const badAlloc = await q(db, `select count(*)::int n from public.credit_allocations a
+      join public.credit_entries u on u.id = a.use_id join public.credit_entries g on g.id = a.grant_id
+      where u.customer_id = any($1::uuid[]) and (g.expires_on < u.occurred_on or g.customer_id <> u.customer_id)`, [ids]);
+    if (badAlloc[0].n) this.finding('alloc-to-expired-grant', `${badAlloc[0].n} 件`);
+    const over = await q(db, `select g.id, g.amount, sum(a.amount)::int used from public.credit_entries g
+      join public.credit_allocations a on a.grant_id = g.id
+      where g.customer_id = any($1::uuid[])
+        and not exists (select 1 from public.credit_entries v where v.reverses_id = a.use_id and v.kind = 'void')
+      group by g.id, g.amount having sum(a.amount) > g.amount`, [ids]);
+    if (over.length) this.finding('grant-over-allocated', JSON.stringify(over[0]));
+    const mismatch = await q(db, `select u.id, -u.amount as want, coalesce(sum(a.amount), 0)::int got from public.credit_entries u
+      left join public.credit_allocations a on a.use_id = u.id
+      where u.customer_id = any($1::uuid[]) and u.kind = 'use' group by u.id, u.amount
+      having coalesce(sum(a.amount), 0) <> -u.amount`, [ids]);
+    if (mismatch.length) this.finding('use-allocation-mismatch', JSON.stringify(mismatch[0]));
     await this.checkStats();
   }
 

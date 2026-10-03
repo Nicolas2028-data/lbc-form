@@ -89,7 +89,11 @@
   "outbox": {
     "pending": "送信待ち {{count}} 件",
     "sendNow": "今すぐ送信",
-    "failed": "送信できなかった記録があります: {{label}}({{error}})"
+    "failed": "送信できなかった記録があります: {{label}}({{error}})",
+    "retry": "再送",
+    "discard": "破棄",
+    "otherUser": "別のスタッフの送信待ちが {{count}} 件あります(そのスタッフのログイン時に送信)",
+    "logoutWarn": "送信待ちが {{count}} 件あります。ログアウトすると、次にあなたがログインするまで送信されません"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -137,7 +141,12 @@
     "range_invalid": "期間が正しくありません",
     "input_invalid": "入力内容を確認してください",
     "name_invalid": "名前を入力してください",
-    "phone_invalid": "電話番号を確認してください"
+    "phone_invalid": "電話番号を確認してください",
+    "request_id_required": "送信番号がありません。画面を開き直してください",
+    "visit_not_found": "記録が見つかりません",
+    "visit_date_invalid": "来院日が正しくありません(前日より前の記録は Nicolas に連絡してください)",
+    "request_id_conflict": "送信番号が重複しました。画面を開き直してください",
+    "answers_invalid": "問診の内容が正しくありません"
   },
   "customer": {
     "title": "患者詳細",
@@ -178,7 +187,8 @@
     "unchanged": "変化なし",
     "voidedBecause": "取消: {{reason}}",
     "questionnaire": "問診票",
-    "noQuestionnaire": "問診票はまだありません"
+    "noQuestionnaire": "問診票はまだありません",
+    "matchedExisting": "既存の患者と一致(要確認: 本人が記入したか確認してください)"
   },
   "book": {
     "title": "ご予約",
@@ -248,5 +258,12 @@
     "staff": "スタッフ",
     "ownerOnly": "通常の営業時間は Nicolas(オーナー)のみ変更できます",
     "publicLink": "予約ページ(お客様用)"
+  },
+  "kiosk": {
+    "open": "問診票",
+    "lockedTitle": "問診モード中",
+    "lockedHint": "スタッフ画面に戻るにはパスワードを入力してください",
+    "unlock": "スタッフ画面に戻る",
+    "backToQ": "問診票に戻る"
   }
 }

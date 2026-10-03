@@ -89,7 +89,11 @@
   "outbox": {
     "pending": "{{count}} pendientes de envío",
     "sendNow": "Enviar ahora",
-    "failed": "Un registro no se pudo enviar: {{label}} ({{error}})"
+    "failed": "Un registro no se pudo enviar: {{label}} ({{error}})",
+    "retry": "Reenviar",
+    "discard": "Descartar",
+    "otherUser": "Hay {{count}} envío(s) pendiente(s) de otro miembro del personal (se enviarán cuando inicie sesión)",
+    "logoutWarn": "Hay {{count}} envío(s) pendiente(s). Si cierra sesión, no se enviarán hasta que vuelva a entrar"
   },
   "dashboard": {
     "title": "Panel",
@@ -137,7 +141,12 @@
     "range_invalid": "Período no válido",
     "input_invalid": "Revise los datos",
     "name_invalid": "Ingrese el nombre",
-    "phone_invalid": "Revise el teléfono"
+    "phone_invalid": "Revise el teléfono",
+    "request_id_required": "Falta el número de envío. Abra la pantalla de nuevo",
+    "visit_not_found": "Registro no encontrado",
+    "visit_date_invalid": "Fecha de visita no válida (registros anteriores a ayer: contacte a Nicolas)",
+    "request_id_conflict": "Número de envío duplicado. Abra la pantalla de nuevo",
+    "answers_invalid": "Respuestas del cuestionario no válidas"
   },
   "customer": {
     "title": "Ficha del paciente",
@@ -178,7 +187,8 @@
     "unchanged": "Sin cambios",
     "voidedBecause": "Anulado: {{reason}}",
     "questionnaire": "Cuestionario",
-    "noQuestionnaire": "Aún no hay cuestionario"
+    "noQuestionnaire": "Aún no hay cuestionario",
+    "matchedExisting": "Coincide con un paciente existente (confirme que lo llenó el propio paciente)"
   },
   "book": {
     "title": "Reserva",
@@ -248,5 +258,12 @@
     "staff": "Personal",
     "ownerOnly": "Solo Nicolas (dueño) puede cambiar el horario normal",
     "publicLink": "Página de reservas (clientes)"
+  },
+  "kiosk": {
+    "open": "Cuestionario",
+    "lockedTitle": "Modo cuestionario",
+    "lockedHint": "Ingrese la contraseña para volver a la pantalla del personal",
+    "unlock": "Volver a la pantalla del personal",
+    "backToQ": "Volver al cuestionario"
   }
 }

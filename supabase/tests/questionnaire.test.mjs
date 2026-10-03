@@ -49,14 +49,15 @@ test('冪等性: 同じ request_id の再送は 1 件だけ', async () => {
   assert.equal(n.n, 1);
 });
 
-test('照合: 電話番号 + 氏名(空白・大小文字の違いは無視)が一致すれば既存の患者に紐づく', async () => {
-  await submit(valid({ phone: '090-3333-0003', name: 'Silva Maria' }));
-  await submit(valid({ phone: '09033330003', name: 'silva  maria', lang: 'pt' }));
-  const rows = await db.query(`select id, lang from public.customers where phone_normalized = '09033330003'`);
+test('照合: 電話番号 + 氏名(空白・大小文字の違いは無視)が一致すれば既存の患者に紐づく。マスタは上書きせず「既存患者に一致」の印を付ける', async () => {
+  await submit(valid({ phone: '090-3333-0003', name: 'Silva Maria', furigana: 'シルバ マリア' }));
+  await submit(valid({ phone: '09033330003', name: 'silva  maria', lang: 'pt', furigana: 'ニセモノ' }));
+  const rows = await db.query(`select id, lang, furigana from public.customers where phone_normalized = '09033330003'`);
   assert.equal(rows.rows.length, 1);
-  assert.equal(rows.rows[0].lang, 'pt');
-  const n = await one(db, `select count(*)::int n from public.questionnaires where customer_id = $1`, [rows.rows[0].id]);
-  assert.equal(n.n, 2);
+  assert.equal(rows.rows[0].lang, 'ja');
+  assert.equal(rows.rows[0].furigana, 'シルバ マリア');
+  const q = await db.query(`select matched_existing from public.questionnaires where customer_id = $1 order by submitted_at`, [rows.rows[0].id]);
+  assert.deepEqual(q.rows.map((r) => r.matched_existing), [false, true]);
 });
 
 test('家族で電話番号を共有: 名前が違えば別の患者として登録(誤マージしない)', async () => {
@@ -93,6 +94,12 @@ test('入力の検証: 必須・形式・選択肢の範囲・同意・署名', 
     [{ answers: { ...base.answers, photo_consent: 'yes', face_preference: '' } }, 'face_preference_invalid'],
     [{ answers: { ...base.answers, consent_agreed: false } }, 'consent_required'],
     [{ answers: { ...base.answers, safety_note: 'x'.repeat(501) } }, 'text_too_long'],
+    // 項目そのものを省略しても通らない(レビューで発見: NULL が素通りしていた)
+    [{ answers: (({ main_symptom, ...r }) => r)(base.answers) }, 'main_symptom_invalid'],
+    [{ answers: (({ safety, ...r }) => r)(base.answers) }, 'safety_invalid'],
+    [{ answers: (({ disliked, ...r }) => r)(base.answers) }, 'disliked_invalid'],
+    [{ answers: { ...base.answers, consent_agreed: 'abc' } }, 'consent_required'],
+    [{ answers: 'not-an-object' }, 'answers_invalid'],
     [{ image_paths: (id) => ({ body: `q/${id}/body.png` }) }, 'signature_required'],
     [{ image_paths: { signature: `q/${uuid()}/signature.png` } }, 'image_path_invalid'],
     [{ image_paths: { signature: `../../etc/passwd` } }, 'image_path_invalid'],

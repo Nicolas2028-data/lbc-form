@@ -1,8 +1,9 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCustomers, useMenus, usePatientCard, useProducts, errorText, searchKey, type PatientCard } from '../lib/data';
+import { useAllMenus, useCustomers, useMenus, usePatientCard, useProducts, errorText, searchKey, type PatientCard } from '../lib/data';
+import { tokyoDate } from '../lib/booking';
 import { sendMutation, newRequestId, BusinessError } from '../lib/rpc';
 import { calcPrice, yen } from '../lib/pricing';
 import { pickName } from '../i18n';
@@ -30,7 +31,12 @@ export default function Record() {
   // この画面で記録した(送信待ちを含む)。同じ日の 2 件目かどうかの判定に使う
   const [recordedHere, setRecordedHere] = useState(false);
 
-  if (card.isPending) return <Loading />;
+  const loadedHasToday = card.data?.today_visits.some((v) => v.status === 'recorded');
+  useEffect(() => {
+    if (formOpen === null && loadedHasToday !== undefined) setFormOpen(!loadedHasToday);
+  }, [formOpen, loadedHasToday]);
+
+  if (card.isPending || formOpen === null) return <Loading />;
   if (card.isError) return <ErrorBox text={errorText(t, card.error)} onRetry={() => void card.refetch()} />;
   const hasToday = recordedHere || card.data.today_visits.some((v) => v.status === 'recorded');
   return (
@@ -38,7 +44,7 @@ export default function Record() {
       key={`${card.data.customer.id}:${formKey}`}
       card={card.data}
       message={message}
-      open={formOpen ?? !hasToday}
+      open={formOpen}
       allowSameDay={hasToday}
       onOpen={() => { setMessage(null); setFormOpen(true); setFormKey((k) => k + 1); }}
       onMessage={setMessage}
@@ -81,8 +87,15 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   const [referrerQuery, setReferrerQuery] = useState('');
   const [memo, setMemo] = useState('');
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
 
   const menu = menus.data?.find((m) => m.id === menuId);
+  // 選んだコースで使えない回数券は選べない(DB の pass_menu_not_allowed と同じ判定)
+  const passAllowed = (menuIds: string[] | null) => !menuIds || !menuId || menuIds.includes(menuId);
+  useEffect(() => {
+    const p = card.passes.find((x) => x.id === passId);
+    if (p && !passAllowed(p.menu_ids)) setPassId('');
+  });
   const product = products.data?.find((p) => p.id === buyId);
   const referral = card.is_first_visit && !!referrerId;
   const price = calcPrice({
@@ -93,6 +106,8 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
     creditUse,
   });
   const maxCredit = Math.min(price.maxCredit, card.credit_available);
+  // 回数券を選ぶなどで上限が下がったら、選んでいたクレジットも上限まで下げる(古い値が後で復活しないように)
+  useEffect(() => { if (creditUse > maxCredit) setCreditUse(maxCredit); }, [creditUse, maxCredit]);
 
   const referrerHits = useMemo(() => {
     const k = searchKey(referrerQuery);
@@ -106,6 +121,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (sending.current) return;
     setMessage(null);
     if (attended ? !menuId || (price.total > 0 && !payment) : !noShowReason.trim()) {
       setMessage({ kind: 'error', text: t('record.required') });
@@ -126,7 +142,10 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
       referrer_id: attended && referral ? referrerId : null,
       memo,
       allow_same_day: allowSameDay,
+      // 来院日: 送信待ちが翌日に届いても、記録した日の日付で記録される
+      visit_date: tokyoDate(new Date()),
     };
+    sending.current = true;
     setBusy(true);
     try {
       const r = await sendMutation<RecordResult>('record_visit', payload, `${card.customer.name} ${menu ? pickName(menu.name, lang) : ''}`);
@@ -148,6 +167,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
         setMessage({ kind: 'error', text: errorText(t, err) });
       }
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -173,7 +193,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
               <span className="badge mono">{card.customer.code}</span>
               {card.is_first_visit
                 ? <span className="badge badge-info"><Sparkles size={13} />{t('record.firstVisit')}</span>
-                : <span className="badge">{t('record.visitCount', { count: card.visit_count + 1 })}</span>}
+                : <span className="badge">{t('record.visitCount', { count: card.visit_count + (card.today_visits.some((v) => v.status === 'recorded' && v.attended) ? 0 : 1) })}</span>}
               {card.last_visit_before_today && <span className="badge">{t('record.lastVisit', { date: card.last_visit_before_today })}</span>}
               {recordedToday > 0 && <span className="badge badge-accent"><CheckCircle2 size={13} />{t('record.alreadyToday')}</span>}
             </div>
@@ -237,8 +257,9 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
                 <span>{t('record.pass')}</span>
                 <div className="choice-grid">
                   {card.passes.map((p) => (
-                    <label key={p.id} className={`choice ${passId === p.id ? 'on' : ''}`}>
-                      <input type="checkbox" checked={passId === p.id}
+                    <label key={p.id} className={`choice ${passId === p.id ? 'on' : ''}`}
+                           style={passAllowed(p.menu_ids) ? undefined : { opacity: 0.45, pointerEvents: 'none' }}>
+                      <input type="checkbox" checked={passId === p.id} disabled={!passAllowed(p.menu_ids)}
                              onChange={(e) => { setPassId(e.target.checked ? p.id : ''); if (e.target.checked) setUseNow(false); }} />
                       <Ticket size={18} />
                       <span className="choice-label">{pickName(p.name, lang)}</span>
@@ -308,9 +329,9 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
                 <span>{t('record.credit')} · {t('record.creditAvailable', { amount: yen(card.credit_available) })}</span>
                 <div className="inline">
                   <div className="stepper">
-                    <button type="button" onClick={() => setCreditUse(Math.max(creditUse - 500, 0))}><Minus size={16} /></button>
+                    <button type="button" onClick={() => setCreditUse(Math.max(price.creditUse - 500, 0))}><Minus size={16} /></button>
                     <strong>{yen(price.creditUse)}</strong>
-                    <button type="button" onClick={() => setCreditUse(Math.min(creditUse + 500, maxCredit))}><Plus size={16} /></button>
+                    <button type="button" onClick={() => setCreditUse(Math.min(price.creditUse + 500, maxCredit))}><Plus size={16} /></button>
                   </div>
                   <button type="button" className="btn-sm" onClick={() => setCreditUse(maxCredit)}>MAX</button>
                 </div>
@@ -372,17 +393,22 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
 function TodayVisits({ card }: { card: PatientCard }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
-  const menus = useMenus();
+  const menus = useAllMenus();
   const [voiding, setVoiding] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const voidIds = useRef(new Map<string, string>());
   const [message, setMessage] = useState<{ kind: 'ok' | 'error' | 'warn'; text: string } | null>(null);
 
   if (!card.today_visits.length) return null;
 
   async function confirmVoid(visitId: string) {
+    if (busy) return;
     if (!reason.trim()) { setMessage({ kind: 'error', text: t('errors.void_reason_required') }); return; }
+    if (!voidIds.current.has(visitId)) voidIds.current.set(visitId, newRequestId());
+    setBusy(true);
     try {
-      const r = await sendMutation('void_visit', { visit_id: visitId, reason }, `void ${card.customer.name}`);
+      const r = await sendMutation('void_visit', { request_id: voidIds.current.get(visitId), visit_id: visitId, reason }, `void ${card.customer.name}`);
       setMessage(r.queued ? { kind: 'warn', text: t('record.queued') } : { kind: 'ok', text: t('record.voidDone') });
       setVoiding(null);
       setReason('');
@@ -390,7 +416,11 @@ function TodayVisits({ card }: { card: PatientCard }) {
       await qc.invalidateQueries({ queryKey: ['monthly-stats'] });
       await qc.invalidateQueries({ queryKey: ['visits', card.customer.id] });
     } catch (err) {
+      // 業務エラー(理由の不足など)は送信番号を作り直して、直したうえで再送できるようにする
+      voidIds.current.delete(visitId);
       setMessage({ kind: 'error', text: errorText(t, err) });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -409,7 +439,7 @@ function TodayVisits({ card }: { card: PatientCard }) {
                 {voiding === v.id && (
                   <div className="inline" style={{ marginTop: 10 }}>
                     <input placeholder={t('record.voidReason')} value={reason} onChange={(e) => setReason(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
-                    <button type="button" className="btn-danger btn-sm" onClick={() => void confirmVoid(v.id)}><Undo2 size={14} />{t('record.void')}</button>
+                    <button type="button" className="btn-danger btn-sm" disabled={busy} onClick={() => void confirmVoid(v.id)}><Undo2 size={14} />{t('record.void')}</button>
                     <button type="button" className="btn-ghost btn-sm" onClick={() => setVoiding(null)}><X size={14} /></button>
                   </div>
                 )}

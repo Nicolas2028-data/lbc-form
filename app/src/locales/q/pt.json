@@ -75,7 +75,19 @@
   "lbl_painLevel": "④ Nível de dor/desconforto (0-10)",
   "pain_min_label": "0 = Sem desconforto",
   "pain_max_label": "10 = Muito intenso",
-  "pain_labels": ["Sem desconforto","","","Leve","","","Moderado","","","Intenso","Muito intenso"],
+  "pain_labels": [
+    "Sem desconforto",
+    "",
+    "",
+    "Leve",
+    "",
+    "",
+    "Moderado",
+    "",
+    "",
+    "Intenso",
+    "Muito intenso"
+  ],
   "t_s3": "3. Informações relevantes para o tratamento",
   "s3_hint": "Selecione tudo que se aplica",
   "safety_pregnant": "Grávida / possibilidade de gravidez",
@@ -137,5 +149,9 @@
   "err_lookup": "Erro ao verificar. Tente novamente.",
   "err_phone_registered": "Este número de telefone já está cadastrado. Por favor avise a recepção.",
   "e_photoConsent": "Selecione sua preferência de foto",
-  "e_facePreference": "Selecione sua preferência de rosto"
+  "e_facePreference": "Selecione sua preferência de rosto",
+  "e_email": "Verifique o formato do e-mail",
+  "e_name_long": "Nome e furigana devem ter no máximo 60 caracteres",
+  "e_too_many": "Limite de envios de hoje atingido. Fale com a recepção.",
+  "e_text_long": "Texto muito longo. Use no máximo 500 caracteres"
 }

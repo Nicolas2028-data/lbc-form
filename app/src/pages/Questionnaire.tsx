@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Camera, CheckCircle2, ClipboardList, FileSignature, HeartPulse, Leaf, Send, ShieldCheck, UserRound } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { newRequestId } from '../lib/rpc';
+import { tokyoDate } from '../lib/booking';
 import { DrawPad, type DrawPadHandle } from '../components/DrawPad';
 import { Alert } from '../ui';
 import { LangSwitch } from './StaffLayout';
@@ -22,8 +23,17 @@ type Errors = Record<string, string>;
 
 const SERVER_ERRORS: Record<string, string> = {
   phone_invalid: 'e_phone', birth_date_invalid: 'e_dob', name_invalid: 'e_sei', consent_required: 'e_consent',
-  signature_required: 'e_signature', too_many_submissions: 'err_srv',
+  signature_required: 'e_signature', too_many_submissions: 'e_too_many', email_invalid: 'e_email',
+  furigana_invalid: 'e_name_long', text_too_long: 'e_text_long', answers_too_large: 'e_text_long',
 };
+
+/** DB の normalize_phone と同じ規則(全角数字 → 半角、記号除去、+81 → 0) */
+export function normalizePhone(raw: string): string {
+  let s = raw.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[\s\-().+＋－ー]/g, '');
+  if (/^81/.test(s)) s = '0' + s.slice(2);
+  if (/^\d{9,10}$/.test(s) && s[0] !== '0') s = '0' + s;
+  return s;
+}
 
 function Section({ icon, title, hint, children }: { icon: ReactNode; title: string; hint?: string; children: ReactNode }) {
   return (
@@ -83,7 +93,7 @@ export default function Questionnaire() {
     <main className="q-wrap">
       <header className="q-top">
         <span className="brand"><span className="brand-mark"><Leaf size={18} /></span><span>LBC Care</span></span>
-        <LangSwitch />
+        <LangSwitch persist={false} />
       </header>
       <div className="q-hero">
         <span className="q-hero-icon"><ClipboardList size={26} /></span>
@@ -105,7 +115,8 @@ export default function Questionnaire() {
 
 function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone: () => void }) {
   const { t } = useTranslation('q');
-  const [requestId] = useState(newRequestId);
+  const requestId = useRef(newRequestId());
+  const uploaded = useRef<{ body: number; sig: number } | null>(null);
   const body = useRef<DrawPadHandle>(null);
   const sig = useRef<DrawPadHandle>(null);
   const [sigEmpty, setSigEmpty] = useState(true);
@@ -121,7 +132,7 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState('');
-  const painLabels = t('pain_labels').split(',');
+  const painLabels = t('pain_labels', { returnObjects: true }) as unknown as string[];
 
   function validate(): Errors {
     const e: Errors = {};
@@ -129,7 +140,9 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
     if (!f.mei.trim()) e.mei = t('e_mei');
     if (lang === 'ja' && !f.seiKana.trim()) e.seiKana = t('e_seiKana');
     if (lang === 'ja' && !f.meiKana.trim()) e.meiKana = t('e_meiKana');
-    if (!/^0\d{9,10}$/.test(f.phone.replace(/\D/g, ''))) e.phone = t('e_phone');
+    if (!/^0\d{9,10}$/.test(normalizePhone(f.phone))) e.phone = t('e_phone');
+    if (`${f.sei.trim()} ${f.mei.trim()}`.length > 60 || `${f.seiKana.trim()} ${f.meiKana.trim()}`.length > 60) e.sei = t('e_name_long');
+    if (f.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) e.email = t('e_email');
     if (!f.dob) e.dob = t('e_dob');
     if (!f.howFound) e.howFound = t('e_howFound');
     if (!f.mainSymptom.length) e.mainSymptom = t('e_mainSymptom');
@@ -148,7 +161,7 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
   // 画像のアップロード(再送で「すでにある」と言われたら成功扱い)
   async function upload(path: string, blob: Blob) {
     for (let i = 0; i < 3; i++) {
-      const { error } = await supabase.storage.from('questionnaire').upload(path, blob, { contentType: 'image/png', upsert: false });
+      const { error } = await supabase.storage.from('questionnaire').upload(path, blob, { contentType: blob.type, upsert: false });
       if (!error || /exists|duplicate/i.test(error.message)) return;
       if (i === 2) throw error;
       await new Promise((r) => setTimeout(r, 600 * 2 ** i));
@@ -166,20 +179,26 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
     }
     setBusy(true);
     try {
+      const versions = { body: body.current?.version() ?? 0, sig: sig.current?.version() ?? 0 };
+      if (uploaded.current && (uploaded.current.body !== versions.body || uploaded.current.sig !== versions.sig)) {
+        requestId.current = newRequestId();   // 描き直した → 新しい保存先にアップロードし直す
+      }
+      const id = requestId.current;
       const images: Record<string, string> = {};
       const sigBlob = await sig.current!.toBlob();
       if (!sigBlob) throw new Error('signature');
-      images.signature = `q/${requestId}/signature.png`;
+      images.signature = `q/${id}/signature.png`;
       await upload(images.signature, sigBlob);
       if (body.current && !body.current.isEmpty()) {
         const b = await body.current.toBlob();
-        if (b) { images.body = `q/${requestId}/body.png`; await upload(images.body, b); }
+        if (b) { images.body = `q/${id}/body.jpg`; await upload(images.body, b); }
       }
+      uploaded.current = versions;
       const payload = {
-        request_id: requestId, store_id: STORE_ID, lang,
+        request_id: id, store_id: STORE_ID, lang,
         name: `${f.sei.trim()} ${f.mei.trim()}`,
         furigana: [f.seiKana.trim(), f.meiKana.trim()].filter(Boolean).join(' '),
-        phone: f.phone, birth_date: f.dob, email: f.email, how_found: f.howFound,
+        phone: normalizePhone(f.phone), birth_date: f.dob, email: f.email, how_found: f.howFound,
         image_paths: images,
         answers: {
           main_symptom: f.mainSymptom, main_symptom_other: f.mainSymptom.includes('other') ? f.mainSymptomOther : '',
@@ -189,7 +208,7 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
           safety_note: f.safetyNote, treatment_goal: f.goal, treatment_strength: f.strength, disliked: f.disliked,
           photo_consent: f.photo, face_preference: f.photo === 'yes' ? f.face : null, consent_agreed: f.consent,
           referrer_name: f.howFound === 'referral' ? f.referrerName : '', how_found_other: f.howFound === 'other' ? f.howFoundOther : '',
-          consent_date: new Date().toISOString().slice(0, 10),
+          consent_date: tokyoDate(new Date()),
         },
       };
       let lastErr: unknown = null;
@@ -231,9 +250,9 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
           <input type="tel" inputMode="numeric" placeholder={t('ph_phone')} value={f.phone} onChange={(e) => set('phone', e.target.value)} autoComplete="tel" />
         </Q>
         <Q label={t('lbl_dob')} required error={errors.dob}>
-          <input type="date" value={f.dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => set('dob', e.target.value)} />
+          <input type="date" value={f.dob} max={tokyoDate(new Date())} onChange={(e) => set('dob', e.target.value)} />
         </Q>
-        <Q label={t('lbl_email')}>
+        <Q label={t('lbl_email')} error={errors.email}>
           <input type="email" placeholder={t('ph_email')} value={f.email} onChange={(e) => set('email', e.target.value)} autoComplete="email" />
         </Q>
         <Q label={t('lbl_howFound')} required error={errors.howFound}>
@@ -245,7 +264,7 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
 
       <Section icon={<HeartPulse size={18} />} title={t('t_s2')}>
         <Q label={t('lbl_bodyMap')}>
-          <DrawPad ref={body} background="/body-diagram.png" aspect={1536 / 1024} clearLabel={t('q_clear')} hint={t('q_drawHint')} />
+          <DrawPad ref={body} background="/body-diagram.png" width={1200} height={800} format="image/jpeg" clearLabel={t('q_clear')} hint={t('q_drawHint')} />
         </Q>
         <Q label={t('lbl_mainSymptom')} required error={errors.mainSymptom}>
           <Choices name="mainSymptom" options={SYMPTOMS} value={f.mainSymptom} multi cols="compact"
@@ -330,7 +349,7 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
           {errors.consent && <span className="error small">{errors.consent}</span>}
         </div>
         <Q label={t('lbl_signature')} required error={errors.signature}>
-          <DrawPad ref={sig} aspect={3} color="#111827" lineWidth={3} clearLabel={t('sig_clear')} hint={t('sig_hint')} onChange={setSigEmpty} />
+          <DrawPad ref={sig} width={900} height={300} color="#111827" lineWidth={4} clearLabel={t('sig_clear')} hint={t('sig_hint')} onChange={setSigEmpty} />
         </Q>
         <p className="muted small">{t('lbl_date')} {new Date().toLocaleDateString(lang === 'ja' ? 'ja-JP' : lang === 'pt' ? 'pt-BR' : 'es')}</p>
       </Section>

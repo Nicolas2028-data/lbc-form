@@ -9,7 +9,6 @@ const rows = async (sql) => (await db.query(sql)).rows;
 
 // 未ログイン(anon)が実行してよい関数の一覧。増やすときはここで意図を明示する
 const ANON_ALLOWED = new Set([
-  'normalize_phone',        // 電話番号の正規化(副作用なし)
   'public_store',           // 店舗名と ID のみ
   'submit_questionnaire',   // 問診票(入力を厳密に検証)
 ]);

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ClipboardList, ImageOff } from 'lucide-react';
 import { useQuestionnaires, useSignedImage, errorText, type QuestionnaireRow } from '../lib/data';
 import { Card, ErrorBox, Loading } from '../ui';
+import { tokyoDate } from '../lib/booking';
 
 const LABEL: Record<string, Record<string, string>> = {
   main_symptom: { shoulder_stiff: 'sym_shoulder', lower_back: 'sym_lower_back', neck_stiff: 'sym_neck', headache: 'sym_headache', posture: 'sym_posture', fatigue: 'sym_fatigue', swelling: 'sym_swelling', other: 'sym_other' },
@@ -25,6 +26,7 @@ function Img({ path, alt }: { path?: string; alt: string }) {
 
 function One({ q }: { q: QuestionnaireRow }) {
   const { t } = useTranslation('q');
+  const { t: tStaff } = useTranslation();
   const a = q.answers as Record<string, string | string[] | number | boolean | Record<string, string> | null>;
   const show = (field: string) => {
     const v = a[field];
@@ -48,7 +50,10 @@ function One({ q }: { q: QuestionnaireRow }) {
   if (a.referrer_name) rows.push([t('how_referral'), String(a.referrer_name)]);
   return (
     <div className="card-body" style={{ borderTop: '1px solid var(--border)' }}>
-      <div className="inline"><span className="badge">{q.submitted_at.slice(0, 10)}</span><span className="badge">{q.lang.toUpperCase()}</span></div>
+      <div className="inline">
+        <span className="badge">{tokyoDate(q.submitted_at)}</span><span className="badge">{q.lang.toUpperCase()}</span>
+        {q.matched_existing && <span className="badge badge-warn">{tStaff('customer.matchedExisting')}</span>}
+      </div>
       <dl style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 34%) 1fr', gap: '10px 18px', margin: 0 }}>
         {rows.map(([k, v]) => (
           <div key={k} style={{ display: 'contents' }}>

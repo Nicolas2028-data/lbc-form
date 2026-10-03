@@ -63,6 +63,15 @@ export const useMenus = () =>
         .eq('active', true).order('sort')),
   });
 
+/** 履歴の表示用: 廃止したメニューも含む */
+export const useAllMenus = () =>
+  useQuery({
+    queryKey: ['menus-all'],
+    staleTime: 10 * 60_000,
+    queryFn: () =>
+      must<Menu[]>(supabase.from('menus').select('id, code, name, price, duration_min, sort').order('sort')),
+  });
+
 export const useProducts = () =>
   useQuery({
     queryKey: ['products'],
@@ -157,7 +166,7 @@ export async function updateCustomer(id: string, patch: CustomerPatch): Promise<
 
 // ── 問診 ──
 export interface QuestionnaireRow {
-  id: string; submitted_at: string; lang: string; answers: Record<string, unknown>;
+  id: string; submitted_at: string; lang: string; answers: Record<string, unknown>; matched_existing: boolean;
   image_paths: { body?: string; signature?: string };
 }
 
@@ -167,7 +176,7 @@ export const useQuestionnaires = (customerId: string | undefined) =>
     enabled: !!customerId,
     queryFn: () =>
       must<QuestionnaireRow[]>(supabase.from('questionnaires')
-        .select('id, submitted_at, lang, answers, image_paths')
+        .select('id, submitted_at, lang, answers, image_paths, matched_existing')
         .eq('customer_id', customerId!).order('submitted_at', { ascending: false }).limit(20)),
   });
 

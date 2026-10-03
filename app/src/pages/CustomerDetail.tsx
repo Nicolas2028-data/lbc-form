@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, ArrowLeft, ClipboardPen, Coins, History, Pencil, Save, UserRound, X } from 'lucide-react';
 import {
-  useCreditHistory, useCustomer, useMenus, usePatientCard, useVisitHistory, errorText, updateCustomer,
+  useAllMenus, useCreditHistory, useCustomer, usePatientCard, useVisitHistory, errorText, updateCustomer,
   type CustomerFull, type CustomerPatch,
 } from '../lib/data';
 import { yen } from '../lib/pricing';
@@ -210,7 +210,7 @@ function CreditCard({ customerId }: { customerId: string }) {
 function HistoryCard({ customerId }: { customerId: string }) {
   const { t, i18n } = useTranslation();
   const visits = useVisitHistory(customerId);
-  const menus = useMenus();
+  const menus = useAllMenus();
   return (
     <Card title={t('customer.history')} icon={<History size={18} />} pad={false}>
       {visits.isPending ? <Loading /> : visits.isError ? (

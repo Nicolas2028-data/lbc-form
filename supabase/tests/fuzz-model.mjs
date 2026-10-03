@@ -47,27 +47,50 @@ export class Model {
   visitsOf(c) { return [...this.visits.values()].filter((v) => v.customer === c); }
   isReversed(entry, kind) { return this.credit.some((x) => x.reverses === entry && x.kind === kind); }
 
-  // ── クレジット(有効期限の近い順に消費)──
-  lots(c) {
-    let consumed = -this.credit
-      .filter((e) => e.customer === c && (e.kind === 'use' || (e.kind === 'void' && e.reverses?.kind === 'use')))
-      .reduce((s, e) => s + e.amount, 0);
-    const grants = this.credit.filter((g) => g.customer === c && g.kind === 'grant')
-      .sort((a, b) => (a.expires < b.expires ? -1 : a.expires > b.expires ? 1 : a.seq - b.seq));
-    const out = [];
-    for (const g of grants) {
-      const lot = g.amount + this.credit
-        .filter((x) => x.reverses === g && (x.kind === 'expire' || x.kind === 'void'))
-        .reduce((s, x) => s + x.amount, 0);
-      const take = Math.min(Math.max(lot, 0), Math.max(consumed, 0));
-      consumed -= take;
-      out.push({ grant: g, expires: g.expires, remaining: Math.max(lot, 0) - take });
+  // ── クレジット ──
+  // 使用は「使った日に有効な付与」へ、期限の近い順に割り当てる(割当は使用ごとに記録)。
+  // 付与の残り = 付与額 + 失効・取消(負)− 取り消されていない使用の割当
+  isVoidedUse(u) { return this.credit.some((x) => x.kind === 'void' && x.reverses === u); }
+  grantRemaining(g) {
+    let rem = g.amount;
+    for (const x of this.credit) if (x.reverses === g && (x.kind === 'expire' || x.kind === 'void')) rem += x.amount;
+    for (const u of this.credit) {
+      if (u.kind !== 'use' || this.isVoidedUse(u)) continue;
+      for (const a of u.allocs) if (a.grant === g) rem -= a.amount;
     }
-    return { lots: out, unassigned: Math.max(consumed, 0) };
+    return rem;
+  }
+  grantsOf(c) {
+    return this.credit.filter((g) => g.customer === c && g.kind === 'grant')
+      .sort((a, b) => (a.expires < b.expires ? -1 : a.expires > b.expires ? 1 : a.seq - b.seq));
+  }
+  lots(c) {
+    let unassigned = 0;
+    const lots = this.grantsOf(c).map((g) => {
+      const rem = this.grantRemaining(g);
+      unassigned += Math.max(-rem, 0);
+      return { grant: g, expires: g.expires, remaining: Math.max(rem, 0) };
+    });
+    return { lots, unassigned };
   }
   available(c, asOf) {
     const { lots, unassigned } = this.lots(c);
     return Math.max(lots.filter((l) => l.expires >= asOf).reduce((s, l) => s + l.remaining, 0) - unassigned, 0);
+  }
+  allocate(c, date, amount) {
+    const allocs = [];
+    let left = amount;
+    for (const g of this.grantsOf(c)) {
+      if (left <= 0) break;
+      if (g.expires < date) continue;
+      const rem = this.grantRemaining(g);
+      if (rem <= 0) continue;
+      const take = Math.min(rem, left);
+      allocs.push({ grant: g, amount: take });
+      left -= take;
+    }
+    if (left > 0) throw new Error('model: allocation shortfall');
+    return allocs;
   }
   balance(c) { return this.credit.filter((e) => e.customer === c).reduce((s, e) => s + e.amount, 0); }
 
@@ -80,8 +103,10 @@ export class Model {
   }
 
   // ── 施術記録: 予測(状態は変えない)──
-  predictRecord(p, today) {
+  predictRecord(p, realToday) {
     if (this.requests.has(p.request_id)) return { duplicate: this.requests.get(p.request_id) };
+    const today = p.visit_date ?? realToday;
+    if (today > realToday || today < addDays(realToday, -1)) fail('visit_date_invalid');
     const c = p.customer_id;
     if (!this.customers.has(c)) fail('customer_not_found');
     if (!p.allow_same_day && this.visitsOf(c).some((v) => v.date === today && v.status === 'recorded')) {
@@ -89,7 +114,7 @@ export class Model {
     }
     if (!p.attended) {
       if (!p.no_show_reason?.trim()) fail('no_show_reason_required');
-      return { attended: false, total: 0 };
+      return { attended: false, total: 0, date: today };
     }
     const menu = this.menus.get(p.menu_id);
     if (!menu) fail('menu_invalid');
@@ -129,11 +154,12 @@ export class Model {
     const total = subtotal - credit;
     if (total > 0 && !METHODS.includes(p.payment_method)) fail('payment_method_required');
     const limitReached = !!p.referrer_id && this.referralGrants(p.referrer_id) >= REFERRAL_LIMIT;
-    return { attended: true, total, credit, menuCharge, productCharge, discount, usePass, product, limitReached };
+    return { attended: true, total, credit, menuCharge, productCharge, discount, usePass, product, limitReached, date: today };
   }
 
   // ── 施術記録: 反映(DB が成功した後、DB の ID を使って)──
-  applyRecord(p, plan, res, today) {
+  applyRecord(p, plan, res) {
+    const today = plan.date;
     const c = p.customer_id;
     const visit = {
       id: res.visit_id, customer: c, date: today, attended: plan.attended, status: 'recorded', total: plan.total,
@@ -144,7 +170,8 @@ export class Model {
         this.sales.push({ visit, amount: plan.total, method: p.payment_method, kind: 'sale', date: today });
       }
       if (plan.credit > 0) {
-        this.credit.push({ customer: c, kind: 'use', amount: -plan.credit, visit, seq: ++this.seq });
+        const allocs = this.allocate(c, today, plan.credit);
+        this.credit.push({ customer: c, kind: 'use', amount: -plan.credit, visit, seq: ++this.seq, date: today, allocs });
       }
       if (plan.product) {
         const pass = {
@@ -206,9 +233,10 @@ export class Model {
   // ── 失効 ──
   applyExpire(asOf) {
     for (const c of this.customers.keys()) {
-      for (const l of this.lots(c).lots) {
-        if (l.expires < asOf && l.remaining > 0) {
-          this.credit.push({ customer: c, kind: 'expire', amount: -l.remaining, reverses: l.grant, seq: ++this.seq });
+      for (const g of this.grantsOf(c)) {
+        const rem = this.grantRemaining(g);
+        if (g.expires < asOf && rem > 0) {
+          this.credit.push({ customer: c, kind: 'expire', amount: -rem, reverses: g, seq: ++this.seq });
         }
       }
     }

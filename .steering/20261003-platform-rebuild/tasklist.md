@@ -5,6 +5,7 @@
 凡例: [ ] 未着手 / [~] 作業中 / [x] 完了 / 🙋 Nicolas の操作が必要
 
 ## 0. 横断
+- [x] デバッグ: DB・画面のコードレビュー(確定 22 件)を修正、再現テスト・ファズのモデル更新・staging 反映(migration 0011)
 - [x] DB 管理: スキーマの指紋によるずれ照合(scripts/db)、Supabase Advisors 対応(migration 0010)、スキーマの自動検査(lint.test.mjs)、docs/database.md
 - [x] デザイン刷新(shadcn/Linear 風、ライト/ダーク、iPad 向け)
 - [x] ロジックのファズテスト(300 シナリオ × 40 操作、CI では 100)

@@ -139,3 +139,4 @@ legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
 .table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .table th, .table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: right; }
 .table th:first-child, .table td:first-child { text-align: left; }
+.small { font-size: 0.85rem; }

@@ -9,7 +9,8 @@ before(async () => {
   s = await seed(db);
 });
 
-const record = (user, p) => rpc(db, user, 'record_visit', { request_id: uuid(), ...p });
+// 既存のテストは同じ患者を同じ日に何度も記録するため、既定で「もう 1 件」を許可する
+const record = (user, p) => rpc(db, user, 'record_visit', { request_id: uuid(), allow_same_day: true, ...p });
 const voidVisit = (user, p) => rpc(db, user, 'void_visit', { request_id: uuid(), ...p });
 const card = (user, customer) =>
   as(db, user, async () => (await one(db, `select public.get_patient_card($1) as r`, [customer])).r);
@@ -33,6 +34,27 @@ test('冪等性: 同じ request_id の再送は 1 件しか記録されず、同
   assert.equal(b.visit_id, a.visit_id);
   const n = await one(db, `select count(*)::int n from public.visits where request_id = $1`, [req]);
   assert.equal(n.n, 1);
+});
+
+test('同じ患者・同じ日の 2 件目は、明示しない限り拒否される(二重送信防止)', async () => {
+  const c = (await one(db, `insert into public.customers (name) values ('SameDay') returning id`)).id;
+  const p = { customer_id: c, menu_id: s.menu.chiro, payment_method: 'cash' };
+  await rpc(db, s.lucas, 'record_visit', { request_id: uuid(), ...p });
+  await rejects(rpc(db, s.lucas, 'record_visit', { request_id: uuid(), ...p }), 'already_recorded_today');
+  // 「もう 1 件」と明示すれば記録できる(同日 2 回目の来院)
+  const second = await rpc(db, s.lucas, 'record_visit', { request_id: uuid(), allow_same_day: true, ...p });
+  assert.equal(second.total, 4000);
+  const n = await one(db, `select count(*)::int n from public.visits where customer_id = $1`, [c]);
+  assert.equal(n.n, 2);
+});
+
+test('取消済みの記録しかない日は、通常どおり記録できる', async () => {
+  const c = (await one(db, `insert into public.customers (name) values ('VoidThenRecord') returning id`)).id;
+  const p = { customer_id: c, menu_id: s.menu.chiro, payment_method: 'cash' };
+  const r = await rpc(db, s.lucas, 'record_visit', { request_id: uuid(), ...p });
+  await voidVisit(s.lucas, { visit_id: r.visit_id, reason: 'やり直し' });
+  const again = await rpc(db, s.lucas, 'record_visit', { request_id: uuid(), ...p });
+  assert.equal(again.total, 4000);
 });
 
 test('施術なし(no-show)は理由が必須で、売上は立たない', async () => {

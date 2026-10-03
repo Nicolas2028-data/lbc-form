@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCustomers, useMenus, usePatientCard, useProducts, errorText, searchKey, type PatientCard } from '../lib/data';
-import { sendMutation, newRequestId } from '../lib/rpc';
+import { sendMutation, newRequestId, BusinessError } from '../lib/rpc';
 import { calcPrice, yen } from '../lib/pricing';
 import { pickName } from '../i18n';
 
@@ -19,6 +19,10 @@ export default function Record() {
   // 記録が終わったら(送信待ちになった場合も)入力欄を新しくする。メッセージはフォームの外で保持
   const [formKey, setFormKey] = useState(0);
   const [message, setMessage] = useState<Message | null>(null);
+  // フォームを開いているか。null = 当日の記録の有無で決める(記録済みなら閉じた状態で開始)
+  const [formOpen, setFormOpen] = useState<boolean | null>(null);
+  // この画面で記録した(送信待ちを含む)。同じ日の 2 件目かどうかの判定に使う
+  const [recordedHere, setRecordedHere] = useState(false);
 
   if (card.isPending) return <p>{t('app.loading')}</p>;
   if (card.isError) {
@@ -28,13 +32,17 @@ export default function Record() {
       </p>
     );
   }
+  const hasToday = recordedHere || card.data.today_visits.some((v) => v.status === 'recorded');
   return (
     <RecordForm
       key={`${card.data.customer.id}:${formKey}`}
       card={card.data}
       message={message}
+      open={formOpen ?? !hasToday}
+      allowSameDay={hasToday}
+      onOpen={() => { setMessage(null); setFormOpen(true); setFormKey((k) => k + 1); }}
       onMessage={setMessage}
-      onDone={(m) => { setMessage(m); setFormKey((k) => k + 1); }}
+      onDone={(m) => { setMessage(m); setRecordedHere(true); setFormOpen(false); setFormKey((k) => k + 1); }}
     />
   );
 }
@@ -44,11 +52,14 @@ interface Message { kind: 'ok' | 'error' | 'warn'; text: string }
 interface FormProps {
   card: PatientCard;
   message: Message | null;
+  open: boolean;           // false なら記録フォームを出さず「記録済み」表示にする
+  allowSameDay: boolean;   // 当日すでに記録がある患者への 2 件目
+  onOpen: () => void;
   onMessage: (m: Message | null) => void;
   onDone: (m: Message) => void;
 }
 
-function RecordForm({ card, message, onMessage: setMessage, onDone }: FormProps) {
+function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setMessage, onDone }: FormProps) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const menus = useMenus();
@@ -114,6 +125,7 @@ function RecordForm({ card, message, onMessage: setMessage, onDone }: FormProps)
       credit_use: attended ? price.creditUse : 0,
       referrer_id: attended && referral ? referrerId : null,
       memo,
+      allow_same_day: allowSameDay,
     };
     setBusy(true);
     try {
@@ -128,7 +140,13 @@ function RecordForm({ card, message, onMessage: setMessage, onDone }: FormProps)
         void qc.invalidateQueries({ queryKey: ['monthly-stats'] });
       }
     } catch (err) {
-      setMessage({ kind: 'error', text: errorText(t, err) });
+      if (err instanceof BusinessError && err.code === 'already_recorded_today') {
+        // 別の端末などで先に記録されていた → 記録済み表示に切り替える
+        onDone({ kind: 'warn', text: errorText(t, err) });
+        void qc.invalidateQueries({ queryKey: ['patient-card', card.customer.id] });
+      } else {
+        setMessage({ kind: 'error', text: errorText(t, err) });
+      }
     } finally {
       setBusy(false);
     }
@@ -151,8 +169,16 @@ function RecordForm({ card, message, onMessage: setMessage, onDone }: FormProps)
 
       {message && <p className={`message ${message.kind}`}>{message.text}</p>}
 
+      {!open ? (
+        <section className="card">
+          <p>{t('record.alreadyToday')}</p>
+          <button type="button" onClick={onOpen}>{t('record.addAnother')}</button>
+          <p className="muted small">{t('record.addAnotherHint')}</p>
+        </section>
+      ) : (
       <form className="card" onSubmit={submit}>
         <h2>{t('record.title')}</h2>
+        {allowSameDay && <p className="message warn">{t('record.sameDayNotice')}</p>}
 
         <div className="segmented">
           <button type="button" className={attended ? 'on' : ''} onClick={() => setAttended(true)}>✅ {t('record.attended')}</button>
@@ -288,6 +314,7 @@ function RecordForm({ card, message, onMessage: setMessage, onDone }: FormProps)
 
         <button className="primary" disabled={busy}>{busy ? t('record.sending') : t('record.submit')}</button>
       </form>
+      )}
 
       <TodayVisits card={card} />
     </>

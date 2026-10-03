@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, NavLink, Outlet } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { BarChart3, CloudUpload, Leaf, LogOut, Users } from 'lucide-react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabase';
 import { useMe, errorText, type StaffMe } from '../lib/data';
 import { flushOutbox, readOutbox } from '../lib/rpc';
 import { LANGS, setLang, type Lang } from '../i18n';
+import { Alert, ErrorBox, Loading } from '../ui';
 
 const StaffContext = createContext<StaffMe | null>(null);
 export const useStaff = () => useContext(StaffContext)!;
@@ -14,13 +16,22 @@ export const useStaff = () => useContext(StaffContext)!;
 export function LangSwitch() {
   const { i18n } = useTranslation();
   return (
-    <div className="lang">
+    <div className="lang" role="group" aria-label="language">
       {LANGS.map((l: Lang) => (
         <button key={l} type="button" className={i18n.language === l ? 'on' : ''} onClick={() => setLang(l)}>
           {l.toUpperCase()}
         </button>
       ))}
     </div>
+  );
+}
+
+export function Brand() {
+  return (
+    <Link to="/staff" className="brand">
+      <span className="brand-mark"><Leaf size={18} /></span>
+      <span>LBC Care</span>
+    </Link>
   );
 }
 
@@ -54,14 +65,16 @@ function OutboxBanner() {
 
   if (!count && !failed.length) return null;
   return (
-    <div className="banner warn">
+    <div className="banner">
       {count > 0 && (
-        <span>
-          {t('outbox.pending', { count })}{' '}
-          <button type="button" onClick={() => void flush()}>{t('outbox.sendNow')}</button>
-        </span>
+        <Alert kind="warn">
+          <span className="inline">
+            <CloudUpload size={16} /> {t('outbox.pending', { count })}
+            <button type="button" className="btn-sm" onClick={() => void flush()}>{t('outbox.sendNow')}</button>
+          </span>
+        </Alert>
       )}
-      {failed.map((f, i) => <p key={i} className="error">{f}</p>)}
+      {failed.map((f, i) => <Alert key={i} kind="error">{f}</Alert>)}
     </div>
   );
 }
@@ -71,42 +84,45 @@ export default function StaffLayout() {
   const { session, ready } = useAuth();
   const me = useMe(session?.user.id);
 
-  if (!ready) return <main className="page"><p>{t('app.loading')}</p></main>;
+  if (!ready) return <Loading />;
   if (!session) return <Navigate to="/staff/login" replace />;
-  if (me.isPending) return <main className="page"><p>{t('app.loading')}</p></main>;
-  if (me.isError) {
-    return (
-      <main className="page">
-        <p className="error">{errorText(t, me.error)}</p>
-        <button onClick={() => void me.refetch()}>{t('app.retry')}</button>
-      </main>
-    );
-  }
+  if (me.isPending) return <Loading />;
+  if (me.isError) return <main className="page"><ErrorBox text={errorText(t, me.error)} onRetry={() => void me.refetch()} /></main>;
   const staff = me.data[0];
   if (!staff) {
     return (
-      <main className="page narrow">
-        <p className="error">{t('login.notStaff')}</p>
-        <button onClick={() => void supabase.auth.signOut()}>{t('app.logout')}</button>
+      <main className="page page-narrow">
+        <Alert kind="error">{t('login.notStaff')}</Alert>
+        <button onClick={() => void supabase.auth.signOut()}><LogOut size={16} />{t('app.logout')}</button>
       </main>
     );
   }
 
   return (
     <StaffContext.Provider value={staff}>
-      <header className="topbar">
-        <span className="brand">🌿 {t('app.title')}</span>
-        <nav>
-          <NavLink to="/staff" end>{t('nav.patients')}</NavLink>
-          <NavLink to="/staff/dashboard">{t('nav.dashboard')}</NavLink>
-        </nav>
-        <LangSwitch />
-        <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>{t('app.logout')}</button>
+      <header className="app-header">
+        <div className="app-header-inner">
+          <Brand />
+          <nav className="nav">
+            <NavLink to="/staff" end><Users size={16} />{t('nav.patients')}</NavLink>
+            <NavLink to="/staff/dashboard"><BarChart3 size={16} />{t('nav.dashboard')}</NavLink>
+          </nav>
+          <div className="header-right">
+            <LangSwitch />
+            <button type="button" className="btn-ghost btn-sm" onClick={() => void supabase.auth.signOut()} title={t('app.logout')}>
+              <LogOut size={16} />
+            </button>
+          </div>
+        </div>
       </header>
       <OutboxBanner />
       <main className="page">
         <Outlet />
       </main>
+      <nav className="tabbar">
+        <NavLink to="/staff" end><Users size={22} />{t('nav.patients')}</NavLink>
+        <NavLink to="/staff/dashboard"><BarChart3 size={22} />{t('nav.dashboard')}</NavLink>
+      </nav>
     </StaffContext.Provider>
   );
 }

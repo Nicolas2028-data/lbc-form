@@ -102,3 +102,55 @@ export function searchKey(s: string | null | undefined): string {
     .replace(/[\s　\-]/g, '')
     .replace(/[ァ-ン]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
+
+// ── 顧客詳細 ──
+export interface CustomerFull extends Customer {
+  email: string | null; birth_date: string | null; address: string | null; notes: string | null;
+  how_found: string[]; first_visit_date: string | null; referred_by: string | null; created_at: string;
+}
+export interface VisitRow {
+  id: string; visit_date: string; attended: boolean; status: 'recorded' | 'voided'; memo: string | null;
+  no_show_reason: string | null; change_from_last: 'none' | 'changed' | null; menu_id: string | null;
+  void_reason: string | null; created_at: string; sales: { amount: number; method: string; kind: string }[];
+}
+export interface CreditRow {
+  id: string; kind: 'grant' | 'use' | 'expire' | 'void'; amount: number; reason: string | null;
+  expires_on: string | null; occurred_on: string; created_at: string;
+}
+
+export const useCustomer = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['customer', id],
+    enabled: !!id,
+    queryFn: () =>
+      must<CustomerFull>(supabase.from('customers')
+        .select('id, code, name, furigana, phone_normalized, status, lang, email, birth_date, address, notes, how_found, first_visit_date, referred_by, created_at')
+        .eq('id', id!).single()),
+  });
+
+export const useVisitHistory = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['visits', id],
+    enabled: !!id,
+    queryFn: () =>
+      must<VisitRow[]>(supabase.from('visits')
+        .select('id, visit_date, attended, status, memo, no_show_reason, change_from_last, menu_id, void_reason, created_at, sales(amount, method, kind)')
+        .eq('customer_id', id!).order('visit_date', { ascending: false }).order('created_at', { ascending: false }).limit(200)),
+  });
+
+export const useCreditHistory = (id: string | undefined) =>
+  useQuery({
+    queryKey: ['credits', id],
+    enabled: !!id,
+    queryFn: () =>
+      must<CreditRow[]>(supabase.from('credit_entries')
+        .select('id, kind, amount, reason, expires_on, occurred_on, created_at')
+        .eq('customer_id', id!).order('created_at', { ascending: false }).limit(200)),
+  });
+
+export type CustomerPatch = Partial<Pick<CustomerFull,
+  'name' | 'furigana' | 'phone_normalized' | 'email' | 'birth_date' | 'address' | 'notes' | 'lang' | 'status'>>;
+
+export async function updateCustomer(id: string, patch: CustomerPatch): Promise<void> {
+  await must(supabase.from('customers').update(patch).eq('id', id).select('id'));
+}

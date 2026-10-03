@@ -22,7 +22,10 @@
   "patients": {
     "search": "Buscar por nome, furigana, nº de ficha ou telefone",
     "none": "Nenhum paciente encontrado",
-    "count": "{{count}} pessoas"
+    "count": "{{count}} pessoas",
+    "title": "Pacientes",
+    "subtitle": "Busque por nome, furigana, número ou telefone",
+    "detail": "Detalhes"
   },
   "record": {
     "title": "Registro de atendimento",
@@ -74,7 +77,13 @@
     "alreadyToday": "O atendimento de hoje já foi registrado.",
     "addAnother": "Registrar mais um no mesmo dia",
     "addAnotherHint": "Use somente se o paciente veio duas vezes no mesmo dia",
-    "sameDayNotice": "Este paciente já tem registro hoje. Será registrado como o 2º"
+    "sameDayNotice": "Este paciente já tem registro hoje. Será registrado como o 2º",
+    "section_status": "Visita",
+    "section_menu": "Tratamento e pacote",
+    "section_payment": "Conta",
+    "section_note": "Anotações",
+    "detail": "Ficha do paciente",
+    "record": "Registrar atendimento"
   },
   "outbox": {
     "pending": "{{count}} aguardando envio",
@@ -88,7 +97,12 @@
     "newCustomers": "Novos",
     "sales": "Vendas",
     "unpaid": "A receber",
-    "avg": "Ticket médio"
+    "avg": "Ticket médio",
+    "subtitle": "Números do mês e tendência dos últimos 12 meses",
+    "vsLast": "vs mês anterior",
+    "trend": "Vendas por mês",
+    "table": "Detalhe mensal",
+    "noData": "Ainda não há dados"
   },
   "errors": {
     "not_staff": "Não registrado como equipe",
@@ -113,5 +127,44 @@
     "pass_in_use": "O pacote comprado já foi usado; não é possível cancelar",
     "unknown": "Ocorreu um erro ({{code}})",
     "already_recorded_today": "Este paciente já foi registrado hoje (registro duplicado evitado)"
+  },
+  "customer": {
+    "title": "Ficha do paciente",
+    "info": "Dados básicos",
+    "edit": "Editar",
+    "save": "Salvar",
+    "saved": "Salvo",
+    "cancel": "Cancelar",
+    "name": "Nome",
+    "furigana": "Furigana",
+    "phone": "Telefone",
+    "email": "E-mail",
+    "birth": "Nascimento",
+    "lang": "Idioma",
+    "address": "Endereço",
+    "notes": "Notas da equipe",
+    "firstVisit": "Primeira visita",
+    "visits": "Visitas",
+    "credit": "Saldo de crédito",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "archived": "Arquivado",
+    "archiveConfirm": "Ao arquivar, o paciente não aparecerá na busca. Continuar?",
+    "history": "Histórico de visitas",
+    "noHistory": "Ainda não há visitas",
+    "credits": "Histórico de crédito",
+    "noCredits": "Sem movimentação de crédito",
+    "kind_grant": "Concedido",
+    "kind_use": "Usado",
+    "kind_expire": "Expirado",
+    "kind_void": "Cancelado",
+    "reason_referral": "Indicação",
+    "reason_manual": "Manual",
+    "reason_migration": "Migração",
+    "expires": "até {{date}}",
+    "noShow": "Sem atendimento",
+    "changed": "Com mudança",
+    "unchanged": "Sem mudança",
+    "voidedBecause": "Cancelado: {{reason}}"
   }
 }

@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
+import { LogIn } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../auth';
-import { LangSwitch } from './StaffLayout';
+import { Brand, LangSwitch } from './StaffLayout';
+import { Alert } from '../ui';
 
 export default function Login() {
   const { t } = useTranslation();
@@ -25,10 +27,12 @@ export default function Login() {
   }
 
   return (
-    <main className="page narrow">
-      <div className="topbar"><span className="brand">🌿 {t('app.title')}</span><LangSwitch /></div>
-      <form className="card" onSubmit={submit}>
-        <h1>{t('login.title')}</h1>
+    <main className="auth-wrap">
+      <form className="card auth-card fade-in" onSubmit={submit}>
+        <div className="auth-top"><Brand /><LangSwitch /></div>
+        <div>
+          <h1>{t('login.title')}</h1>
+        </div>
         <label className="field">
           <span>{t('login.email')}</span>
           <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -38,8 +42,10 @@ export default function Login() {
           <input type="password" autoComplete="current-password" required value={password}
                  onChange={(e) => setPassword(e.target.value)} />
         </label>
-        {error && <p className="error">{error}</p>}
-        <button className="primary" disabled={busy}>{busy ? t('app.loading') : t('login.submit')}</button>
+        {error && <Alert kind="error">{error}</Alert>}
+        <button className="btn-primary btn-lg btn-block" disabled={busy}>
+          <LogIn size={18} />{busy ? t('app.loading') : t('login.submit')}
+        </button>
       </form>
     </main>
   );

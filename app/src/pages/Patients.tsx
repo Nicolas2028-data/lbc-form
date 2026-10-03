@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { ChevronRight, IdCard, Search, UserX } from 'lucide-react';
 import { useCustomers, errorText, searchKey } from '../lib/data';
+import { Avatar, ErrorBox, Loading } from '../ui';
 
 export default function Patients() {
   const { t } = useTranslation();
@@ -18,30 +20,47 @@ export default function Patients() {
 
   return (
     <>
-      <input className="search" type="search" autoFocus placeholder={t('patients.search')}
-             value={q} onChange={(e) => setQ(e.target.value)} />
-      {customers.isPending && <p>{t('app.loading')}</p>}
-      {customers.isError && (
-        <p className="error">
-          {errorText(t, customers.error)} <button onClick={() => void customers.refetch()}>{t('app.retry')}</button>
-        </p>
-      )}
+      <div className="page-head">
+        <div>
+          <h1>{t('patients.title')}</h1>
+          <p>{t('patients.subtitle')}</p>
+        </div>
+        {customers.data && <span className="badge">{t('patients.count', { count: hits.length })}</span>}
+      </div>
+
+      <label className="search">
+        <Search size={20} />
+        <input type="search" autoFocus placeholder={t('patients.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+      </label>
+
+      {customers.isPending && <Loading />}
+      {customers.isError && <ErrorBox text={errorText(t, customers.error)} onRetry={() => void customers.refetch()} />}
       {customers.data && (
-        <>
-          <p className="muted">{t('patients.count', { count: hits.length })}</p>
-          {hits.length === 0 && <p>{t('patients.none')}</p>}
-          <ul className="list">
-            {hits.map((c) => (
-              <li key={c.id}>
-                <Link to={`/staff/record/${c.id}`}>
-                  <span className="name">{c.name}</span>
-                  {c.furigana && <span className="muted"> {c.furigana}</span>}
-                  <span className="code">{c.code}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
+        <section className="card fade-in">
+          {hits.length === 0 ? (
+            <div className="empty"><UserX size={28} /><span>{t('patients.none')}</span></div>
+          ) : (
+            <ul className="list">
+              {hits.map((c) => (
+                <li key={c.id} style={{ display: 'flex', alignItems: 'center' }}>
+                  <Link to={`/staff/record/${c.id}`} className="list-item" style={{ flex: 1 }}>
+                    <Avatar name={c.name} seed={c.id} />
+                    <div className="list-main">
+                      <div className="list-title">{c.name}</div>
+                      <div className="list-sub">{c.furigana ?? '—'}</div>
+                    </div>
+                    <span className="badge mono">{c.code}</span>
+                    <ChevronRight size={18} className="chev" />
+                  </Link>
+                  <Link to={`/staff/customers/${c.id}`} className="btn btn-ghost btn-sm" title={t('patients.detail')}
+                        style={{ marginRight: 8, textDecoration: 'none' }}>
+                    <IdCard size={18} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </>
   );

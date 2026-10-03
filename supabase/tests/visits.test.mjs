@@ -312,3 +312,11 @@ test('顧客番号は P999 の次が P1000(桁あふれで重複しない)', asy
   }
   assert.deepEqual(codes, ['P999', 'P1000', 'P1001']);
 });
+
+test('顧客の電話番号・メールは保存時に正規化される(スタッフが画面から編集しても照合キーがずれない)', async () => {
+  const c = (await one(db, `insert into public.customers (name) values ('  Phone  ') returning id`)).id;
+  await as(db, s.lucas, () =>
+    db.query(`update public.customers set phone_normalized = '+81 90-1234-5678', email = ' Foo@Example.COM ', furigana = '  ' where id = $1`, [c]));
+  const r = await one(db, `select name, phone_normalized, email, furigana from public.customers where id = $1`, [c]);
+  assert.deepEqual(r, { name: 'Phone', phone_normalized: '09012345678', email: 'foo@example.com', furigana: null });
+});

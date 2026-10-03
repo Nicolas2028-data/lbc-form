@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Patients from './pages/Patients';
 import Record from './pages/Record';
 import Dashboard from './pages/Dashboard';
+import CustomerDetail from './pages/CustomerDetail';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/staff" element={<StaffLayout />}>
           <Route index element={<Patients />} />
           <Route path="record/:customerId" element={<Record />} />
+          <Route path="customers/:customerId" element={<CustomerDetail />} />
           <Route path="dashboard" element={<Dashboard />} />
         </Route>
         <Route path="*" element={<Navigate to="/staff" replace />} />

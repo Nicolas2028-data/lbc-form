@@ -22,7 +22,10 @@
   "patients": {
     "search": "名前・フリガナ・診察番号・電話で検索",
     "none": "該当する患者がいません",
-    "count": "{{count}} 人"
+    "count": "{{count}} 人",
+    "title": "患者",
+    "subtitle": "名前・フリガナ・番号・電話で検索できます",
+    "detail": "詳細"
   },
   "record": {
     "title": "施術記録",
@@ -74,7 +77,13 @@
     "alreadyToday": "本日はすでに記録済みです。",
     "addAnother": "同じ日にもう 1 件記録する",
     "addAnotherHint": "同じ日に 2 回来院した場合だけ使ってください",
-    "sameDayNotice": "この患者は本日すでに記録があります。2 件目として記録します"
+    "sameDayNotice": "この患者は本日すでに記録があります。2 件目として記録します",
+    "section_status": "来店",
+    "section_menu": "コース・回数券",
+    "section_payment": "お会計",
+    "section_note": "メモ",
+    "detail": "患者詳細",
+    "record": "施術を記録"
   },
   "outbox": {
     "pending": "送信待ち {{count}} 件",
@@ -88,7 +97,12 @@
     "newCustomers": "新規",
     "sales": "売上",
     "unpaid": "未収",
-    "avg": "客単価"
+    "avg": "客単価",
+    "subtitle": "今月の数字と、直近 12 か月の推移",
+    "vsLast": "前月比",
+    "trend": "月別の売上",
+    "table": "月別の内訳",
+    "noData": "まだデータがありません"
   },
   "errors": {
     "not_staff": "スタッフとして登録されていません",
@@ -113,5 +127,44 @@
     "pass_in_use": "購入した回数券が使用済みのため取り消せません",
     "unknown": "エラーが発生しました({{code}})",
     "already_recorded_today": "この患者は本日すでに記録されています(二重記録を防ぎました)"
+  },
+  "customer": {
+    "title": "患者詳細",
+    "info": "基本情報",
+    "edit": "編集",
+    "save": "保存",
+    "saved": "保存しました",
+    "cancel": "キャンセル",
+    "name": "氏名",
+    "furigana": "フリガナ",
+    "phone": "電話番号",
+    "email": "メール",
+    "birth": "生年月日",
+    "lang": "言語",
+    "address": "住所",
+    "notes": "スタッフメモ",
+    "firstVisit": "初回来院",
+    "visits": "来院回数",
+    "credit": "クレジット残高",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブを解除",
+    "archived": "アーカイブ済み",
+    "archiveConfirm": "アーカイブすると検索に出なくなります。よろしいですか？",
+    "history": "来院履歴",
+    "noHistory": "来院履歴はまだありません",
+    "credits": "クレジット履歴",
+    "noCredits": "クレジットの履歴はありません",
+    "kind_grant": "付与",
+    "kind_use": "使用",
+    "kind_expire": "失効",
+    "kind_void": "取消",
+    "reason_referral": "紹介",
+    "reason_manual": "手動",
+    "reason_migration": "移行",
+    "expires": "{{date}} まで",
+    "noShow": "施術なし",
+    "changed": "変化あり",
+    "unchanged": "変化なし",
+    "voidedBecause": "取消: {{reason}}"
   }
 }

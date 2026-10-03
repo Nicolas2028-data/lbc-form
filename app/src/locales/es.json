@@ -22,7 +22,10 @@
   "patients": {
     "search": "Buscar por nombre, furigana, nº de ficha o teléfono",
     "none": "No se encontraron pacientes",
-    "count": "{{count}} personas"
+    "count": "{{count}} personas",
+    "title": "Pacientes",
+    "subtitle": "Busque por nombre, furigana, número o teléfono",
+    "detail": "Detalles"
   },
   "record": {
     "title": "Registro de tratamiento",
@@ -74,7 +77,13 @@
     "alreadyToday": "El tratamiento de hoy ya está registrado.",
     "addAnother": "Registrar otro el mismo día",
     "addAnotherHint": "Úselo solo si el paciente vino dos veces el mismo día",
-    "sameDayNotice": "Este paciente ya tiene un registro hoy. Se registrará como el 2º"
+    "sameDayNotice": "Este paciente ya tiene un registro hoy. Se registrará como el 2º",
+    "section_status": "Visita",
+    "section_menu": "Tratamiento y bono",
+    "section_payment": "Cuenta",
+    "section_note": "Notas",
+    "detail": "Ficha del paciente",
+    "record": "Registrar tratamiento"
   },
   "outbox": {
     "pending": "{{count}} pendientes de envío",
@@ -88,7 +97,12 @@
     "newCustomers": "Nuevos",
     "sales": "Ventas",
     "unpaid": "Por cobrar",
-    "avg": "Ticket medio"
+    "avg": "Ticket medio",
+    "subtitle": "Cifras del mes y tendencia de los últimos 12 meses",
+    "vsLast": "vs mes anterior",
+    "trend": "Ventas por mes",
+    "table": "Detalle mensual",
+    "noData": "Aún no hay datos"
   },
   "errors": {
     "not_staff": "No registrado como personal",
@@ -113,5 +127,44 @@
     "pass_in_use": "El bono comprado ya se usó; no se puede anular",
     "unknown": "Se produjo un error ({{code}})",
     "already_recorded_today": "Este paciente ya fue registrado hoy (se evitó un registro duplicado)"
+  },
+  "customer": {
+    "title": "Ficha del paciente",
+    "info": "Datos básicos",
+    "edit": "Editar",
+    "save": "Guardar",
+    "saved": "Guardado",
+    "cancel": "Cancelar",
+    "name": "Nombre",
+    "furigana": "Furigana",
+    "phone": "Teléfono",
+    "email": "Correo",
+    "birth": "Nacimiento",
+    "lang": "Idioma",
+    "address": "Dirección",
+    "notes": "Notas del personal",
+    "firstVisit": "Primera visita",
+    "visits": "Visitas",
+    "credit": "Saldo de crédito",
+    "archive": "Archivar",
+    "unarchive": "Desarchivar",
+    "archived": "Archivado",
+    "archiveConfirm": "Al archivar, el paciente no aparecerá en la búsqueda. ¿Continuar?",
+    "history": "Historial de visitas",
+    "noHistory": "Aún no hay visitas",
+    "credits": "Historial de crédito",
+    "noCredits": "Sin movimientos de crédito",
+    "kind_grant": "Otorgado",
+    "kind_use": "Usado",
+    "kind_expire": "Vencido",
+    "kind_void": "Anulado",
+    "reason_referral": "Referido",
+    "reason_manual": "Manual",
+    "reason_migration": "Migración",
+    "expires": "hasta {{date}}",
+    "noShow": "Sin tratamiento",
+    "changed": "Con cambios",
+    "unchanged": "Sin cambios",
+    "voidedBecause": "Anulado: {{reason}}"
   }
 }

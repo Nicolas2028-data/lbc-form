@@ -16,7 +16,11 @@ function hash(s: string) {
 
 export function Avatar({ name, seed, size }: { name: string; seed: string; size?: 'lg' }) {
   const [a, b] = AVATAR_COLORS[hash(seed) % AVATAR_COLORS.length];
-  const initials = name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  // 日本語などは 1 文字(姓の頭)、ローマ字は姓名の頭文字 2 つ
+  const trimmed = name.trim();
+  const initials = /[぀-ヿ㐀-鿿]/.test(trimmed)
+    ? trimmed[0]
+    : trimmed.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   return (
     <span className={`avatar ${size === 'lg' ? 'avatar-lg' : ''}`} style={{ background: `linear-gradient(135deg, ${a}, ${b})` }} aria-hidden>
       {initials || '?'}

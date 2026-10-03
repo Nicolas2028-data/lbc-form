@@ -10,9 +10,9 @@
 - [x] 1-3 `app/`: Vite + React + TS + i18next(ja/es/pt)+ Supabase クライアント + PWA の雛形
 - [x] 1-4 スタッフログイン画面
 - [x] 1-5 GitHub Actions: テスト(PR ごと)
-- [~] 1-6 🙋 Supabase アカウント作成 → `lbc-staging` プロジェクト(東京)作成 → アクセストークン発行
+- [x] 1-6 🙋 Supabase アカウント作成 → `lbc-staging` プロジェクト(東京)作成 → アクセストークン発行
 - [ ] 1-7 🙋 Cloudflare アカウント作成 → Pages にリポジトリ接続(`platform-rebuild` ブランチ = テスト環境)
-- [ ] 1-8 テスト環境へマイグレーション適用、スタッフ(Nicolas・ルカス)作成
+- [~] 1-8 テスト環境へマイグレーション適用 ✅(SQL エディタで適用・supabase_migrations に記録済み)、スタッフ作成 🙋
 - [ ] 1-9 日次バックアップ(pg_dump → 暗号化 → R2)🙋 R2 バケットと鍵の作成
 
 ## 2. 施術記録・お金・移行

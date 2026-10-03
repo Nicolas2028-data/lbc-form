@@ -13,6 +13,23 @@ before(async () => {
   otherStaffRow = (await one(db, `select id from public.staff where user_id = $1`, [s.otherStaff])).id;
   await db.query(`insert into public.staff_schedules (store_id, staff_id, weekday, start_time, end_time)
                   values ($1, $2, 1, '10:00', '12:00')`, [s.store, staffId]);
+  // 予約は一時停止中(migration 0009 で未ログインの実行権限を外している)。
+  // ここでは再開したときの挙動を検証するため、テスト用 DB でだけ権限を戻す
+  await db.exec(`grant execute on function public.get_available_slots(uuid, uuid, date, date, uuid), public.create_booking(jsonb),
+                  public.get_booking_by_token(uuid), public.cancel_booking(jsonb) to anon`);
+});
+
+test('一時停止中: 未ログインでは予約関連の関数を呼べない(migration 0009)', async () => {
+  const fresh = await createDb();
+  await fresh.exec('set role anon');
+  try {
+    await assert.rejects(fresh.query(`select public.create_booking('{}'::jsonb)`), /permission denied/);
+    await assert.rejects(fresh.query(`select * from public.get_available_slots(gen_random_uuid(), gen_random_uuid(), current_date, current_date)`), /permission denied/);
+    await assert.rejects(fresh.query(`select public.cancel_booking('{}'::jsonb)`), /permission denied/);
+  } finally {
+    await fresh.exec('reset role');
+    await fresh.close();
+  }
 });
 
 const at = (d, hm) => one(db, `select (($1::date + $2::time) at time zone 'Asia/Tokyo') as t`, [d, hm]).then((r) => r.t.toISOString());

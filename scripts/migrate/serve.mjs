@@ -12,17 +12,21 @@ const FILES = {
   '/import.sql': join(here, 'out', 'import.sql'),
   '/reset.sql': join(here, 'reset.sql'),
   '/verify.sql': join(here, 'verify.sql'),
+  '/notion-notes.json': join(here, 'out', 'notion-notes.json'),
 };
 const ORIGIN = 'https://supabase.com';
+// スタッフ画面(開発サーバー)からも読めるようにする(Notion のメモはログイン中のスタッフとして取り込む)
+const APP_ORIGINS = ['http://192.168.3.6:5173', 'http://localhost:5173'];
 
 const server = createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', ORIGIN);
+  res.setHeader('Access-Control-Allow-Origin', APP_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ORIGIN);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'content-type');
   res.setHeader('Access-Control-Allow-Private-Network', 'true');   // 公開サイト → localhost の許可(Chrome)
   res.setHeader('Cache-Control', 'no-store');
   // 他のサイトからの読み込みは拒否(同じ 127.0.0.1 のページ・Supabase のページ・直接アクセスのみ)
-  if (req.headers.origin && ![ORIGIN, 'http://127.0.0.1:8787'].includes(req.headers.origin)) { res.writeHead(403); res.end(); return; }
+  if (req.headers.origin && ![ORIGIN, 'http://127.0.0.1:8787', ...APP_ORIGINS].includes(req.headers.origin)) { res.writeHead(403); res.end(); return; }
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.method === 'GET' && FILES[req.url] && existsSync(FILES[req.url])) {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });

@@ -21,11 +21,40 @@ const server = createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'content-type');
   res.setHeader('Access-Control-Allow-Private-Network', 'true');   // 公開サイト → localhost の許可(Chrome)
   res.setHeader('Cache-Control', 'no-store');
-  if (req.headers.origin && req.headers.origin !== ORIGIN) { res.writeHead(403); res.end(); return; }
+  // 他のサイトからの読み込みは拒否(同じ 127.0.0.1 のページ・Supabase のページ・直接アクセスのみ)
+  if (req.headers.origin && ![ORIGIN, 'http://127.0.0.1:8787'].includes(req.headers.origin)) { res.writeHead(403); res.end(); return; }
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.method === 'GET' && FILES[req.url] && existsSync(FILES[req.url])) {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end(readFileSync(FILES[req.url]));
+    console.log(new Date().toISOString(), 'GET', req.url);
+    return;
+  }
+  // Supabase のページは通信先が制限されている(CSP)ため、ここで開いたページから
+  // window.opener.postMessage で SQL を渡す(データはブラウザの中だけを通る)
+  if (req.method === 'GET' && req.url.startsWith('/push.html')) {
+    const name = new URL(req.url, 'http://x').searchParams.get('f');
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    void name;
+    res.end(`<!doctype html><meta charset="utf-8"><title>LBC 移行</title>
+      <body style="font:14px sans-serif;padding:12px">LBC 移行の中継中…(このウィンドウは閉じないでください)<pre id="log"></pre><script>
+      const O = ${JSON.stringify(ORIGIN)};
+      const log = (s) => { document.getElementById('log').textContent += s + '\\n'; };
+      window.addEventListener('message', async (e) => {
+        if (e.origin !== O) return;
+        if (e.data?.lbcGet) {
+          const t = await fetch('/' + e.data.lbcGet).then((r) => r.text());
+          window.opener.postMessage({ lbcSql: t, name: e.data.lbcGet }, O);
+          log('送信: ' + e.data.lbcGet + ' (' + t.length + ' 文字)');
+        }
+        if (e.data?.lbcActual) {
+          await fetch('/actual', { method: 'POST', body: e.data.lbcActual });
+          log('照合結果を保存しました。このウィンドウは閉じてかまいません');
+        }
+      });
+      window.opener.postMessage({ lbcReady: true }, O);
+      log('準備完了');
+    </script>`);
     console.log(new Date().toISOString(), 'GET', req.url);
     return;
   }

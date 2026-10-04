@@ -7,3 +7,6 @@ supabase/.env*
 # データ移行の出力(個人情報を含む)。絶対にコミットしない
 scripts/migrate/out/
 *.xlsx
+
+# Notion などの接続トークン(秘密)
+scripts/migrate/.env*

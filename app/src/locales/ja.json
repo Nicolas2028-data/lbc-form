@@ -20,7 +20,8 @@
     "dashboard": "ダッシュボード",
     "bookings": "予約",
     "today": "今日",
-    "charts": "カルテ"
+    "charts": "カルテ",
+    "home": "ホーム"
   },
   "patients": {
     "search": "名前・フリガナ・診察番号・電話で検索",
@@ -336,5 +337,25 @@
     "noPrevious": "前回のメモはありません",
     "hide": "閉じる",
     "show": "開く"
+  },
+  "home": {
+    "greeting": "おかえりなさい、{{name}} さん",
+    "lead": "今日はここまで {{count}} 件の施術を記録しました。良い一日を。",
+    "leadWaiting": "受付済みで未記録の方が {{count}} 人います。",
+    "ctaToday": "今日の来院を見る",
+    "legend": "直近 12 か月の売上(立体グラフ)",
+    "thisMonth": "今月",
+    "scroll": "下へ",
+    "menuTitle": "メニュー",
+    "menuLead": "毎日の業務はここから始めます",
+    "open": "開く",
+    "waitingBadge": "未記録 {{count}}",
+    "cat_today": "受付と未記録の一覧。施術を記録すると自動で完了になります",
+    "cat_patients": "名前・フリガナ・番号・電話で患者を探して、カルテを開きます",
+    "cat_charts": "過去のカルテを期間とキーワード(メモの中身も)で探せます",
+    "cat_dashboard": "今月の来院・売上・未収と、12 か月の推移",
+    "cat_kiosk": "初めての方に iPad を渡して問診票を書いてもらいます",
+    "numbersTitle": "今月の数字",
+    "footerSecurity": "データは日本国内(東京)に保管・スタッフのみ閲覧"
   }
 }

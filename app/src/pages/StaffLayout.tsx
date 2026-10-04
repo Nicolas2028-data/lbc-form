@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type FormE
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, CalendarCheck, ClipboardList, CloudUpload, FileText, Leaf, Lock, LogOut, RotateCw, Trash2, Users } from 'lucide-react';
+import { BarChart3, CalendarCheck, House, ClipboardList, CloudUpload, FileText, Leaf, Lock, LogOut, RotateCw, Trash2, Users } from 'lucide-react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabase';
 import { useMe, errorText, type StaffMe } from '../lib/data';
@@ -18,6 +18,12 @@ export const useStaff = () => useContext(StaffContext)!;
 const KIOSK_KEY = 'lbc_kiosk';
 export const isKiosk = () => { try { return sessionStorage.getItem(KIOSK_KEY) === '1'; } catch { return false; } };
 const setKiosk = (on: boolean) => { try { if (on) sessionStorage.setItem(KIOSK_KEY, '1'); else sessionStorage.removeItem(KIOSK_KEY); } catch { /* 保存できない環境 */ } };
+
+/** 問診票を受付モードで開く(スタッフ画面に戻るにはパスワードが要る) */
+export function useOpenKiosk() {
+  const navigate = useNavigate();
+  return () => { setKiosk(true); navigate('/q', { replace: true }); };
+}
 
 /** persist=false: お客様が問診票で言語を変えても、スタッフ画面の言語は変えない */
 export function LangSwitch({ persist = true }: { persist?: boolean }) {
@@ -191,7 +197,8 @@ export default function StaffLayout() {
         <div className="app-header-inner">
           <Brand />
           <nav className="nav">
-            <NavLink to="/staff" end><CalendarCheck size={16} />{t('nav.today')}</NavLink>
+            <NavLink to="/staff" end><House size={16} />{t('nav.home')}</NavLink>
+            <NavLink to="/staff/today"><CalendarCheck size={16} />{t('nav.today')}</NavLink>
             <NavLink to="/staff/patients"><Users size={16} />{t('nav.patients')}</NavLink>
             <NavLink to="/staff/charts"><FileText size={16} />{t('nav.charts')}</NavLink>
             <NavLink to="/staff/dashboard"><BarChart3 size={16} />{t('nav.dashboard')}</NavLink>
@@ -208,7 +215,8 @@ export default function StaffLayout() {
         <Outlet />
       </main>
       <nav className="tabbar">
-        <NavLink to="/staff" end><CalendarCheck size={22} />{t('nav.today')}</NavLink>
+        <NavLink to="/staff" end><House size={22} />{t('nav.home')}</NavLink>
+        <NavLink to="/staff/today"><CalendarCheck size={22} />{t('nav.today')}</NavLink>
         <NavLink to="/staff/patients"><Users size={22} />{t('nav.patients')}</NavLink>
         <NavLink to="/staff/charts"><FileText size={22} />{t('nav.charts')}</NavLink>
         <NavLink to="/staff/dashboard"><BarChart3 size={22} />{t('nav.dashboard')}</NavLink>

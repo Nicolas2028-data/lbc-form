@@ -26,7 +26,7 @@ export default function CustomerDetail() {
 
   return (
     <>
-      <Link to="/staff" className="btn btn-ghost btn-sm" style={{ justifySelf: 'start', textDecoration: 'none' }}>
+      <Link to="/staff/patients" className="btn btn-ghost btn-sm" style={{ justifySelf: 'start', textDecoration: 'none' }}>
         <ArrowLeft size={16} />{t('app.back')}
       </Link>
 

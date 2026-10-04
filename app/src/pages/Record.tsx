@@ -181,7 +181,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   return (
     <>
       <div className="inline">
-        <Link to="/staff" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}><ArrowLeft size={16} />{t('nav.today')}</Link>
+        <Link to="/staff/today" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}><ArrowLeft size={16} />{t('nav.today')}</Link>
         <span className="spacer" />
         <Link to={`/staff/customers/${card.customer.id}`} className="btn btn-sm" style={{ textDecoration: 'none' }}>
           <IdCard size={16} />{t('record.detail')}

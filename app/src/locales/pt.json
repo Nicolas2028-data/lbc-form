@@ -20,7 +20,8 @@
     "dashboard": "Painel",
     "bookings": "Agenda",
     "today": "Hoje",
-    "charts": "Prontuários"
+    "charts": "Prontuários",
+    "home": "Início"
   },
   "patients": {
     "search": "Buscar por nome, furigana, nº de ficha ou telefone",
@@ -336,5 +337,25 @@
     "noPrevious": "Sem notas da última visita",
     "hide": "Ocultar",
     "show": "Mostrar"
+  },
+  "home": {
+    "greeting": "Bem-vindo de volta, {{name}}",
+    "lead": "Hoje já foram registrados {{count}} atendimentos. Bom dia de trabalho!",
+    "leadWaiting": "Há {{count}} paciente(s) com check-in ainda sem registro.",
+    "ctaToday": "Ver atendimentos de hoje",
+    "legend": "Vendas dos últimos 12 meses (gráfico 3D)",
+    "thisMonth": "Este mês",
+    "scroll": "Rolar para baixo",
+    "menuTitle": "Menu",
+    "menuLead": "O trabalho do dia começa aqui",
+    "open": "Abrir",
+    "waitingBadge": "{{count}} pendente(s)",
+    "cat_today": "Check-in e pendentes. Ao registrar o atendimento, fica concluído automaticamente",
+    "cat_patients": "Busque pacientes por nome, número ou telefone e abra o prontuário",
+    "cat_charts": "Busque prontuários antigos por período e palavra-chave (inclusive nas notas)",
+    "cat_dashboard": "Visitas, vendas e valores a receber do mês, e a evolução de 12 meses",
+    "cat_kiosk": "Entregue o iPad ao paciente novo para preencher o questionário",
+    "numbersTitle": "Números do mês",
+    "footerSecurity": "Dados guardados no Japão (Tóquio) · acesso só da equipe"
   }
 }

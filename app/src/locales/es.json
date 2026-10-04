@@ -20,7 +20,8 @@
     "dashboard": "Panel",
     "bookings": "Reservas",
     "today": "Hoy",
-    "charts": "Historias"
+    "charts": "Historias",
+    "home": "Inicio"
   },
   "patients": {
     "search": "Buscar por nombre, furigana, nº de ficha o teléfono",
@@ -336,5 +337,25 @@
     "noPrevious": "Sin notas de la visita anterior",
     "hide": "Ocultar",
     "show": "Mostrar"
+  },
+  "home": {
+    "greeting": "Bienvenido de nuevo, {{name}}",
+    "lead": "Hoy se han registrado {{count}} sesiones. ¡Buen día!",
+    "leadWaiting": "Hay {{count}} paciente(s) con llegada registrada y sin sesión anotada.",
+    "ctaToday": "Ver visitas de hoy",
+    "legend": "Ventas de los últimos 12 meses (gráfico 3D)",
+    "thisMonth": "Este mes",
+    "scroll": "Desplazar hacia abajo",
+    "menuTitle": "Menú",
+    "menuLead": "El trabajo diario empieza aquí",
+    "open": "Abrir",
+    "waitingBadge": "{{count}} pendiente(s)",
+    "cat_today": "Llegadas y pendientes. Al registrar la sesión se completa automáticamente",
+    "cat_patients": "Busque pacientes por nombre, número o teléfono y abra su historia",
+    "cat_charts": "Busque historias anteriores por período y palabra clave (también en notas)",
+    "cat_dashboard": "Visitas, ventas y pendientes de cobro del mes, y la evolución de 12 meses",
+    "cat_kiosk": "Entregue el iPad al paciente nuevo para llenar el cuestionario",
+    "numbersTitle": "Cifras del mes",
+    "footerSecurity": "Datos guardados en Japón (Tokio) · solo para el personal"
   }
 }

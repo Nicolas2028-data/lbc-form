@@ -298,7 +298,9 @@
     "state_waiting": "未記録",
     "state_done": "完了",
     "state_no_show": "施術なし",
-    "state_voided": "取消"
+    "state_voided": "取消",
+    "alreadyRecorded": "この患者は今日すでに記録があります。同じ日の 2 回目の来院として受付しますか？",
+    "secondVisit": "2 回目として受付"
   },
   "charts": {
     "title": "カルテ一覧",
@@ -310,7 +312,8 @@
     "range_last": "先月",
     "range_3m": "3か月",
     "range_year": "1年",
-    "sincePrev": "前回から {{days}} 日"
+    "sincePrev": "前回から {{days}} 日",
+    "truncated": "{{count}} 件までを表示しています。期間を短くするか、キーワードで絞ってください"
   },
   "chart": {
     "title": "カルテ",

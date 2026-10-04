@@ -76,13 +76,14 @@ function CheckinButton({ customerId }: { customerId: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
+  const [err, setErr] = useState('');
   return (
     <button type="button" disabled={state === 'busy' || state === 'done'} title={t('today.checkinHint')}
             onClick={() => {
               setState('busy');
-              checkin(customerId).then(() => { setState('done'); void qc.invalidateQueries({ queryKey: ['day'] }); }, () => setState('error'));
+              checkin(customerId).then(() => { setState('done'); void qc.invalidateQueries({ queryKey: ['day'] }); }, (e) => { setErr(errorText(t, e)); setState('error'); });
             }}>
-      <UserCheck size={18} />{state === 'done' ? t('today.checkedIn') : state === 'error' ? t('today.checkinFailed') : t('today.checkinShort')}
+      <UserCheck size={18} />{state === 'done' ? t('today.checkedIn') : state === 'error' ? err : t('today.checkinShort')}
     </button>
   );
 }

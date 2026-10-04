@@ -6,6 +6,7 @@ import { BarChart3, CalendarCheck, ClipboardList, CloudUpload, FileText, Leaf, L
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabase';
 import { useMe, errorText, type StaffMe } from '../lib/data';
+import { clearDrafts } from '../lib/chart';
 import { BusinessError, discardPending, flushOutbox, readOutbox, retryPending, type PendingCall } from '../lib/rpc';
 import { LANGS, restoreSavedLang, setLang, type Lang } from '../i18n';
 import { Alert, ErrorBox, Loading } from '../ui';
@@ -109,6 +110,7 @@ function LogoutButton({ userId }: { userId: string }) {
   const [confirm, setConfirm] = useState(false);
   const pending = readOutbox().filter((c) => c.userId === userId).length;
   const logout = async () => {
+    clearDrafts();
     await supabase.auth.signOut();
     qc.clear();
   };

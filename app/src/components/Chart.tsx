@@ -87,7 +87,7 @@ function NoteItem({ note, customerId }: { note: ChartNote; customerId: string })
 
   if (editing) {
     return (
-      <NoteEditor draftId={`edit:${note.id}`} initial={note.body} autoFocus
+      <NoteEditor draftId={`edit:${note.id}:${note.updated_at}`} initial={note.body} autoFocus
                   onCancel={() => setEditing(false)}
                   onSave={async (body) => { await updateNote(note.id, { body }); await invalidate(); setEditing(false); }} />
     );

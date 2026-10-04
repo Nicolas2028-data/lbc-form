@@ -1,7 +1,7 @@
 // カルテ(Notion の置き換え): 受付・今日の一覧・カルテ一覧・カルテメモ・写真
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import { BusinessError } from './rpc';
+import { BusinessError, newRequestId } from './rpc';
 
 async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string; code?: string } | null }>): Promise<T> {
   const { data, error } = await p;
@@ -33,8 +33,12 @@ export const useDay = (date: string | null) =>
     queryFn: () => must<Day>(supabase.rpc('get_day', { p_date: date })),
   });
 
-export const checkin = (customerId: string, change: 'none' | 'changed' | null = null) =>
-  must<{ id: string; existing: boolean }>(supabase.rpc('checkin', { p: { customer_id: customerId, change_from_last: change } }));
+export const checkin = (customerId: string, secondVisit = false) =>
+  must<{ id: string; existing: boolean }>(supabase.rpc('checkin', { p: { customer_id: customerId, second_visit: secondVisit } }));
+
+/** 受付の「前回から変化」を変える(null で外す) */
+export const setCheckinChange = (checkinId: string, change: 'none' | 'changed' | null) =>
+  must(supabase.rpc('checkin', { p: { checkin_id: checkinId, change_from_last: change } }));
 
 export const cancelCheckin = (checkinId: string) =>
   must(supabase.rpc('cancel_checkin', { p: { checkin_id: checkinId } }));
@@ -146,7 +150,7 @@ export async function shrinkImage(file: File, maxSide = 1600, quality = 0.82): P
 }
 
 export async function uploadPhoto(p: { store_id: string; customer_id: string; visit_id: string | null; file: File; caption?: string }) {
-  const id = crypto.randomUUID();
+  const id = newRequestId();   // crypto.randomUUID は http(LAN の IP)では使えない
   const path = `${p.store_id}/${p.customer_id}/${id}.jpg`;
   const blob = await shrinkImage(p.file);
   const { error } = await supabase.storage.from('chart').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
@@ -162,6 +166,10 @@ export const deletePhoto = (id: string) =>
 // ── 書きかけのメモを端末に残す(通信が切れても消えないように) ──
 const draftKey = (k: string) => `lbc_draft:${k}`;
 export const readDraft = (k: string) => { try { return localStorage.getItem(draftKey(k)) ?? ''; } catch { return ''; } };
+/** ログアウト時: 書きかけ(患者のメモ)を端末に残さない */
+export const clearDrafts = () => {
+  try { Object.keys(localStorage).filter((k) => k.startsWith('lbc_draft:')).forEach((k) => localStorage.removeItem(k)); } catch { /* 保存できない環境 */ }
+};
 export const saveDraft = (k: string, v: string) => {
   try { if (v) localStorage.setItem(draftKey(k), v); else localStorage.removeItem(draftKey(k)); } catch { /* 保存できない環境 */ }
 };

@@ -298,7 +298,9 @@
     "state_waiting": "Pendiente",
     "state_done": "Completado",
     "state_no_show": "Sin sesión",
-    "state_voided": "Anulado"
+    "state_voided": "Anulado",
+    "alreadyRecorded": "Este paciente ya tiene registro hoy. ¿Registrar llegada como segunda visita del día?",
+    "secondVisit": "Registrar como 2ª visita"
   },
   "charts": {
     "title": "Historias clínicas",
@@ -310,7 +312,8 @@
     "range_last": "Mes pasado",
     "range_3m": "3 meses",
     "range_year": "1 año",
-    "sincePrev": "{{days}} días desde la anterior"
+    "sincePrev": "{{days}} días desde la anterior",
+    "truncated": "Se muestran hasta {{count}}. Acorte el período o filtre por palabra clave"
   },
   "chart": {
     "title": "Historia clínica",

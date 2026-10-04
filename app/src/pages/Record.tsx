@@ -78,7 +78,8 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   const [attended, setAttended] = useState(true);
   const [noShowReason, setNoShowReason] = useState('');
   const day = useDay(null);
-  const checkedChange = day.data?.items.find((i) => i.customer.id === card.customer.id && i.state === 'waiting')?.change_from_last ?? '';
+  // 受付で押した「前回から変化」を初期値にする(取消して記録し直すときは、取消した記録の値)
+  const checkedChange = day.data?.items.find((i) => i.customer.id === card.customer.id && (i.state === 'waiting' || i.state === 'voided'))?.change_from_last ?? '';
   const [changeState, setChange] = useState<'none' | 'changed' | '' | null>(null);
   const change = changeState ?? checkedChange;
   const [menuId, setMenuId] = useState('');

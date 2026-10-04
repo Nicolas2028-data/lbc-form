@@ -16,7 +16,7 @@ const q = (user, sql, params = []) => as(db, user, async () => (await db.query(s
 const rejects = (promise, code) => assert.rejects(promise, (e) => e.message.includes(code), `expected ${code}`);
 const today = async () => (await one(db, `select private.store_today($1)::text d`, [s.store])).d;
 
-test('受付: 未記録で今日の一覧に出て、二度押ししても 1 件。記録すると完了になり、受付の「前回から変化」が記録に入る', async () => {
+test('受付: 未記録で今日の一覧に出て、二度押ししても 1 件。記録すると完了になる。「前回から変化」は記録で選んだ値(外せば空)', async () => {
   const c = await newCustomer('受付 太郎');
   const a = await rpc(db, s.lucas, 'checkin', { customer_id: c });
   const b = await rpc(db, s.lucas, 'checkin', { customer_id: c, change_from_last: 'changed' });
@@ -30,9 +30,10 @@ test('受付: 未記録で今日の一覧に出て、二度押ししても 1 件
   assert.equal(mine[0].change_from_last, 'changed');
   assert.equal(mine[0].is_first, true);
 
-  const r = await record(s.lucas, { customer_id: c });
+  // 画面で外して記録した → 受付の値で上書きされない
+  const r = await record(s.lucas, { customer_id: c, change_from_last: null });
   const v = await one(db, `select change_from_last from public.visits where id = $1`, [r.visit_id]);
-  assert.equal(v.change_from_last, 'changed');
+  assert.equal(v.change_from_last, null);
   d = await day(s.lucas);
   mine = d.items.filter((i) => i.customer.id === c);
   assert.equal(mine.length, 1);
@@ -183,4 +184,55 @@ test('カルテ一覧: 期間とキーワード(患者名・メモ・カルテ�
   assert.equal((await list('100%')).length, 0);   // % や _ は文字として扱う
   await rejects(q(s.lucas, `select * from public.list_visits('2026-01-01', '2025-01-01')`), 'invalid_range');
   assert.equal((await q(s.otherStaff, `select * from public.list_visits($1::date - 30, $1::date, '')`, [d0])).filter((x) => x.customer_id === c).length, 0);
+});
+
+// ── レビュー指摘(0014)──
+test('記録済みの人の受付: 既定は拒否(未記録が残らない)。同じ日の 2 回目と明示すれば受付できる', async () => {
+  const c = await newCustomer('記録済み 受付');
+  await record(s.lucas, { customer_id: c });
+  await rejects(rpc(db, s.lucas, 'checkin', { customer_id: c }), 'already_recorded_today');
+  assert.deepEqual((await day(s.lucas)).items.filter((i) => i.customer.id === c).map((i) => i.state), ['done']);
+  const ck = await rpc(db, s.lucas, 'checkin', { customer_id: c, second_visit: true });
+  assert.equal(ck.existing, false);
+  assert.deepEqual((await day(s.lucas)).items.filter((i) => i.customer.id === c).map((i) => i.state).sort(), ['done', 'waiting']);
+});
+
+test('「前回から変化」は受付 ID で変える。記録が付いた受付は変えられない(古い画面から押しても新しい受付ができない)', async () => {
+  const c = await newCustomer('変化 ボタン');
+  const ck = await rpc(db, s.lucas, 'checkin', { customer_id: c });
+  await rpc(db, s.lucas, 'checkin', { checkin_id: ck.id, change_from_last: 'changed' });
+  await rpc(db, s.lucas, 'checkin', { checkin_id: ck.id, change_from_last: null });   // 外す
+  assert.equal((await one(db, `select change_from_last from public.checkins where id = $1`, [ck.id])).change_from_last, null);
+  await record(s.lucas, { customer_id: c });
+  await rejects(rpc(db, s.lucas, 'checkin', { checkin_id: ck.id, change_from_last: 'none' }), 'checkin_not_found');
+  assert.equal((await one(db, `select count(*)::int n from public.checkins where customer_id = $1`, [c])).n, 1);
+  await rejects(rpc(db, s.otherStaff, 'checkin', { checkin_id: ck.id, change_from_last: 'none' }), 'checkin_not_found');
+});
+
+test('取消のあとに受付し直しても、受付は 1 件のまま使い回され、記録し直すと一覧は 1 行', async () => {
+  const c = await newCustomer('取消後 受付');
+  await rpc(db, s.lucas, 'checkin', { customer_id: c });
+  const r1 = await record(s.lucas, { customer_id: c });
+  await rpc(db, s.lucas, 'void_visit', { request_id: uuid(), visit_id: r1.visit_id, reason: 'x' });
+  const again = await rpc(db, s.lucas, 'checkin', { customer_id: c, change_from_last: 'changed' });
+  assert.equal(again.existing, true);
+  await record(s.lucas, { customer_id: c, allow_same_day: true });
+  const mine = (await day(s.lucas)).items.filter((i) => i.customer.id === c);
+  assert.deepEqual(mine.map((i) => i.state), ['done']);
+});
+
+test('受付なしで記録 → 取消 → 受付: 取消した記録も一覧に残り、受付は未記録で出る', async () => {
+  const c = await newCustomer('取消 そのまま');
+  const r = await record(s.lucas, { customer_id: c });
+  await rpc(db, s.lucas, 'void_visit', { request_id: uuid(), visit_id: r.visit_id, reason: 'x' });
+  await rpc(db, s.lucas, 'checkin', { customer_id: c });
+  const states = (await day(s.lucas)).items.filter((i) => i.customer.id === c).map((i) => i.state).sort();
+  assert.deepEqual(states, ['voided', 'waiting']);
+});
+
+test('移行した過去の問診(legacy_images あり)は、今日の日付でも受付しない', async () => {
+  const c = await newCustomer('移行 問診');
+  await db.query(`insert into public.questionnaires (store_id, customer_id, lang, answers, phone_normalized, request_id)
+                  values ($1, $2, 'ja', '{"legacy_images": {}}', '', gen_random_uuid())`, [s.store, c]);
+  assert.equal((await one(db, `select count(*)::int n from public.checkins where customer_id = $1`, [c])).n, 0);
 });

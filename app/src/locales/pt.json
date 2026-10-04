@@ -298,7 +298,9 @@
     "state_waiting": "Pendente",
     "state_done": "Concluído",
     "state_no_show": "Sem atendimento",
-    "state_voided": "Cancelado"
+    "state_voided": "Cancelado",
+    "alreadyRecorded": "Este paciente já tem registro hoje. Fazer check-in como segunda visita do dia?",
+    "secondVisit": "Check-in como 2ª visita"
   },
   "charts": {
     "title": "Prontuários",
@@ -310,7 +312,8 @@
     "range_last": "Mês passado",
     "range_3m": "3 meses",
     "range_year": "1 ano",
-    "sincePrev": "{{days}} dias desde a última"
+    "sincePrev": "{{days}} dias desde a última",
+    "truncated": "Mostrando até {{count}}. Encurte o período ou filtre por palavra-chave"
   },
   "chart": {
     "title": "Prontuário",

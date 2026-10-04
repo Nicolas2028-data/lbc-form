@@ -370,7 +370,7 @@ for (const e of credits) {
   }
 }
 for (const x of questionnaires) {
-  L.push(`insert into public.questionnaires (id, store_id, customer_id, submitted_at, lang, answers, pain_areas, image_paths, phone_normalized, request_id, matched_existing) values (${q(x.id)}, '${STORE}', ${q(x.customer.id)}, ${x.submitted ? q(x.submitted) : 'now()'}, ${q(x.lang)}, ${qj(x.answers)}, ${q('{' + x.answers.main_symptom.map((s) => '"' + String(s).replace(/["\\]/g, '') + '"').join(',') + '}')}, '{}'::jsonb, coalesce((select phone_normalized from public.customers where id = ${q(x.customer.id)}), ''), ${q(x.request)}, false);`);
+  L.push(`insert into public.questionnaires (id, store_id, customer_id, submitted_at, lang, answers, pain_areas, image_paths, phone_normalized, request_id, matched_existing) values (${q(x.id)}, '${STORE}', ${q(x.customer.id)}, ${x.submitted ? q(x.submitted) : `(select created_at from public.customers where id = ${q(x.customer.id)})`}, ${q(x.lang)}, ${qj(x.answers)}, ${q('{' + x.answers.main_symptom.map((s) => '"' + String(s).replace(/["\\]/g, '') + '"').join(',') + '}')}, '{}'::jsonb, coalesce((select phone_normalized from public.customers where id = ${q(x.customer.id)}), ''), ${q(x.request)}, false);`);
 }
 L.push(`create temp table _import_result as select 'IMPORTED'::text as m,
   (select count(distinct use_id) from _alloc_fallback)::int as alloc_fallback_uses, (select coalesce(sum(yen), 0) from _alloc_fallback)::int as alloc_fallback_yen,

@@ -8,8 +8,9 @@ import {
   Camera, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, CircleSlash, ClipboardList, NotebookPen,
   Search, Sparkles, UserPlus, Undo2, X,
 } from 'lucide-react';
-import { cancelCheckin, checkin, useDay, type DayItem } from '../lib/chart';
+import { cancelCheckin, checkin, setCheckinChange, useDay, type DayItem } from '../lib/chart';
 import { errorText, useAllMenus, useCustomerSearch } from '../lib/data';
+import { BusinessError } from '../lib/rpc';
 import { yen } from '../lib/pricing';
 import { pickName } from '../i18n';
 import { Alert, Avatar, ErrorBox, Loading } from '../ui';
@@ -118,8 +119,10 @@ function DayRow({ item: i, canEdit }: { item: DayItem; canEdit: boolean }) {
         <div className="day-actions">
           <span className="small muted">{t('record.change')}</span>
           <div className="segmented segmented-sm">
-            <button type="button" className={i.change_from_last === 'none' ? 'on' : ''} onClick={() => void run(() => checkin(i.customer.id, 'none'))}>{t('record.changeNone')}</button>
-            <button type="button" className={i.change_from_last === 'changed' ? 'on bad' : ''} onClick={() => void run(() => checkin(i.customer.id, 'changed'))}>{t('record.changeYes')}</button>
+            <button type="button" className={i.change_from_last === 'none' ? 'on' : ''}
+                    onClick={() => void run(() => setCheckinChange(i.checkin_id!, i.change_from_last === 'none' ? null : 'none'))}>{t('record.changeNone')}</button>
+            <button type="button" className={i.change_from_last === 'changed' ? 'on bad' : ''}
+                    onClick={() => void run(() => setCheckinChange(i.checkin_id!, i.change_from_last === 'changed' ? null : 'changed'))}>{t('record.changeYes')}</button>
           </div>
           <span className="spacer" />
           {confirmCancel ? (
@@ -146,16 +149,19 @@ function CheckinSearch({ onClose }: { onClose: () => void }) {
   const hits = useCustomerSearch(deferred, 8);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [secondFor, setSecondFor] = useState<string | null>(null);
 
-  async function pick(id: string) {
+  async function pick(id: string, second = false) {
     setBusy(id);
     setError('');
+    setSecondFor(null);
     try {
-      await checkin(id);
+      await checkin(id, second);
       await qc.invalidateQueries({ queryKey: ['day'] });
       onClose();
     } catch (e) {
-      setError(errorText(t, e));
+      if (e instanceof BusinessError && e.code === 'already_recorded_today') setSecondFor(id);
+      else setError(errorText(t, e));
     } finally {
       setBusy(null);
     }
@@ -163,6 +169,17 @@ function CheckinSearch({ onClose }: { onClose: () => void }) {
 
   return (
     <section className="card card-pad fade-in" style={{ display: 'grid', gap: 12 }}>
+      {secondFor && (
+        <Alert kind="warn">
+          <div style={{ display: 'grid', gap: 8 }}>
+            <span>{t('today.alreadyRecorded')}</span>
+            <div className="inline">
+              <button type="button" className="btn-sm" onClick={() => void pick(secondFor, true)}>{t('today.secondVisit')}</button>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setSecondFor(null)}>{t('customer.cancel')}</button>
+            </div>
+          </div>
+        </Alert>
+      )}
       <div className="inline">
         <h2 style={{ margin: 0 }}>{t('today.checkin')}</h2>
         <span className="spacer" />

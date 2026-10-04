@@ -8,7 +8,9 @@ import { tokyoDate } from '../lib/booking';
 import { errorText, useAllMenus } from '../lib/data';
 import { yen } from '../lib/pricing';
 import { pickName } from '../i18n';
-import { ErrorBox, Loading } from '../ui';
+import { Alert, ErrorBox, Loading } from '../ui';
+
+const LIMIT = 300;   // lib/chart.ts の useVisitList と同じ
 
 type Range = 'month' | 'last' | '3m' | 'year';
 function rangeOf(r: Range): [string, string] {
@@ -38,7 +40,7 @@ export default function Charts() {
           <h1>{t('charts.title')}</h1>
           <p>{t('charts.subtitle')}</p>
         </div>
-        {list.data && <span className="badge">{t('charts.count', { count: list.data.length })}</span>}
+        {list.data && <span className="badge">{list.data.length >= LIMIT ? `${LIMIT}+` : t('charts.count', { count: list.data.length })}</span>}
       </div>
 
       <label className="search">
@@ -51,6 +53,7 @@ export default function Charts() {
         ))}
       </div>
 
+      {list.data && list.data.length >= LIMIT && <Alert kind="info">{t('charts.truncated', { count: LIMIT })}</Alert>}
       {list.isPending && <Loading />}
       {list.isError && <ErrorBox text={errorText(t, list.error)} onRetry={() => void list.refetch()} />}
       {list.data && (

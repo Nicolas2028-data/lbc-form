@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useDeferredValue, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAllMenus, useCustomers, useMenus, usePatientCard, useProducts, errorText, searchKey, type PatientCard } from '../lib/data';
+import { useAllMenus, useCustomerSearch, useMenus, usePatientCard, useProducts, errorText, type Customer, type PatientCard } from '../lib/data';
 import { tokyoDate } from '../lib/booking';
 import { sendMutation, newRequestId, BusinessError } from '../lib/rpc';
 import { calcPrice, yen } from '../lib/pricing';
@@ -70,7 +70,6 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   const qc = useQueryClient();
   const menus = useMenus();
   const products = useProducts();
-  const customers = useCustomers();
   const lang = i18n.language;
 
   const [requestId] = useState(newRequestId); // 再送しても同じ ID(二重記録防止)
@@ -83,8 +82,11 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   const [useNow, setUseNow] = useState(true);
   const [payment, setPayment] = useState<Payment | ''>('');
   const [creditUse, setCreditUse] = useState(0);
-  const [referrerId, setReferrerId] = useState('');
+  const [referrer, setReferrer] = useState<Customer | null>(null);
+  const referrerId = referrer?.id ?? '';
   const [referrerQuery, setReferrerQuery] = useState('');
+  const deferredRef = useDeferredValue(referrerQuery);
+  const referrerSearch = useCustomerSearch(deferredRef, 7, deferredRef.trim().length > 0);
   const [memo, setMemo] = useState('');
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
@@ -109,15 +111,9 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   // 回数券を選ぶなどで上限が下がったら、選んでいたクレジットも上限まで下げる(古い値が後で復活しないように)
   useEffect(() => { if (creditUse > maxCredit) setCreditUse(maxCredit); }, [creditUse, maxCredit]);
 
-  const referrerHits = useMemo(() => {
-    const k = searchKey(referrerQuery);
-    if (!k) return [];
-    return (customers.data ?? [])
-      .filter((c) => c.id !== card.customer.id)
-      .filter((c) => [c.name, c.furigana, c.code].some((v) => searchKey(v).includes(k)))
-      .slice(0, 6);
-  }, [customers.data, referrerQuery, card.customer.id]);
-  const referrer = customers.data?.find((c) => c.id === referrerId);
+  const referrerHits = referrerQuery.trim()
+    ? (referrerSearch.data ?? []).filter((c) => c.id !== card.customer.id).slice(0, 6)
+    : [];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -297,7 +293,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
                     <Avatar name={referrer.name} seed={referrer.id} />
                     <span className="choice-label">{referrer.name}</span>
                     <span className="badge mono">{referrer.code}</span>
-                    <button type="button" className="btn-ghost btn-sm" onClick={() => setReferrerId('')}><X size={14} /></button>
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => setReferrer(null)}><X size={14} /></button>
                   </div>
                 ) : (
                   <>
@@ -310,7 +306,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
                       <ul className="list card">
                         {referrerHits.map((c) => (
                           <li key={c.id}>
-                            <button type="button" className="list-item" onClick={() => { setReferrerId(c.id); setReferrerQuery(''); setCreditUse(0); }}>
+                            <button type="button" className="list-item" onClick={() => { setReferrer(c); setReferrerQuery(''); setCreditUse(0); }}>
                               <Avatar name={c.name} seed={c.id} />
                               <span className="list-main"><span className="list-title">{c.name}</span></span>
                               <span className="badge mono">{c.code}</span>

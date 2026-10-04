@@ -1,22 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ChevronRight, IdCard, Search, UserX } from 'lucide-react';
-import { useCustomers, errorText, searchKey } from '../lib/data';
+import { useCustomerSearch, errorText } from '../lib/data';
 import { Avatar, ErrorBox, Loading } from '../ui';
 
 export default function Patients() {
   const { t } = useTranslation();
-  const customers = useCustomers();
   const [q, setQ] = useState('');
-
-  const hits = useMemo(() => {
-    const list = customers.data ?? [];
-    const k = searchKey(q);
-    if (!k) return list;
-    return list.filter((c) =>
-      [c.name, c.furigana, c.code, c.phone_normalized].some((v) => searchKey(v).includes(k)));
-  }, [customers.data, q]);
+  const deferred = useDeferredValue(q);
+  const customers = useCustomerSearch(deferred, 100);
+  const hits = customers.data ?? [];
 
   return (
     <>

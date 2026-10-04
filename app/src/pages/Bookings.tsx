@@ -1,5 +1,5 @@
 // スタッフ: 予約(日ごとの一覧・状態変更・代理予約・営業時間と休みの設定)
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +10,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { BusinessError, newRequestId } from '../lib/rpc';
 import { addDays, callRpc, dayRange, formatDate, STORE_ID, tokyoDate, tokyoTime, useSlots } from '../lib/booking';
-import { useCustomers, useMenus, errorText, searchKey } from '../lib/data';
+import { useCustomerSearch, useMenus, errorText, type Customer } from '../lib/data';
 import { pickName } from '../i18n';
 import { Alert, Avatar, Card, ErrorBox, Loading } from '../ui';
 import { useStaff } from './StaffLayout';
@@ -124,21 +124,19 @@ export default function Bookings() {
 
 function NewBooking({ defaultDate, onDone }: { defaultDate: string; onDone: (msg: string) => void }) {
   const { t, i18n } = useTranslation();
-  const customers = useCustomers();
   const menus = useMenus();
   const [q, setQ] = useState('');
-  const [customerId, setCustomerId] = useState('');
+  const deferred = useDeferredValue(q);
+  const search = useCustomerSearch(deferred, 6, deferred.trim().length > 0);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const customerId = customer?.id ?? '';
   const [menuId, setMenuId] = useState('');
   const [date, setDate] = useState(defaultDate);
   const [slot, setSlot] = useState('');
   const [error, setError] = useState('');
   const [requestId] = useState(newRequestId);
   const slots = useSlots(menuId || undefined, date, date);
-  const hits = useMemo(() => {
-    const k = searchKey(q);
-    return k ? (customers.data ?? []).filter((c) => [c.name, c.furigana, c.code, c.phone_normalized].some((v) => searchKey(v).includes(k))).slice(0, 6) : [];
-  }, [customers.data, q]);
-  const customer = customers.data?.find((c) => c.id === customerId);
+  const hits = q.trim() ? search.data ?? [] : [];
 
   async function create() {
     setError('');
@@ -157,14 +155,14 @@ function NewBooking({ defaultDate, onDone }: { defaultDate: string; onDone: (msg
         <span>{t('bookings.patient')}</span>
         {customer ? (
           <div className="choice on"><Avatar name={customer.name} seed={customer.id} /><span className="choice-label">{customer.name}</span>
-            <button type="button" className="btn-ghost btn-sm" onClick={() => setCustomerId('')}><XCircle size={14} /></button></div>
+            <button type="button" className="btn-ghost btn-sm" onClick={() => setCustomer(null)}><XCircle size={14} /></button></div>
         ) : (
           <>
             <input type="search" placeholder={t('patients.search')} value={q} onChange={(e) => setQ(e.target.value)} />
             {hits.length > 0 && (
               <ul className="list card">
                 {hits.map((c) => (
-                  <li key={c.id}><button type="button" className="list-item" onClick={() => { setCustomerId(c.id); setQ(''); }}>
+                  <li key={c.id}><button type="button" className="list-item" onClick={() => { setCustomer(c); setQ(''); }}>
                     <Avatar name={c.name} seed={c.id} /><span className="list-main"><span className="list-title">{c.name}</span></span><span className="badge mono">{c.code}</span>
                   </button></li>
                 ))}

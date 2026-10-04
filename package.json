@@ -2,7 +2,7 @@
   "name": "lbc-care",
   "private": true,
   "scripts": {
-    "test:db": "node --test supabase/tests/visits.test.mjs supabase/tests/questionnaire.test.mjs supabase/tests/bookings.test.mjs supabase/tests/lint.test.mjs supabase/tests/review.test.mjs",
+    "test:db": "node --test supabase/tests/visits.test.mjs supabase/tests/questionnaire.test.mjs supabase/tests/bookings.test.mjs supabase/tests/lint.test.mjs supabase/tests/review.test.mjs supabase/tests/scale.test.mjs",
     "test:gas": "node --test tests/auth.test.js tests/treatment-validation.test.js",
     "test:fuzz": "node --test supabase/tests/fuzz.test.mjs"
   },

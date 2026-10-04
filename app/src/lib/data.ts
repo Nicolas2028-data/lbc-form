@@ -1,5 +1,5 @@
 // 読み込み系。TanStack Query が自動リトライ・キャッシュする(main.tsx の設定)
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { supabase } from './supabase';
 import { BusinessError } from './rpc';
@@ -45,13 +45,16 @@ export const useMe = (userId: string | undefined) =>
         .eq('user_id', userId!).eq('active', true)),
   });
 
-export const useCustomers = () =>
+/** 患者検索(DB 側で検索し、一致した人を最大 limit 人返す。空なら最近の患者)。
+ *  全員分を読み込まないので、患者が何千人になっても速さが変わらない */
+export const useCustomerSearch = (q: string, limit = 50, enabled = true) =>
   useQuery({
-    queryKey: ['customers'],
+    queryKey: ['customers', 'search', q.trim(), limit],
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
     queryFn: () =>
-      must<Customer[]>(supabase.from('customers')
-        .select('id, code, name, furigana, phone_normalized, status, lang')
-        .eq('status', 'active').order('code')),
+      must<(Customer & { last_visit: string | null })[]>(supabase.rpc('search_customers', { p_q: q.trim(), p_limit: limit })),
   });
 
 export const useMenus = () =>
@@ -91,8 +94,7 @@ export const usePatientCard = (customerId: string | undefined) =>
 export const useMonthlyStats = () =>
   useQuery({
     queryKey: ['monthly-stats'],
-    queryFn: () =>
-      must<MonthlyStats[]>(supabase.from('v_monthly_stats').select('*').order('month', { ascending: false }).limit(12)),
+    queryFn: () => must<MonthlyStats[]>(supabase.rpc('get_monthly_stats', { p_months: 12 })),
   });
 
 /** DB の業務エラーを画面の文言にする */
@@ -104,13 +106,6 @@ export function errorText(t: TFunction, e: unknown): string {
   return t('errors.unknown', { code: e instanceof Error ? e.message : String(e) });
 }
 
-/** 検索用の正規化(空白除去・小文字・カタカナ→ひらがな) */
-export function searchKey(s: string | null | undefined): string {
-  return (s ?? '')
-    .toLowerCase()
-    .replace(/[\s　\-]/g, '')
-    .replace(/[ァ-ン]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
-}
 
 // ── 顧客詳細 ──
 export interface CustomerFull extends Customer {

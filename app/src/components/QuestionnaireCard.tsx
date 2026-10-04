@@ -24,9 +24,8 @@ function Img({ path, alt }: { path?: string; alt: string }) {
   return <img src={url.data} alt={alt} style={{ width: '100%', maxHeight: 280, objectFit: 'contain', borderRadius: 12, border: '1px solid var(--border)', background: '#fff' }} />;
 }
 
-function One({ q }: { q: QuestionnaireRow }) {
-  const { t } = useTranslation('q');
-  const { t: tStaff } = useTranslation();
+/** 問診の回答を「項目名・内容」の行にする(画面・印刷・Excel で共通)。t は 'q' の翻訳 */
+export function questionnaireRows(q: QuestionnaireRow, t: (k: string) => string): [string, string][] {
   const a = q.answers as Record<string, string | string[] | number | boolean | Record<string, string> | null>;
   const show = (field: string) => {
     const v = a[field];
@@ -48,6 +47,13 @@ function One({ q }: { q: QuestionnaireRow }) {
     [t('t_s_photo'), show('photo_consent') + (a.face_preference ? ` / ${show('face_preference')}` : '')],
   ];
   if (a.referrer_name) rows.push([t('how_referral'), String(a.referrer_name)]);
+  return rows;
+}
+
+function One({ q }: { q: QuestionnaireRow }) {
+  const { t } = useTranslation('q');
+  const { t: tStaff } = useTranslation();
+  const rows = questionnaireRows(q, t);
   return (
     <div className="card-body" style={{ borderTop: '1px solid var(--border)' }}>
       <div className="inline">

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, ArrowLeft, ClipboardPen, Coins, History, NotebookPen, Pencil, Save, UserCheck, UserRound, X } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, ClipboardPen, Printer, Coins, History, NotebookPen, Pencil, Save, UserCheck, UserRound, X } from 'lucide-react';
 import {
   useAllMenus, useCreditHistory, useCustomer, usePatientCard, useVisitHistory, errorText, updateCustomer,
   type CustomerFull, type CustomerPatch,
@@ -26,9 +26,15 @@ export default function CustomerDetail() {
 
   return (
     <>
-      <Link to="/staff/patients" className="btn btn-ghost btn-sm" style={{ justifySelf: 'start', textDecoration: 'none' }}>
-        <ArrowLeft size={16} />{t('app.back')}
-      </Link>
+      <div className="inline">
+        <Link to="/staff/patients" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
+          <ArrowLeft size={16} />{t('app.back')}
+        </Link>
+        <span className="spacer" />
+        <Link to={`/staff/customers/${c.id}/print`} className="btn btn-sm" style={{ textDecoration: 'none' }}>
+          <Printer size={16} />{t('export.printOrExcel')}
+        </Link>
+      </div>
 
       <section className="card fade-in">
         <div className="hero">

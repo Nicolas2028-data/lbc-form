@@ -29,7 +29,8 @@
     "count": "{{count}} personas",
     "title": "Pacientes",
     "subtitle": "Busque por nombre, furigana, número o teléfono",
-    "detail": "Detalles"
+    "detail": "Detalles",
+    "code": "Nº de paciente"
   },
   "record": {
     "title": "Registro de tratamiento",
@@ -158,7 +159,9 @@
     "chart_note_deleted": "Nota ya eliminada",
     "chart_photo_immutable": "No se puede cambiar el paciente/visita de la foto",
     "chart_photo_deleted": "Foto ya eliminada",
-    "invalid_range": "Período inválido"
+    "invalid_range": "Período inválido",
+    "export_owner_only": "Solo el propietario puede exportar todos los datos",
+    "invalid_export": "Tipo de exportación no válido"
   },
   "customer": {
     "title": "Ficha del paciente",
@@ -357,5 +360,37 @@
     "cat_kiosk": "Entregue el iPad al paciente nuevo para llenar el cuestionario",
     "numbersTitle": "Cifras del mes",
     "footerSecurity": "Datos guardados en Japón (Tokio) · solo para el personal"
+  },
+  "export": {
+    "printOrExcel": "Imprimir / Excel",
+    "print": "Imprimir",
+    "download": "Descargar",
+    "all": "Todas las visitas",
+    "lastN": "Últimas {{count}}",
+    "visitsToPrint": "Visitas a imprimir",
+    "withPhotos": "Incluir fotos",
+    "chartTitle": "Historia clínica",
+    "printedAt": "Generado el {{date}}",
+    "visitCount": "{{count}} visita(s)",
+    "alert": "Alerta",
+    "confidential": "Contiene datos personales. Cuidado al guardar y desechar (LBC Care)",
+    "privacyNote": "Al imprimir o exportar a Excel, queda registrado quién y cuándo. Cuidado al guardar y desechar papeles y archivos.",
+    "customersXlsx": "Lista de pacientes en Excel",
+    "chartsXlsx": "Historias del período en Excel",
+    "confirmBulk": "Se exportarán los datos personales de todos los pacientes. ¿Continuar?",
+    "done": "{{count}} fila(s) exportada(s)",
+    "item": "Elemento",
+    "value": "Contenido",
+    "date": "Fecha",
+    "status": "Estado",
+    "amount": "Importe",
+    "photos": "Fotos",
+    "voidReason": "Motivo de anulación",
+    "kind": "Tipo",
+    "reason": "Motivo",
+    "expires": "Vencimiento",
+    "howFound": "Cómo nos conoció",
+    "lastVisit": "Última visita",
+    "customersSheet": "Pacientes"
   }
 }

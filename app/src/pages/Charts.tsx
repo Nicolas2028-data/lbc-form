@@ -9,6 +9,7 @@ import { errorText, useAllMenus } from '../lib/data';
 import { yen } from '../lib/pricing';
 import { pickName } from '../i18n';
 import { Alert, ErrorBox, Loading } from '../ui';
+import { ExportButton } from '../components/ExportButton';
 
 const LIMIT = 300;   // lib/chart.ts の useVisitList と同じ
 
@@ -40,7 +41,10 @@ export default function Charts() {
           <h1>{t('charts.title')}</h1>
           <p>{t('charts.subtitle')}</p>
         </div>
-        {list.data && <span className="badge">{list.data.length >= LIMIT ? `${LIMIT}+` : t('charts.count', { count: list.data.length })}</span>}
+        <div className="inline">
+          {list.data && <span className="badge">{list.data.length >= LIMIT ? `${LIMIT}+` : t('charts.count', { count: list.data.length })}</span>}
+          <ExportButton kind="charts" from={from} to={to} />
+        </div>
       </div>
 
       <label className="search">

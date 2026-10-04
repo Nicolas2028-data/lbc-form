@@ -8,6 +8,7 @@ import CustomerDetail from './pages/CustomerDetail';
 import Questionnaire from './pages/Questionnaire';
 import Today from './pages/Today';
 import Home from './pages/Home';
+import PrintChart from './pages/PrintChart';
 import Charts from './pages/Charts';
 // 予約機能は 2026-10-03 Nicolas の判断で非表示(画面: pages/Book.tsx・BookingManage.tsx・Bookings.tsx、
 // DB: migration 0008 は残す)。再開するときはルートとメニューを戻し、migration 0009 の revoke を取り消す
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="charts" element={<Charts />} />
           <Route path="record/:customerId" element={<Record />} />
           <Route path="customers/:customerId" element={<CustomerDetail />} />
+          <Route path="customers/:customerId/print" element={<PrintChart />} />
           <Route path="dashboard" element={<Dashboard />} />
         </Route>
         <Route path="*" element={<Navigate to="/staff" replace />} />

@@ -29,7 +29,8 @@
     "count": "{{count}} 人",
     "title": "患者",
     "subtitle": "名前・フリガナ・番号・電話で検索できます",
-    "detail": "詳細"
+    "detail": "詳細",
+    "code": "診察番号"
   },
   "record": {
     "title": "施術記録",
@@ -158,7 +159,9 @@
     "chart_note_deleted": "削除済みのメモです",
     "chart_photo_immutable": "写真の患者・来院は変更できません",
     "chart_photo_deleted": "削除済みの写真です",
-    "invalid_range": "期間が正しくありません"
+    "invalid_range": "期間が正しくありません",
+    "export_owner_only": "全員分の出力はオーナーだけができます",
+    "invalid_export": "出力の種類が正しくありません"
   },
   "customer": {
     "title": "患者詳細",
@@ -357,5 +360,37 @@
     "cat_kiosk": "初めての方に iPad を渡して問診票を書いてもらいます",
     "numbersTitle": "今月の数字",
     "footerSecurity": "データは日本国内(東京)に保管・スタッフのみ閲覧"
+  },
+  "export": {
+    "printOrExcel": "印刷・Excel",
+    "print": "印刷する",
+    "download": "ダウンロード",
+    "all": "すべての来院",
+    "lastN": "直近 {{count}} 回",
+    "visitsToPrint": "印刷する来院",
+    "withPhotos": "写真を含める",
+    "chartTitle": "カルテ",
+    "printedAt": "出力日時 {{date}}",
+    "visitCount": "{{count}} 回分",
+    "alert": "注意事項",
+    "confidential": "個人情報を含みます。取り扱い・保管・廃棄に注意してください(LBC Care)",
+    "privacyNote": "印刷・Excel 出力をすると、誰がいつ出力したかが記録されます。紙やファイルの保管・廃棄に注意してください。",
+    "customersXlsx": "顧客一覧を Excel で",
+    "chartsXlsx": "この期間のカルテを Excel で",
+    "confirmBulk": "全員分の個人情報をファイルに出力します。よろしいですか？",
+    "done": "{{count}} 件を出力しました",
+    "item": "項目",
+    "value": "内容",
+    "date": "日付",
+    "status": "状態",
+    "amount": "金額",
+    "photos": "写真(枚)",
+    "voidReason": "取消の理由",
+    "kind": "種類",
+    "reason": "理由",
+    "expires": "有効期限",
+    "howFound": "来院のきっかけ",
+    "lastVisit": "最終来院日",
+    "customersSheet": "顧客一覧"
   }
 }

@@ -236,3 +236,18 @@ test('移行した過去の問診(legacy_images あり)は、今日の日付で�
                   values ($1, $2, 'ja', '{"legacy_images": {}}', '', gen_random_uuid())`, [s.store, c]);
   assert.equal((await one(db, `select count(*)::int n from public.checkins where customer_id = $1`, [c])).n, 0);
 });
+
+test('出力の記録: 患者 1 人分はスタッフ、全員分はオーナーだけ。誰がいつ出したか残る', async () => {
+  const c = await newCustomer('出力 確認');
+  const call = (user, kind, cust = null) => as(db, user, () => db.query(`select public.log_export($1, $2)`, [kind, cust]));
+  await call(s.lucas, 'patient_print', c);
+  await call(s.lucas, 'patient_xlsx', c);
+  await rejects(call(s.lucas, 'customers_xlsx'), 'export_owner_only');
+  await call(s.owner, 'customers_xlsx');
+  await call(s.owner, 'charts_xlsx');
+  await rejects(call(s.lucas, 'patient_print'), 'customer_not_found');
+  await rejects(call(s.lucas, 'whatever', c), 'invalid_export');
+  await rejects(call(null, 'patient_print', c), 'permission denied');
+  const rows = await db.query(`select action from public.audit_log where action like 'export:%' order by id`);
+  assert.deepEqual(rows.rows.map((r) => r.action), ['export:patient_print', 'export:patient_xlsx', 'export:customers_xlsx', 'export:charts_xlsx']);
+});

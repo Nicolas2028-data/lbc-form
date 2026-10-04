@@ -1,4 +1,5 @@
 import { useDeferredValue, useState } from 'react';
+import { ExportButton } from '../components/ExportButton';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ChevronRight, ClipboardPen, Search, UserX } from 'lucide-react';
@@ -19,7 +20,10 @@ export default function Patients() {
           <h1>{t('patients.title')}</h1>
           <p>{t('patients.subtitle')}</p>
         </div>
-        {customers.data && <span className="badge">{t('patients.count', { count: hits.length })}</span>}
+        <div className="inline">
+          {customers.data && <span className="badge">{t('patients.count', { count: hits.length })}</span>}
+          <ExportButton kind="customers" />
+        </div>
       </div>
 
       <label className="search">

@@ -208,3 +208,45 @@ a.list-item:hover, button.list-item:hover { background: linear-gradient(90deg, r
   body::before, body::after { display: none; }
   :root { --bg: #fff; --text: #000; }
 }
+
+/* ── わかりやすさ優先の調整(2026-10-04 Nicolas「派手はいいけど、わかりやすさを大事に」)──
+ * 派手な演出はホーム・ログインに集め、業務画面(今日・患者・カルテ・記録)は読みやすさを優先する
+ */
+/* 見出し・金額・人数は白一色(グラデーション文字は読み間違いのもと)。グラデーションはホームの大見出しだけ */
+.page-head h1, .hero h1, .q-hero h1, .auth-card h1, .home-section-head h2,
+.tile-value, .home-numbers strong, .stats-row .v, .receipt-total strong, .action-bar .total-value {
+  background: none; -webkit-background-clip: initial; background-clip: initial; color: #ffffff;
+}
+.page-head h1 { font-size: 1.75rem; }
+
+/* カード: 背景を濃くして文字を読みやすく。縁の光は控えめに固定(押せないカードは光らせない) */
+.card { background: linear-gradient(160deg, rgba(18, 40, 31, 0.9), rgba(9, 22, 17, 0.9)); }
+.card::before { opacity: 0.3; }
+.card:hover::before { opacity: 0.3; }
+.home-cat:hover::before, a.card:hover::before { opacity: 1; }
+
+/* ボタンの光の筋は、指・マウスを乗せたときだけ */
+.btn-primary::after { animation: none; }
+.btn-primary:hover::after { animation: neon-shine-once 0.9s ease-out; }
+@keyframes neon-shine-once { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
+
+/* 開いたときの動きは短く */
+.page > * { animation-duration: 0.3s; }
+.page > *:nth-child(n + 2) { animation-delay: 0.03s; }
+
+/* 背景のオーロラは業務の邪魔にならない明るさに */
+body::before { opacity: 0.7; }
+
+/* 状態の色をはっきり: 未記録=赤 / 完了=緑 / 施術なし=灰 / 取消=黄 */
+.day-badges .badge { height: 28px; padding: 0 12px; font-size: 0.85rem; }
+.day-badges .badge-danger { background: rgba(255, 107, 116, 0.22); color: #ffb3b8; border: 1px solid rgba(255, 107, 116, 0.6); }
+.day-badges .badge-accent { background: rgba(52, 197, 138, 0.22); color: #9df5cf; border: 1px solid rgba(52, 197, 138, 0.6); }
+
+/* 押せるところがわかるように: リンクの一覧は右の矢印をはっきり、フォーカスの輪を太く */
+.chev { color: var(--text-2); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #7ff0bf; outline-offset: 2px;
+}
+
+/* ラベル・補足の文字を少し明るく(暗い背景で薄すぎないように) */
+:root, :root:not([data-theme='light']) { --muted: #93b3a5; --text-2: #c6ded3; }

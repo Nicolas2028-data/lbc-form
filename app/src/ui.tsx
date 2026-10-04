@@ -1,5 +1,5 @@
 // 共通の小さな UI 部品
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, Loader2, RotateCw } from 'lucide-react';
 
@@ -26,6 +26,24 @@ export function Avatar({ name, seed, size }: { name: string; seed: string; size?
       {initials || '?'}
     </span>
   );
+}
+
+/** 数字を 0 からふわっと数え上げて表示する(動きを減らす設定では最初から最終値) */
+export function CountUp({ value, format = (n: number) => String(n), ms = 1100 }: { value: number; format?: (n: number) => string; ms?: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(value); return; }
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const p = Math.min((now - start) / ms, 1);
+      setShown(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return <>{format(shown)}</>;
 }
 
 type AlertKind = 'ok' | 'error' | 'warn' | 'info';

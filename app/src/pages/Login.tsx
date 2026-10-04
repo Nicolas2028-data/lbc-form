@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
@@ -6,6 +6,9 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../auth';
 import { Brand, LangSwitch } from './StaffLayout';
 import { Alert } from '../ui';
+
+const HeroScene = lazy(() => import('../components/HeroScene'));
+const WAVE = Array.from({ length: 12 }, () => 0);   // ログイン前はデータを出さない(波の形だけ)
 
 export default function Login() {
   const { t } = useTranslation();
@@ -28,6 +31,7 @@ export default function Login() {
 
   return (
     <main className="auth-wrap">
+      <Suspense fallback={null}><HeroScene values={WAVE} /></Suspense>
       <form className="card auth-card fade-in" onSubmit={submit}>
         <div className="auth-top"><Brand /><LangSwitch /></div>
         <div>

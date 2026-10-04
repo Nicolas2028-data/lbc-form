@@ -9,6 +9,7 @@ import { useMonthlyStats, type MonthlyStats } from '../lib/data';
 import { useDay } from '../lib/chart';
 import { yen } from '../lib/pricing';
 import { useOpenKiosk, useStaff } from './StaffLayout';
+import { CountUp } from '../ui';
 
 const HeroScene = lazy(() => import('../components/HeroScene'));
 
@@ -99,10 +100,10 @@ export default function Home() {
           <h2>{t('home.numbersTitle')}</h2>
         </div>
         <div className="home-numbers">
-          <div><span>{t('dashboard.visits')}</span><strong>{cur?.visits ?? 0}</strong></div>
-          <div><span>{t('dashboard.newCustomers')}</span><strong>{cur?.new_customers ?? 0}</strong></div>
-          <div><span>{t('dashboard.sales')}</span><strong>{yen(cur?.sales_total ?? 0)}</strong></div>
-          <div><span>{t('dashboard.unpaid')}</span><strong>{yen(cur?.unpaid_total ?? 0)}</strong></div>
+          <div><span>{t('dashboard.visits')}</span><strong><CountUp value={cur?.visits ?? 0} /></strong></div>
+          <div><span>{t('dashboard.newCustomers')}</span><strong><CountUp value={cur?.new_customers ?? 0} /></strong></div>
+          <div><span>{t('dashboard.sales')}</span><strong><CountUp value={cur?.sales_total ?? 0} format={yen} /></strong></div>
+          <div><span>{t('dashboard.unpaid')}</span><strong><CountUp value={cur?.unpaid_total ?? 0} format={yen} /></strong></div>
         </div>
       </section>
 

@@ -1,5 +1,6 @@
 // カルテの部品: メモ(来院ごと・患者全体・注意事項)と写真
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Camera, ImageOff, Loader2, Pencil, Pin, PinOff, Plus, Save, ShieldAlert, Trash2, X } from 'lucide-react';
@@ -142,7 +143,7 @@ function Lightbox({ photo, customerId, onClose }: { photo: ChartPhoto; customerI
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [onClose]);
-  return (
+  return createPortal(
     <div className="lightbox" role="dialog" aria-modal onClick={onClose}>
       <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
         {url.data && <img src={url.data} alt={photo.caption ?? ''} />}
@@ -161,7 +162,8 @@ function Lightbox({ photo, customerId, onClose }: { photo: ChartPhoto; customerI
         </div>
         {error && <Alert kind="error">{error}</Alert>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

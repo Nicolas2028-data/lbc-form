@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './i18n';
 import './index.css';
+import './theme-neon.css';
 import App from './App';
 import { AuthProvider } from './auth';
 import { BusinessError } from './lib/rpc';

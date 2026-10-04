@@ -2,13 +2,15 @@ import { useDeferredValue, useEffect, useRef, useState, type FormEvent } from 'r
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAllMenus, useCustomerSearch, useMenus, usePatientCard, useProducts, errorText, type Customer, type PatientCard } from '../lib/data';
+import { useAllMenus, useCustomerSearch, useMenus, usePatientCard, useProducts, useVisitHistory, errorText, type Customer, type PatientCard } from '../lib/data';
+import { PinnedAlerts, VisitChart, useChartNotes, useChartPhotos, PhotoGrid } from '../components/Chart';
+import { useDay } from '../lib/chart';
 import { tokyoDate } from '../lib/booking';
 import { sendMutation, newRequestId, BusinessError } from '../lib/rpc';
 import { calcPrice, yen } from '../lib/pricing';
 import { pickName } from '../i18n';
 import {
-  ArrowLeft, Banknote, CalendarCheck, CheckCircle2, CircleSlash, Clock, CreditCard, IdCard, Minus, NotebookPen,
+  ArrowLeft, Banknote, CalendarCheck, CheckCircle2, CircleSlash, Clock, CreditCard, FileClock, IdCard, Minus, NotebookPen,
   Plus, Receipt, Send, Smartphone, Sparkles, Stethoscope, Ticket, Undo2, UserPlus, Wallet, X,
 } from 'lucide-react';
 import { Alert, Avatar, Card, ErrorBox, Loading } from '../ui';
@@ -75,7 +77,10 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   const [requestId] = useState(newRequestId); // 再送しても同じ ID(二重記録防止)
   const [attended, setAttended] = useState(true);
   const [noShowReason, setNoShowReason] = useState('');
-  const [change, setChange] = useState<'none' | 'changed' | ''>('');
+  const day = useDay(null);
+  const checkedChange = day.data?.items.find((i) => i.customer.id === card.customer.id && i.state === 'waiting')?.change_from_last ?? '';
+  const [changeState, setChange] = useState<'none' | 'changed' | '' | null>(null);
+  const change = changeState ?? checkedChange;
   const [menuId, setMenuId] = useState('');
   const [passId, setPassId] = useState('');
   const [buyId, setBuyId] = useState('');
@@ -153,6 +158,8 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
         onDone({ kind: 'ok', text });
         void qc.invalidateQueries({ queryKey: ['patient-card', card.customer.id] });
         void qc.invalidateQueries({ queryKey: ['monthly-stats'] });
+        void qc.invalidateQueries({ queryKey: ['day'] });
+        void qc.invalidateQueries({ queryKey: ['visits', card.customer.id] });
       }
     } catch (err) {
       if (err instanceof BusinessError && err.code === 'already_recorded_today') {
@@ -173,7 +180,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   return (
     <>
       <div className="inline">
-        <Link to="/staff" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}><ArrowLeft size={16} />{t('app.back')}</Link>
+        <Link to="/staff" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}><ArrowLeft size={16} />{t('nav.today')}</Link>
         <span className="spacer" />
         <Link to={`/staff/customers/${card.customer.id}`} className="btn btn-sm" style={{ textDecoration: 'none' }}>
           <IdCard size={16} />{t('record.detail')}
@@ -201,6 +208,8 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
         </div>
       </section>
 
+      <PinnedAlerts customerId={card.customer.id} />
+      <PreviousChart customerId={card.customer.id} />
       {card.credit_expiring.map((x) => (
         <Alert key={x.expires_on} kind="warn">{t('record.creditExpiring', { date: x.expires_on, amount: yen(x.amount) })}</Alert>
       ))}
@@ -394,6 +403,8 @@ function TodayVisits({ card }: { card: PatientCard }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const voidIds = useRef(new Map<string, string>());
+  const notes = useChartNotes(card.customer.id);
+  const photos = useChartPhotos(card.customer.id);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error' | 'warn'; text: string } | null>(null);
 
   if (!card.today_visits.length) return null;
@@ -411,6 +422,7 @@ function TodayVisits({ card }: { card: PatientCard }) {
       await qc.invalidateQueries({ queryKey: ['patient-card', card.customer.id] });
       await qc.invalidateQueries({ queryKey: ['monthly-stats'] });
       await qc.invalidateQueries({ queryKey: ['visits', card.customer.id] });
+      await qc.invalidateQueries({ queryKey: ['day'] });
     } catch (err) {
       // 業務エラー(理由の不足など)は送信番号を作り直して、直したうえで再送できるようにする
       voidIds.current.delete(visitId);
@@ -432,6 +444,12 @@ function TodayVisits({ card }: { card: PatientCard }) {
               <div>
                 <div className="tl-title">{v.attended ? (m ? pickName(m.name, i18n.language) : '—') : t('record.noShow')}</div>
                 {v.memo && <div className="tl-sub">{v.memo}</div>}
+                {v.status === 'recorded' && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="label" style={{ marginBottom: 6 }}>{t('chart.todayChart')}</div>
+                    <VisitChart customerId={card.customer.id} visitId={v.id} notes={notes.data ?? []} photos={photos.data ?? []} startOpen />
+                  </div>
+                )}
                 {voiding === v.id && (
                   <div className="inline" style={{ marginTop: 10 }}>
                     <input placeholder={t('record.voidReason')} value={reason} onChange={(e) => setReason(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
@@ -451,6 +469,39 @@ function TodayVisits({ card }: { card: PatientCard }) {
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+/** 前回のカルテ(施術中に見返せるように、記録画面の上に出す) */
+function PreviousChart({ customerId }: { customerId: string }) {
+  const { t, i18n } = useTranslation();
+  const visits = useVisitHistory(customerId);
+  const notes = useChartNotes(customerId);
+  const photos = useChartPhotos(customerId);
+  const menus = useAllMenus();
+  const [open, setOpen] = useState(true);
+  const today = tokyoDate(new Date());
+  const prev = visits.data?.find((v) => v.status === 'recorded' && v.attended && v.visit_date < today);
+  if (!prev) return null;
+  const m = menus.data?.find((x) => x.id === prev.menu_id);
+  const prevNotes = (notes.data ?? []).filter((n) => n.visit_id === prev.id).slice().reverse();
+  const prevPhotos = (photos.data ?? []).filter((p) => p.visit_id === prev.id);
+  return (
+    <Card title={t('chart.previous', { date: prev.visit_date })} icon={<FileClock size={18} />}
+          actions={<button type="button" className="btn-ghost btn-sm" onClick={() => setOpen(!open)}>{open ? t('chart.hide') : t('chart.show')}</button>}>
+      {open && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div className="inline">
+            <span className="badge">{m ? pickName(m.name, i18n.language) : '—'}</span>
+            {prev.change_from_last === 'changed' && <span className="badge badge-warn">{t('customer.changed')}</span>}
+          </div>
+          {prev.memo && <div className="note"><div className="note-body">{prev.memo}</div></div>}
+          {prevNotes.map((n) => <div key={n.id} className="note"><div className="note-body">{n.body}</div></div>)}
+          <PhotoGrid photos={prevPhotos} customerId={customerId} />
+          {!prev.memo && prevNotes.length === 0 && prevPhotos.length === 0 && <p className="muted small" style={{ margin: 0 }}>{t('chart.noPrevious')}</p>}
+        </div>
+      )}
     </Card>
   );
 }

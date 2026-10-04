@@ -18,7 +18,9 @@
   "nav": {
     "patients": "Pacientes",
     "dashboard": "Painel",
-    "bookings": "Agenda"
+    "bookings": "Agenda",
+    "today": "Hoje",
+    "charts": "Prontuários"
   },
   "patients": {
     "search": "Buscar por nome, furigana, nº de ficha ou telefone",
@@ -146,7 +148,16 @@
     "visit_not_found": "Registro não encontrado",
     "visit_date_invalid": "Data da visita inválida (registros de antes de ontem: fale com o Nicolas)",
     "request_id_conflict": "Número de envio duplicado. Abra a tela de novo",
-    "answers_invalid": "Respostas do questionário inválidas"
+    "answers_invalid": "Respostas do questionário inválidas",
+    "checkin_not_found": "Check-in não encontrado",
+    "checkin_already_recorded": "Este check-in já tem registro (cancele o registro)",
+    "invalid_change": "Valor de \"mudança\" inválido",
+    "visit_mismatch": "Não é possível anotar na visita de outro paciente",
+    "chart_note_immutable": "Não é possível mudar o paciente/visita da nota",
+    "chart_note_deleted": "Nota já excluída",
+    "chart_photo_immutable": "Não é possível mudar o paciente/visita da foto",
+    "chart_photo_deleted": "Foto já excluída",
+    "invalid_range": "Período inválido"
   },
   "customer": {
     "title": "Ficha do paciente",
@@ -265,5 +276,62 @@
     "lockedHint": "Digite a senha para voltar à tela da equipe",
     "unlock": "Voltar à tela da equipe",
     "backToQ": "Voltar ao questionário"
+  },
+  "today": {
+    "title": "Atendimentos de hoje",
+    "subtitle": "Quem fez check-in aparece como \"Pendente\"; ao registrar o atendimento, vira \"Concluído\"",
+    "prev": "Dia anterior",
+    "next": "Próximo dia",
+    "backToToday": "Voltar para hoje",
+    "waiting": "Pendente",
+    "done": "Concluído",
+    "total": "Visitas",
+    "checkin": "Fazer check-in",
+    "checkinShort": "Check-in",
+    "checkedIn": "Check-in feito",
+    "checkinFailed": "Não foi possível fazer o check-in",
+    "checkinHint": "Busque e selecione o paciente que chegou; ele entra na lista de hoje como \"Pendente\" (quem enviou o questionário de primeira visita entra automaticamente)",
+    "empty": "Ninguém fez check-in ainda",
+    "emptyDay": "Sem atendimentos neste dia",
+    "fromQuestionnaire": "Questionário",
+    "cancelCheckin": "Cancelar check-in",
+    "state_waiting": "Pendente",
+    "state_done": "Concluído",
+    "state_no_show": "Sem atendimento",
+    "state_voided": "Cancelado"
+  },
+  "charts": {
+    "title": "Prontuários",
+    "subtitle": "Busque prontuários antigos por período e palavra-chave (nome, número, conteúdo das notas)",
+    "search": "Buscar por nome, número ou palavras das notas",
+    "count": "{{count}}",
+    "none": "Nenhum prontuário encontrado",
+    "range_month": "Este mês",
+    "range_last": "Mês passado",
+    "range_3m": "3 meses",
+    "range_year": "1 ano",
+    "sincePrev": "{{days}} dias desde a última"
+  },
+  "chart": {
+    "title": "Prontuário",
+    "general": "Notas gerais e alertas",
+    "noGeneral": "Ainda não há notas gerais (alergias, cuidados, plano etc.)",
+    "addNote": "Escrever nota",
+    "addPhoto": "Foto",
+    "uploading": "Enviando ({{count}})",
+    "notePlaceholder": "Estado, o que foi feito, plano para a próxima vez etc.",
+    "pinAsAlert": "Mostrar como alerta na tela de registro",
+    "unpin": "Remover dos alertas",
+    "edited": "editado",
+    "delete": "Excluir",
+    "deleteConfirm": "Excluir? (o histórico fica guardado)",
+    "deletePhotoConfirm": "Excluir esta foto",
+    "close": "Fechar",
+    "photoUnreadable": "Não foi possível ler esta foto (tire novamente em JPEG/PNG)",
+    "todayChart": "Prontuário de hoje",
+    "previous": "Prontuário anterior ({{date}})",
+    "noPrevious": "Sem notas da última visita",
+    "hide": "Ocultar",
+    "show": "Mostrar"
   }
 }

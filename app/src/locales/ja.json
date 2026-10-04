@@ -18,7 +18,9 @@
   "nav": {
     "patients": "患者",
     "dashboard": "ダッシュボード",
-    "bookings": "予約"
+    "bookings": "予約",
+    "today": "今日",
+    "charts": "カルテ"
   },
   "patients": {
     "search": "名前・フリガナ・診察番号・電話で検索",
@@ -146,7 +148,16 @@
     "visit_not_found": "記録が見つかりません",
     "visit_date_invalid": "来院日が正しくありません(前日より前の記録は Nicolas に連絡してください)",
     "request_id_conflict": "送信番号が重複しました。画面を開き直してください",
-    "answers_invalid": "問診の内容が正しくありません"
+    "answers_invalid": "問診の内容が正しくありません",
+    "checkin_not_found": "受付が見つかりません",
+    "checkin_already_recorded": "記録済みの受付は取り消せません(記録の方を取り消してください)",
+    "invalid_change": "「前回から変化」の値が正しくありません",
+    "visit_mismatch": "別の患者の来院にはメモを付けられません",
+    "chart_note_immutable": "メモの患者・来院は変更できません",
+    "chart_note_deleted": "削除済みのメモです",
+    "chart_photo_immutable": "写真の患者・来院は変更できません",
+    "chart_photo_deleted": "削除済みの写真です",
+    "invalid_range": "期間が正しくありません"
   },
   "customer": {
     "title": "患者詳細",
@@ -265,5 +276,62 @@
     "lockedHint": "スタッフ画面に戻るにはパスワードを入力してください",
     "unlock": "スタッフ画面に戻る",
     "backToQ": "問診票に戻る"
+  },
+  "today": {
+    "title": "今日の来院",
+    "subtitle": "受付した人が「未記録」で並び、施術を記録すると「完了」になります",
+    "prev": "前の日",
+    "next": "次の日",
+    "backToToday": "今日に戻る",
+    "waiting": "未記録",
+    "done": "完了",
+    "total": "来院",
+    "checkin": "受付する",
+    "checkinShort": "受付",
+    "checkedIn": "受付しました",
+    "checkinFailed": "受付できませんでした",
+    "checkinHint": "来院した患者を探して選ぶと、今日の一覧に「未記録」で入ります(初回の問診票を送った人は自動で入ります)",
+    "empty": "まだ受付した人はいません",
+    "emptyDay": "この日の来院はありません",
+    "fromQuestionnaire": "問診票",
+    "cancelCheckin": "受付を取消",
+    "state_waiting": "未記録",
+    "state_done": "完了",
+    "state_no_show": "施術なし",
+    "state_voided": "取消"
+  },
+  "charts": {
+    "title": "カルテ一覧",
+    "subtitle": "期間とキーワード(名前・番号・メモの中身)で過去のカルテを探せます",
+    "search": "名前・番号・メモの言葉で検索",
+    "count": "{{count}} 件",
+    "none": "該当するカルテがありません",
+    "range_month": "今月",
+    "range_last": "先月",
+    "range_3m": "3か月",
+    "range_year": "1年",
+    "sincePrev": "前回から {{days}} 日"
+  },
+  "chart": {
+    "title": "カルテ",
+    "general": "カルテメモ・注意事項",
+    "noGeneral": "患者全体のメモ(アレルギー・注意点・方針など)はまだありません",
+    "addNote": "メモを書く",
+    "addPhoto": "写真",
+    "uploading": "アップロード中({{count}})",
+    "notePlaceholder": "状態・施術内容・次回の方針など",
+    "pinAsAlert": "注意事項として記録画面に出す",
+    "unpin": "注意事項から外す",
+    "edited": "編集済み",
+    "delete": "削除",
+    "deleteConfirm": "削除しますか？(記録は残ります)",
+    "deletePhotoConfirm": "この写真を削除する",
+    "close": "閉じる",
+    "photoUnreadable": "この写真は読み込めませんでした(JPEG・PNG で撮り直してください)",
+    "todayChart": "今日のカルテ",
+    "previous": "前回のカルテ({{date}})",
+    "noPrevious": "前回のメモはありません",
+    "hide": "閉じる",
+    "show": "開く"
   }
 }

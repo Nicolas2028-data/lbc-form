@@ -18,7 +18,9 @@
   "nav": {
     "patients": "Pacientes",
     "dashboard": "Panel",
-    "bookings": "Reservas"
+    "bookings": "Reservas",
+    "today": "Hoy",
+    "charts": "Historias"
   },
   "patients": {
     "search": "Buscar por nombre, furigana, nº de ficha o teléfono",
@@ -146,7 +148,16 @@
     "visit_not_found": "Registro no encontrado",
     "visit_date_invalid": "Fecha de visita no válida (registros anteriores a ayer: contacte a Nicolas)",
     "request_id_conflict": "Número de envío duplicado. Abra la pantalla de nuevo",
-    "answers_invalid": "Respuestas del cuestionario no válidas"
+    "answers_invalid": "Respuestas del cuestionario no válidas",
+    "checkin_not_found": "Llegada no encontrada",
+    "checkin_already_recorded": "Esta llegada ya tiene registro (anule el registro)",
+    "invalid_change": "Valor de \"cambio\" inválido",
+    "visit_mismatch": "No se puede anotar en la visita de otro paciente",
+    "chart_note_immutable": "No se puede cambiar el paciente/visita de la nota",
+    "chart_note_deleted": "Nota ya eliminada",
+    "chart_photo_immutable": "No se puede cambiar el paciente/visita de la foto",
+    "chart_photo_deleted": "Foto ya eliminada",
+    "invalid_range": "Período inválido"
   },
   "customer": {
     "title": "Ficha del paciente",
@@ -265,5 +276,62 @@
     "lockedHint": "Ingrese la contraseña para volver a la pantalla del personal",
     "unlock": "Volver a la pantalla del personal",
     "backToQ": "Volver al cuestionario"
+  },
+  "today": {
+    "title": "Visitas de hoy",
+    "subtitle": "Quien hizo check-in aparece como \"Pendiente\"; al registrar la sesión pasa a \"Completado\"",
+    "prev": "Día anterior",
+    "next": "Día siguiente",
+    "backToToday": "Volver a hoy",
+    "waiting": "Pendiente",
+    "done": "Completado",
+    "total": "Visitas",
+    "checkin": "Registrar llegada",
+    "checkinShort": "Check-in",
+    "checkedIn": "Llegada registrada",
+    "checkinFailed": "No se pudo registrar la llegada",
+    "checkinHint": "Busque y seleccione al paciente que llegó; entra en la lista de hoy como \"Pendiente\" (quien envió el cuestionario de primera visita entra automáticamente)",
+    "empty": "Todavía nadie ha llegado",
+    "emptyDay": "No hay visitas este día",
+    "fromQuestionnaire": "Cuestionario",
+    "cancelCheckin": "Anular llegada",
+    "state_waiting": "Pendiente",
+    "state_done": "Completado",
+    "state_no_show": "Sin sesión",
+    "state_voided": "Anulado"
+  },
+  "charts": {
+    "title": "Historias clínicas",
+    "subtitle": "Busque historias anteriores por período y palabra clave (nombre, número, contenido de notas)",
+    "search": "Buscar por nombre, número o palabras de las notas",
+    "count": "{{count}}",
+    "none": "No se encontraron historias",
+    "range_month": "Este mes",
+    "range_last": "Mes pasado",
+    "range_3m": "3 meses",
+    "range_year": "1 año",
+    "sincePrev": "{{days}} días desde la anterior"
+  },
+  "chart": {
+    "title": "Historia clínica",
+    "general": "Notas generales y alertas",
+    "noGeneral": "Aún no hay notas generales (alergias, precauciones, plan, etc.)",
+    "addNote": "Escribir nota",
+    "addPhoto": "Foto",
+    "uploading": "Subiendo ({{count}})",
+    "notePlaceholder": "Estado, lo realizado, plan para la próxima, etc.",
+    "pinAsAlert": "Mostrar como alerta en la pantalla de registro",
+    "unpin": "Quitar de alertas",
+    "edited": "editado",
+    "delete": "Eliminar",
+    "deleteConfirm": "¿Eliminar? (el historial se conserva)",
+    "deletePhotoConfirm": "Eliminar esta foto",
+    "close": "Cerrar",
+    "photoUnreadable": "No se pudo leer esta foto (vuelva a tomarla en JPEG/PNG)",
+    "todayChart": "Historia de hoy",
+    "previous": "Historia anterior ({{date}})",
+    "noPrevious": "Sin notas de la visita anterior",
+    "hide": "Ocultar",
+    "show": "Mostrar"
   }
 }

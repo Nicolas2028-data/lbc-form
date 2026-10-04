@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type FormE
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, ClipboardList, CloudUpload, Leaf, Lock, LogOut, RotateCw, Trash2, Users } from 'lucide-react';
+import { BarChart3, CalendarCheck, ClipboardList, CloudUpload, FileText, Leaf, Lock, LogOut, RotateCw, Trash2, Users } from 'lucide-react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabase';
 import { useMe, errorText, type StaffMe } from '../lib/data';
@@ -189,7 +189,9 @@ export default function StaffLayout() {
         <div className="app-header-inner">
           <Brand />
           <nav className="nav">
-            <NavLink to="/staff" end><Users size={16} />{t('nav.patients')}</NavLink>
+            <NavLink to="/staff" end><CalendarCheck size={16} />{t('nav.today')}</NavLink>
+            <NavLink to="/staff/patients"><Users size={16} />{t('nav.patients')}</NavLink>
+            <NavLink to="/staff/charts"><FileText size={16} />{t('nav.charts')}</NavLink>
             <NavLink to="/staff/dashboard"><BarChart3 size={16} />{t('nav.dashboard')}</NavLink>
           </nav>
           <div className="header-right">
@@ -204,7 +206,9 @@ export default function StaffLayout() {
         <Outlet />
       </main>
       <nav className="tabbar">
-        <NavLink to="/staff" end><Users size={22} />{t('nav.patients')}</NavLink>
+        <NavLink to="/staff" end><CalendarCheck size={22} />{t('nav.today')}</NavLink>
+        <NavLink to="/staff/patients"><Users size={22} />{t('nav.patients')}</NavLink>
+        <NavLink to="/staff/charts"><FileText size={22} />{t('nav.charts')}</NavLink>
         <NavLink to="/staff/dashboard"><BarChart3 size={22} />{t('nav.dashboard')}</NavLink>
       </nav>
     </StaffContext.Provider>

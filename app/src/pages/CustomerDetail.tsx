@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, ArrowLeft, ClipboardPen, Coins, History, Pencil, Save, UserRound, X } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, ClipboardPen, Coins, History, NotebookPen, Pencil, Save, UserCheck, UserRound, X } from 'lucide-react';
 import {
   useAllMenus, useCreditHistory, useCustomer, usePatientCard, useVisitHistory, errorText, updateCustomer,
   type CustomerFull, type CustomerPatch,
@@ -11,6 +11,8 @@ import { yen } from '../lib/pricing';
 import { pickName } from '../i18n';
 import { Alert, Avatar, Card, ErrorBox, Loading } from '../ui';
 import { QuestionnaireCard } from '../components/QuestionnaireCard';
+import { GeneralNotes, PinnedAlerts, VisitChart, useChartNotes, useChartPhotos } from '../components/Chart';
+import { checkin } from '../lib/chart';
 
 export default function CustomerDetail() {
   const { customerId } = useParams();
@@ -41,9 +43,12 @@ export default function CustomerDetail() {
             </div>
           </div>
           {c.status === 'active' && (
-            <Link to={`/staff/record/${c.id}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
-              <ClipboardPen size={18} />{t('record.record')}
-            </Link>
+            <div className="inline">
+              <CheckinButton customerId={c.id} />
+              <Link to={`/staff/record/${c.id}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                <ClipboardPen size={18} />{t('record.record')}
+              </Link>
+            </div>
           )}
         </div>
         <div className="stats-row">
@@ -53,13 +58,32 @@ export default function CustomerDetail() {
         </div>
       </section>
 
+      <PinnedAlerts customerId={c.id} />
+      <Card title={t('chart.general')} icon={<NotebookPen size={18} />}>
+        <GeneralNotes customerId={c.id} />
+      </Card>
+      <HistoryCard customerId={c.id} />
       <div className="grid-2">
         <InfoCard customer={c} />
         <CreditCard customerId={c.id} />
       </div>
-      <HistoryCard customerId={c.id} />
       <QuestionnaireCard customerId={c.id} />
     </>
+  );
+}
+
+function CheckinButton({ customerId }: { customerId: string }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
+  return (
+    <button type="button" disabled={state === 'busy' || state === 'done'} title={t('today.checkinHint')}
+            onClick={() => {
+              setState('busy');
+              checkin(customerId).then(() => { setState('done'); void qc.invalidateQueries({ queryKey: ['day'] }); }, () => setState('error'));
+            }}>
+      <UserCheck size={18} />{state === 'done' ? t('today.checkedIn') : state === 'error' ? t('today.checkinFailed') : t('today.checkinShort')}
+    </button>
   );
 }
 
@@ -211,8 +235,21 @@ function HistoryCard({ customerId }: { customerId: string }) {
   const { t, i18n } = useTranslation();
   const visits = useVisitHistory(customerId);
   const menus = useAllMenus();
+  const notes = useChartNotes(customerId);
+  const photos = useChartPhotos(customerId);
+  const { hash } = useLocation();
+  // カルテ一覧から来たときは、その来院まで移動する
+  useEffect(() => {
+    if (hash && visits.data) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [hash, visits.data]);
+  // 前回来院からの日数(取消・施術なしを除く)
+  const attendedDates = (visits.data ?? []).filter((v) => v.status === 'recorded' && v.attended).map((v) => v.visit_date);
+  const sincePrev = (date: string) => {
+    const prev = attendedDates.find((d) => d < date);
+    return prev ? Math.round((Date.parse(date) - Date.parse(prev)) / 86_400_000) : null;
+  };
   return (
-    <Card title={t('customer.history')} icon={<History size={18} />} pad={false}>
+    <Card title={t('chart.title')} icon={<History size={18} />} pad={false}>
       {visits.isPending ? <Loading /> : visits.isError ? (
         <div className="card-body"><ErrorBox text={errorText(t, visits.error)} onRetry={() => void visits.refetch()} /></div>
       ) : visits.data.length === 0 ? (
@@ -224,9 +261,9 @@ function HistoryCard({ customerId }: { customerId: string }) {
             const net = v.sales.reduce((s, x) => s + x.amount, 0);
             const unpaid = v.sales.some((x) => x.method === 'unpaid' && x.kind === 'sale');
             return (
-              <div key={v.id} className={`timeline-item ${v.status === 'voided' ? 'voided' : ''}`}>
+              <div key={v.id} id={`v-${v.id}`} className={`timeline-item chart-item ${v.status === 'voided' ? 'voided' : ''}`}>
                 <span className="tl-date">{v.visit_date}</span>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div className="inline">
                     <span className="tl-title">{v.attended ? (m ? pickName(m.name, i18n.language) : '—') : t('customer.noShow')}</span>
                     {v.change_from_last === 'changed' && <span className="badge badge-warn">{t('customer.changed')}</span>}
@@ -236,6 +273,8 @@ function HistoryCard({ customerId }: { customerId: string }) {
                   </div>
                   {(v.memo || v.no_show_reason) && <div className="tl-sub">{v.memo || v.no_show_reason}</div>}
                   {v.status === 'voided' && v.void_reason && <div className="tl-sub">{t('customer.voidedBecause', { reason: v.void_reason })}</div>}
+                  {sincePrev(v.visit_date) !== null && v.attended && <div className="tl-sub">{t('charts.sincePrev', { days: sincePrev(v.visit_date) })}</div>}
+                  <VisitChart customerId={customerId} visitId={v.id} notes={notes.data ?? []} photos={photos.data ?? []} />
                 </div>
                 <span className="tl-amount">{yen(net)}</span>
               </div>

@@ -6,6 +6,10 @@ do $$ begin
     raise exception 'customers > 200: this does not look like the test environment. aborted';
   end if;
 end $$;
+delete from private.chart_note_revisions;
+delete from public.chart_photos;
+delete from public.chart_notes;
+delete from public.checkins;
 delete from public.credit_allocations;
 delete from public.credit_entries;
 delete from public.pass_uses;

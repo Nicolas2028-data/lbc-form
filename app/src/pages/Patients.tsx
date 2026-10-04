@@ -1,7 +1,7 @@
 import { useDeferredValue, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { ChevronRight, IdCard, Search, UserX } from 'lucide-react';
+import { ChevronRight, ClipboardPen, Search, UserX } from 'lucide-react';
 import { useCustomerSearch, errorText } from '../lib/data';
 import { Avatar, ErrorBox, Loading } from '../ui';
 
@@ -37,18 +37,18 @@ export default function Patients() {
             <ul className="list">
               {hits.map((c) => (
                 <li key={c.id} style={{ display: 'flex', alignItems: 'center' }}>
-                  <Link to={`/staff/record/${c.id}`} className="list-item" style={{ flex: 1 }}>
+                  <Link to={`/staff/customers/${c.id}`} className="list-item" style={{ flex: 1 }}>
                     <Avatar name={c.name} seed={c.id} />
                     <div className="list-main">
                       <div className="list-title">{c.name}</div>
-                      <div className="list-sub">{c.furigana ?? '—'}</div>
+                      <div className="list-sub">{c.furigana ?? '—'}{c.last_visit ? ` · ${t('record.lastVisit', { date: c.last_visit })}` : ''}</div>
                     </div>
                     <span className="badge mono">{c.code}</span>
                     <ChevronRight size={18} className="chev" />
                   </Link>
-                  <Link to={`/staff/customers/${c.id}`} className="btn btn-ghost btn-sm" title={t('patients.detail')}
+                  <Link to={`/staff/record/${c.id}`} className="btn btn-ghost btn-sm" title={t('record.record')}
                         style={{ marginRight: 8, textDecoration: 'none' }}>
-                    <IdCard size={18} />
+                    <ClipboardPen size={18} />
                   </Link>
                 </li>
               ))}

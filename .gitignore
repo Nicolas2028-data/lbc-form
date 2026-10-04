@@ -3,3 +3,7 @@ node_modules/
 
 # 接続情報(秘密)
 supabase/.env*
+
+# データ移行の出力(個人情報を含む)。絶対にコミットしない
+scripts/migrate/out/
+*.xlsx

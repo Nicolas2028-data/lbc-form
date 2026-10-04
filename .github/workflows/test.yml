@@ -18,6 +18,7 @@ jobs:
           npm ci
           npm run test:db
           FUZZ_SCENARIOS=100 npm run test:fuzz
+          npm run test:migrate
       - name: App tests & build
         working-directory: app
         env:

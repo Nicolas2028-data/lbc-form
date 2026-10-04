@@ -9,6 +9,10 @@
 - [x] DB 管理: スキーマの指紋によるずれ照合(scripts/db)、Supabase Advisors 対応(migration 0010)、スキーマの自動検査(lint.test.mjs)、docs/database.md
 - [x] デザイン刷新(shadcn/Linear 風、ライト/ダーク、iPad 向け)
 - [x] ロジックのファズテスト(300 シナリオ × 40 操作、CI では 100)
+- [x] ホーム画面(2026-10-04): 直近 12 か月の売上を立体の棒グラフで表示(three.js、ホームとログインだけで読み込む)+ 公式サイト風のメニューと今月の数字
+- [x] ネオンテーマ(2026-10-04): 全画面を暗い緑の背景・ガラス風カード・光る強調に。Nicolas「派手はいいけど、わかりやすさを大事に」→ 業務画面は見出し・金額を白一色、光は押せる所だけ、状態色を強調(文字のコントラストはすべて 4.5 以上)
+- [x] 印刷・Excel 出力(2026-10-04): 患者ごとのカルテ印刷(A4)と Excel、顧客一覧・期間のカルテの Excel(全員分はオーナーのみ)。出力は audit_log に記録(migration 0016)
+- [x] 類似サービス・基盤の調査(2026-10-04): 結論は「ツールの乗り換え不要。Supabase 東京 + React は業界で普通の構成」。詳細は research-2026-10-04.md
 
 ## 1. 土台
 - [x] 1-1 `supabase/migrations/`: 組織・人・メニュー(stores, staff, customers, customer_consents, menus, products)+ RLS + 共通関数(updated_at, audit)
@@ -20,6 +24,8 @@
 - [ ] 1-7 🙋 Cloudflare アカウント作成 → Pages にリポジトリ接続(`platform-rebuild` ブランチ = テスト環境)
 - [~] 1-8 テスト環境へマイグレーション適用 ✅(SQL エディタで適用・supabase_migrations に記録済み)、スタッフ作成 🙋
 - [ ] 1-9 日次バックアップ(pg_dump → 暗号化 → R2)🙋 R2 バケットと鍵の作成
+- [ ] 1-10 PWA(iPad のホーム画面にアイコン・全画面で開く)
+- [ ] 1-11 安全対策(調査で判明): 問診の同意文を「要配慮個人情報(既往歴など)の取得への同意」とはっきり書く/プライバシーポリシー(米国 Supabase・東京保管・漏えい時の対応)/スタッフの二段階認証/カルテ閲覧の記録/本番は Supabase Pro + PITR
 
 ## 2. 施術記録・お金・移行
 - [x] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log
@@ -41,6 +47,7 @@
 - [ ] 3-5 本番環境構築 → 切替手順のリハーサル → 🙋 切替日の決定
 
 ## 4〜8. 新機能
+- [ ] 連携(Nicolas 了承 2026-10-04「できるならよし」): Google カレンダー(予約の自動登録・休みの反映)、LINE、外部ツールへ知らせる口(Webhook → Zapier/Make)。何から作るかは未定
 - [-] 4 リマインド(予約の一時停止に伴い保留)
 - [ ] 5 Stripe(回数券・サブスク購入、Webhook)🙋 Stripe アカウント
 - [ ] 6 マイページ(LINE ログイン)🙋 LINE ログインチャネル

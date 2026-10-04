@@ -158,7 +158,7 @@ export async function exportChartsXlsx(from: string, to: string, c: Ctx) {
   await logExport('charts_xlsx', null, { from, to });
   const t = c.t;
   const visits = await fetchAll((a, b) => supabase.from('visits')
-    .select('id, visit_date, attended, status, memo, no_show_reason, change_from_last, menu_id, void_reason, customers(code, name), sales(amount, method, kind)')
+    .select('id, visit_date, attended, status, memo, no_show_reason, change_from_last, menu_id, void_reason, customers!visits_customer_id_fkey(code, name), sales(amount, method, kind)')
     .gte('visit_date', from).lte('visit_date', to).order('visit_date').order('created_at').range(a, b));
   const ids = (visits as { id: string }[]).map((v) => v.id);
   const notes: { visit_id: string; body: string }[] = [];

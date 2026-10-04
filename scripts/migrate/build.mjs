@@ -26,7 +26,10 @@ const COURSE = {
   'カイロプラクティック': 'chiro', '筋膜リリース': 'fascia', '吸い玉・カッピング': 'cupping', '吸い玉（カッピング）': 'cupping',
   '吸い玉(カッピング)': 'cupping', 'カッピング': 'cupping', 'トータルケア': 'total', '月2回コース': 'monthly2_visit', '月2回プラン': 'monthly2_visit',
 };
-const PAYMENT = { '現金': 'cash', 'カード': 'card', 'PayPay': 'paypay', 'paypay': 'paypay', '未払い': 'unpaid', 'その他': 'other' };
+const PAYMENT = {
+  '現金': 'cash', 'cash': 'cash', 'カード': 'card', 'card': 'card', 'PayPay': 'paypay', 'paypay': 'paypay',
+  '未払い': 'unpaid', 'unpaid': 'unpaid', 'その他': 'other', 'other': 'other',
+};
 
 // ── 読み込み ──
 const file = process.argv[2];
@@ -67,6 +70,11 @@ const q = (v) => (v === null || v === undefined ? 'null' : `'${String(v).replace
 const qj = (o) => `${q(JSON.stringify(o))}::jsonb`;
 const addYear = (d) => { const [y, m, day] = d.split('-').map(Number); const last = new Date(Date.UTC(y + 1, m, 0)).getUTCDate(); return `${y + 1}-${String(m).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`; };
 const eom = (d) => { const t = new Date(`${d.slice(0, 7)}-01T00:00:00Z`); t.setUTCMonth(t.getUTCMonth() + 1); t.setUTCDate(0); return t.toISOString().slice(0, 10); };
+
+// 2026-09-06 の重複整理で退避した記録(old_YYYYMMDD タブ)。ここにある記録への取消は「重複を消した跡」なので売上に含めない
+const archivedText = wb.SheetNames.filter((n) => /^old_\d{8}$/.test(n))
+  .map((n) => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '' }).map((r) => r.join('\t')).join('\n')).join('\n');
+const inArchive = (id) => !!id && archivedText.includes(id);
 
 const cmRows = sheet('顧客マスタ');
 const trRows = sheet('施術台帳');
@@ -145,7 +153,11 @@ for (const { row, line } of trSorted) {
 // 取消(void)
 for (const { row, line } of voidRows) {
   const target = visits.get(S(row[TR.target_entry_id]));
-  if (!target) { warn('取消: 取消対象の記録が見つからない(売上の打ち消しだけ移行)', `行${line}`); }
+  if (!target) {
+    if (inArchive(S(row[TR.target_entry_id]))) warn('取消: 重複整理で退避した記録への取消(重複を消した跡なので移行しない)', `行${line} ${S(row[TR.customer_id])}`);
+    else warn('取消: 取消対象の記録が見つからない(移行しない)', `行${line} ${S(row[TR.customer_id])}`);
+    continue;
+  }
   const date = ymd(row[TR.date]);
   if (target) {
     if (target.status === 'voided') warn('取消: 同じ記録への二重取消(2 回目は売上の打ち消しだけ)', `行${line}`);
@@ -284,6 +296,7 @@ for (const v of visitOrder) if (v.attended && v.status === 'recorded') expected.
 for (const { row } of trRows) {
   const type = S(row[TR.type]);
   if (!['record', 'correction', 'void'].includes(type)) continue;
+  if (type === 'void' && !trRows.some((x) => S(x.row[TR.entry_id]) === S(row[TR.target_entry_id]))) continue;
   const d = ymd(row[TR.date]);
   if (!d || !cust(row[TR.customer_id])) continue;
   const amt = num(row[TR.sales]);

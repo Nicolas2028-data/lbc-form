@@ -7,7 +7,10 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#1e5c42">
+  <meta name="theme-color" content="#0f1117">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script>
@@ -19,63 +22,64 @@
   </script>
   <style>
     /* ============================================================
-       LBC Care — Apple-inspired Minimal (企業カラー #2c7a5c 維持)
+       LBC Care — Staff Record — Polished Dark Theme (2026-10)
        ============================================================ */
     :root {
-      --primary:       #2c7a5c;
-      --primary-dark:  #1e5c42;
-      --primary-light: #eaf4ee;
-      --primary-mid:   #b8d8c8;
-      --accent:        #b25000;
-      --accent-light:  #fff5eb;
-      --danger:        #d70015;
-      --danger-light:  #fff0f1;
-      --warning:       #b25000;
-      --warning-light: #fff5eb;
-      --blue:          #0071e3;
-      --blue-light:    #eaf3ff;
-      --text:          #1d1d1f;
-      --text-sub:      #48484a;
-      --text-muted:    #86868b;
-      --border:        #d2d2d7;
-      --border-light:  #e8e8ed;
-      --border-focus:  #2c7a5c;
-      --bg:            #fbfbfd;
-      --bg-secondary:  #f5f5f7;
-      --white:         #ffffff;
-      --radius:        16px;
+      --primary:       #2d6a4f;
+      --primary-dark:  #1a4f3a;
+      --primary-light: rgba(45, 106, 79, 0.18);
+      --primary-mid:   rgba(45, 106, 79, 0.4);
+      --accent:        #e07d2f;
+      --accent-light:  rgba(224, 125, 47, 0.14);
+      --danger:        #f87171;
+      --danger-light:  rgba(248, 113, 113, 0.12);
+      --warning:       #e07d2f;
+      --warning-light: rgba(224, 125, 47, 0.12);
+      --blue:          #60a5fa;
+      --blue-light:    rgba(96, 165, 250, 0.12);
+      --text:          #e8eaf0;
+      --text-sub:      #9ca3af;
+      --text-muted:    #6b7280;
+      --border:        #2a2d3a;
+      --border-light:  #1e2130;
+      --border-focus:  #2d6a4f;
+      --bg:            #0f1117;
+      --bg-secondary:  #161a24;
+      --white:         #1c1f2e;
+      --radius:        14px;
       --radius-sm:     10px;
-      --shadow:        0 0 0 0.5px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04);
-      --shadow-focus:  0 0 0 4px rgba(44, 122, 92, 0.15);
+      --shadow:        0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+      --shadow-focus:  0 0 0 3px rgba(45, 106, 79, 0.3);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { -webkit-text-size-adjust: 100%; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic Medium', 'Meiryo', 'Segoe UI', sans-serif;
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic Medium', 'Meiryo', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       font-size: 15px;
-      line-height: 1.6;
+      line-height: 1.65;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      letter-spacing: -0.003em;
+      letter-spacing: 0.01em;
     }
 
     header {
       background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
-      color: var(--white);
-      padding: 14px 22px;
+      color: #fff;
+      padding: 16px 22px;
       display: flex;
       align-items: center;
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.03), 0 2px 8px rgba(30, 92, 66, 0.15);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .logo { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--white); }
-    .logo span { color: var(--white); font-weight: 700; }
-    .logo small { font-size: 0.68rem; font-weight: 400; opacity: 0.7; display: block; letter-spacing: 0.02em; margin-top: 2px; }
+    .logo { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.01em; color: #fff; }
+    .logo span { color: #fff; font-weight: 700; }
+    .logo small { font-size: 0.67rem; font-weight: 400; opacity: 0.6; display: block; letter-spacing: 0.04em; margin-top: 1px; }
 
     .hero {
       background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
@@ -102,23 +106,23 @@
       background: var(--white);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 28px 24px;
-      margin-bottom: 20px;
-      border: 1px solid var(--border-light);
-      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 24px 22px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
     .card-title {
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text);
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       padding-bottom: 14px;
-      border-bottom: 1px solid var(--border-light);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
-      letter-spacing: -0.01em;
+      letter-spacing: 0.02em;
     }
     .card-title .icon { font-size: 1.15rem; opacity: 0.9; }
     .section-hint { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 12px; }
@@ -129,29 +133,34 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       font-weight: 600;
-      color: var(--text);
+      color: var(--text-sub);
       margin-bottom: 8px;
-      letter-spacing: -0.005em;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
     }
     .badge-req {
-      background: transparent;
+      background: rgba(248, 113, 113, 0.12);
       color: var(--danger);
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       padding: 2px 7px;
-      border: 1px solid rgba(215, 0, 21, 0.3);
+      border: 1px solid rgba(248, 113, 113, 0.3);
       border-radius: 999px;
-      font-weight: 600;
+      font-weight: 700;
+      text-transform: none;
+      letter-spacing: 0;
     }
     .badge-opt {
-      background: transparent;
+      background: rgba(107, 114, 128, 0.1);
       color: var(--text-muted);
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       padding: 2px 7px;
       border: 1px solid var(--border);
       border-radius: 999px;
       font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
     }
 
     input[type="text"], input[type="tel"], input[type="number"], textarea {
@@ -161,20 +170,27 @@
       border-radius: var(--radius-sm);
       font-size: 1rem;
       color: var(--text);
-      background: var(--white);
+      background: rgba(0,0,0,0.3);
       font-family: inherit;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
       -webkit-appearance: none;
       appearance: none;
     }
+    select {
+      color: var(--text);
+      background: rgba(0,0,0,0.3);
+      font-family: inherit;
+    }
+    select option { background: #1c1f2e; color: var(--text); }
     input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
     input[type="number"]::-webkit-outer-spin-button,
     input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    input::placeholder, textarea::placeholder { color: #c7c7cc; }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 0.7; }
     input:focus, textarea:focus {
       outline: none;
       border-color: var(--border-focus);
       box-shadow: var(--shadow-focus);
+      background: rgba(0,0,0,0.4);
     }
     input.is-error { border-color: var(--danger); background: var(--danger-light); }
     textarea { resize: vertical; min-height: 84px; line-height: 1.55; }
@@ -222,19 +238,19 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       cursor: pointer;
-      background: var(--white);
-      transition: all 0.15s;
+      background: rgba(0,0,0,0.2);
+      transition: all 0.2s;
       gap: 12px;
     }
-    .course-item:hover { border-color: var(--primary-mid); background: var(--bg-secondary); }
-    .course-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); }
+    .course-item:hover { border-color: var(--primary-mid); background: var(--primary-light); }
+    .course-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 0 0 1px var(--primary); }
     .course-item input[type="radio"] { accent-color: var(--primary); width: 18px; height: 18px; flex-shrink: 0; }
     .course-item-name  { font-weight: 500; font-size: 0.95rem; flex: 1; }
     .course-item-price { font-size: 0.88rem; color: var(--text-muted); font-weight: 500; }
     .course-item-tag {
       font-size: 0.68rem; font-weight: 600;
       padding: 2px 8px; border-radius: 999px;
-      background: var(--primary-light); color: var(--primary-dark);
+      background: var(--primary-light); color: #6ee7b7;
     }
 
     /* ─── 月2回プラン申込チェック ─── */
@@ -251,8 +267,8 @@
     }
     .monthly-addon.visible { display: flex; }
     .monthly-addon input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; flex-shrink: 0; }
-    .monthly-addon-text { flex: 1; font-size: 0.9rem; font-weight: 500; color: #6b4200; }
-    .monthly-addon-price { font-size: 0.88rem; font-weight: 600; color: #6b4200; }
+    .monthly-addon-text { flex: 1; font-size: 0.9rem; font-weight: 500; color: #fbbf6a; }
+    .monthly-addon-price { font-size: 0.88rem; font-weight: 600; color: #fbbf6a; }
 
     /* ─── 支払い方法 ─── */
     .payment-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
@@ -263,13 +279,13 @@
       padding: 13px 10px;
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      background: var(--white);
+      background: rgba(0,0,0,0.2);
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s;
       font-weight: 500; font-size: 0.9rem;
     }
-    .payment-item:hover { border-color: var(--primary-mid); background: var(--bg-secondary); }
-    .payment-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 500; }
+    .payment-item:hover { border-color: var(--primary-mid); background: var(--primary-light); }
+    .payment-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); color: #6ee7b7; font-weight: 600; box-shadow: 0 0 0 1px var(--primary); }
     .payment-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
 
     /* ─── 患者バナー ─── */
@@ -277,10 +293,10 @@
       display: flex; align-items: flex-start;
       gap: 16px; padding: 18px 20px;
       border-radius: var(--radius);
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       background: var(--primary-light);
-      border: 1px solid var(--primary-mid);
-      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid rgba(45, 106, 79, 0.4);
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .banner-icon { font-size: 1.9rem; flex-shrink: 0; padding-top: 2px; }
     .banner-name { font-size: 1.1rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
@@ -294,7 +310,7 @@
     }
     .btn-change-patient {
       margin-left: auto; flex-shrink: 0;
-      background: var(--white); border: 1px solid var(--border);
+      background: rgba(255,255,255,0.07); border: 1px solid var(--border);
       color: var(--text-sub); border-radius: 999px;
       font-size: 0.78rem; font-weight: 500;
       padding: 7px 14px; cursor: pointer;
@@ -302,7 +318,7 @@
       transition: all 0.15s;
       font-family: inherit;
     }
-    .btn-change-patient:hover { background: var(--bg-secondary); border-color: var(--primary-mid); color: var(--primary-dark); }
+    .btn-change-patient:hover { background: var(--primary-light); border-color: var(--primary-mid); color: #6ee7b7; }
 
     /* ─── クレジット表示 ─── */
     .credit-section {
@@ -325,10 +341,10 @@
       display: flex; align-items: flex-start; gap: 10px;
       padding: 12px 14px;
       background: var(--warning-light);
-      border: 1px solid #ffd68a;
+      border: 1px solid rgba(224, 125, 47, 0.3);
       border-radius: var(--radius-sm);
       font-size: 0.82rem;
-      color: #6b4200;
+      color: #fbbf6a;
     }
     .credit-warning strong { display: block; font-size: 0.85rem; margin-bottom: 2px; font-weight: 600; }
 
@@ -338,7 +354,7 @@
       align-items: center;
       gap: 12px;
       padding-top: 10px;
-      border-top: 1px solid rgba(0,0,0,0.06);
+      border-top: 1px solid var(--border);
     }
     .credit-use-row.visible { display: flex; }
     .credit-use-label { font-size: 0.85rem; font-weight: 500; color: var(--text); flex: 1; }
@@ -347,14 +363,14 @@
       border: 1px solid var(--border);
       border-radius: 999px;
       overflow: hidden;
-      background: var(--white);
+      background: rgba(0,0,0,0.3);
     }
     .stepper button {
       width: 36px; height: 36px;
-      background: var(--white); border: none;
+      background: transparent; border: none;
       font-size: 1.15rem; font-weight: 400;
       cursor: pointer; color: var(--primary);
-      transition: background 0.1s;
+      transition: background 0.15s;
       font-family: inherit;
     }
     .stepper button:hover { background: var(--primary-light); }
@@ -371,15 +387,15 @@
       display: none;
       padding: 18px 20px;
       background: var(--primary-light);
-      border: 1px solid var(--primary-mid);
+      border: 1px solid rgba(45, 106, 79, 0.35);
       border-radius: var(--radius-sm);
-      margin-bottom: 20px;
-      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      margin-bottom: 14px;
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .referral-section.visible { display: block; }
     .referral-title {
       font-size: 0.85rem; font-weight: 600;
-      color: var(--primary-dark);
+      color: #6ee7b7;
       margin-bottom: 12px;
       display: flex; align-items: center; gap: 8px;
     }
@@ -409,8 +425,9 @@
       display: none;
       flex-direction: column;
       gap: 6px;
-      padding: 12px 16px;
-      background: var(--bg-secondary);
+      padding: 14px 16px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       margin-top: 12px;
       font-size: 0.85rem;
@@ -428,18 +445,19 @@
 
     /* ─── ボタン ─── */
     .btn-submit {
-      width: 100%; padding: 15px;
-      background: var(--primary); color: var(--white);
+      width: 100%; padding: 16px;
+      background: var(--primary); color: #fff;
       border: none; border-radius: var(--radius-sm);
-      font-size: 1rem; font-weight: 600;
+      font-size: 1rem; font-weight: 700;
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
-      letter-spacing: -0.005em;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      letter-spacing: 0.03em;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.35);
     }
-    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-submit:hover:not(:disabled) { background: var(--primary-dark); box-shadow: 0 6px 20px rgba(45,106,79,0.5); }
     .btn-submit:active:not(:disabled) { transform: scale(0.985); }
-    .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-submit:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
 
     .loading-row {
       display: none; align-items: center;
@@ -465,6 +483,7 @@
       z-index: 9999;
       text-align: center;
       overflow-y: auto;
+      backdrop-filter: blur(20px);
     }
     #successScreen.visible {
       display: flex;
@@ -474,44 +493,47 @@
       padding: 40px 24px;
     }
     .success-anim {
-      width: 76px; height: 76px;
+      width: 80px; height: 80px;
       background: var(--primary); border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 2.2rem; color: var(--white);
+      font-size: 2.4rem; color: #fff;
       margin: 0 auto 24px;
+      box-shadow: 0 0 40px rgba(45,106,79,0.5);
     }
-    .success-title { font-size: 1.5rem; font-weight: 700; color: var(--text); margin-bottom: 12px; letter-spacing: -0.02em; }
+    .success-title { font-size: 1.5rem; font-weight: 700; color: var(--text); margin-bottom: 12px; }
     .success-detail { font-size: 0.95rem; color: var(--text-sub); line-height: 1.75; margin-bottom: 32px; }
     .success-detail strong { color: var(--text); font-weight: 600; }
     .btn-back {
       padding: 13px 32px;
-      background: var(--primary); color: var(--white);
+      background: var(--primary); color: #fff;
       border: none; border-radius: var(--radius-sm);
-      font-size: 0.95rem; font-weight: 500; cursor: pointer;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
       font-family: inherit;
       transition: background 0.15s, transform 0.1s;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.35);
     }
     .btn-back:hover { background: var(--primary-dark); }
     .btn-back:active { transform: scale(0.985); }
 
     /* ─── Toast ─── */
     .toast {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-      background: rgba(29, 29, 31, 0.92);
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: rgba(28, 31, 46, 0.96);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      color: #fff;
-      padding: 13px 24px; border-radius: 999px;
+      color: var(--text);
+      padding: 13px 24px; border-radius: 12px;
       font-size: 0.88rem; font-weight: 500;
       white-space: nowrap;
       opacity: 0; pointer-events: none;
       transition: opacity 0.25s;
       z-index: 999;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
     }
     .toast.show { opacity: 1; }
-    .toast.is-error   { background: rgba(215, 0, 21, 0.92); }
-    .toast.is-success { background: rgba(44, 122, 92, 0.92); }
+    .toast.is-error   { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.35); color: #fca5a5; }
+    .toast.is-success { background: rgba(45,106,79,0.25); border-color: rgba(45,106,79,0.45); color: #6ee7b7; }
 
     /* ─── 月2回2回目バナー ─── */
     .monthly2-banner {
@@ -520,34 +542,35 @@
       gap: 12px;
       padding: 14px 18px;
       background: var(--accent-light);
-      border: 1px solid #ffd68a;
+      border: 1px solid rgba(224, 125, 47, 0.3);
       border-radius: var(--radius-sm);
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       font-size: 0.9rem;
       font-weight: 500;
-      color: #6b4200;
-      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      color: #fbbf6a;
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .monthly2-banner.visible { display: flex; }
 
     /* ─── 今日の未記録 ─── */
     .pending-section { margin-bottom: 22px; }
     .pending-label {
-      font-size: 0.85rem; font-weight: 600;
-      color: #6b4200; margin-bottom: 10px;
+      font-size: 0.78rem; font-weight: 700;
+      color: #fbbf6a; margin-bottom: 10px;
       display: flex; align-items: center; gap: 8px;
+      text-transform: uppercase; letter-spacing: 0.07em;
     }
     .pending-list { display: flex; flex-direction: column; gap: 10px; }
     .pending-item {
       display: flex; align-items: center; justify-content: space-between;
       padding: 13px 16px;
-      border: 1px solid #ffd68a;
+      border: 1px solid rgba(224, 125, 47, 0.3);
       border-radius: var(--radius-sm);
-      background: var(--warning-light);
+      background: var(--accent-light);
       cursor: pointer; gap: 12px;
-      transition: background 0.15s, border-color 0.15s;
+      transition: background 0.2s, border-color 0.2s;
     }
-    .pending-item:hover { background: #ffe9c9; border-color: var(--accent); }
+    .pending-item:hover { background: rgba(224, 125, 47, 0.22); border-color: var(--accent); }
     .pending-item-name { font-weight: 500; font-size: 0.95rem; color: var(--text); }
     .pending-item-num  { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
     .badge-pending {
@@ -561,10 +584,10 @@
     .autocomplete-dropdown {
       display: none;
       position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-      background: var(--white);
+      background: #1a1d2c;
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
       z-index: 50;
       max-height: 320px; overflow-y: auto;
     }
@@ -578,7 +601,7 @@
     .autocomplete-item:last-child { border-bottom: none; }
     .autocomplete-item:hover { background: var(--primary-light); }
     .autocomplete-item-main { flex: 1; min-width: 0; }
-    .autocomplete-item-name { font-weight: 500; font-size: 0.95rem; color: var(--text); }
+    .autocomplete-item-name { font-weight: 600; font-size: 0.95rem; color: var(--text); }
     .autocomplete-item-furi { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
     .autocomplete-item-num  { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; flex-shrink: 0; }
     .no-results { padding: 16px; font-size: 0.88rem; color: var(--text-muted); text-align: center; }
@@ -590,10 +613,10 @@
       gap: 10px;
       padding: 16px 18px;
       background: var(--danger-light);
-      border: 1px solid #ffbec2;
+      border: 1px solid rgba(248, 113, 113, 0.25);
       border-radius: var(--radius);
-      margin-bottom: 20px;
-      animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      margin-bottom: 14px;
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .today-records-section.visible { display: flex; }
     .today-records-title {
@@ -603,22 +626,22 @@
     .today-record-row {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px;
-      background: white;
-      border: 1px solid #ffbec2;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(248, 113, 113, 0.2);
       border-radius: var(--radius-sm);
     }
     .today-record-info { flex: 1; font-size: 0.9rem; }
     .today-record-course { font-weight: 500; color: var(--text); }
     .today-record-detail { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
     .btn-void {
-      background: var(--white); border: 1px solid var(--danger);
+      background: transparent; border: 1px solid var(--danger);
       color: var(--danger); border-radius: 999px;
       font-size: 0.78rem; font-weight: 500;
       padding: 6px 14px; cursor: pointer; flex-shrink: 0;
       transition: all 0.15s;
       font-family: inherit;
     }
-    .btn-void:hover { background: var(--danger); color: white; }
+    .btn-void:hover { background: var(--danger); color: #fff; }
     .btn-void:disabled { opacity: 0.4; pointer-events: none; }
 
     /* パスワードゲート CSS は 2026-09-26 のパスワード認証廃止に伴い撤去 (2026-09-27) */
@@ -626,7 +649,7 @@
     /* ─── Print ── */
     @media print {
       header, .btn-submit, .btn-back, .btn-change-patient, .toast, .loading-row, .btn-void { display: none !important; }
-      body, .card, .banner { background: #fff !important; box-shadow: none !important; }
+      body, .card, .banner { background: #fff !important; color: #000 !important; box-shadow: none !important; }
       .card { border: 1px solid #ccc !important; page-break-inside: avoid; }
     }
   </style>
@@ -674,7 +697,7 @@
           </div>
         </div>
         <div id="loadError" style="display:none">
-          <p id="loadErrorMsg" style="color:var(--danger);font-size:0.88rem;margin-bottom:12px">患者データの読み込みに失敗しました。</p>
+          <p id="loadErrorMsg" style="color:var(--danger);font-size:0.9rem;margin-bottom:16px;line-height:1.6">患者データの読み込みに失敗しました。</p>
           <button class="btn-submit" onclick="loadPatients()">再読み込み</button>
         </div>
       </div>
@@ -823,7 +846,7 @@
       <!-- 施術時間 (2026-09-27: 追加カラム 監査対応) -->
       <div class="card" id="durationCard">
         <div class="card-title"><span>⏱️</span>施術時間</div>
-        <select id="durationMin" style="width:100%;padding:12px;font-size:1rem;border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <select id="durationMin" style="width:100%;padding:12px;font-size:1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(0,0,0,0.3);color:var(--text);font-family:inherit">
           <option value="30">30 分</option>
           <option value="45">45 分</option>
           <option value="60" selected>60 分</option>

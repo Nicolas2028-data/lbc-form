@@ -1206,7 +1206,6 @@ function resetAuthLock() {
 var STAFF_TOKEN_ACTIONS = {
   getPatientList: true, getPatientDetails: true,
   submitTreatmentRecord: true, submitVoidRecord: true,
-  getDashboardData: true,
 };
 
 function getStaffTokens(cfg) {

@@ -294,6 +294,7 @@
     .radio-item:hover { border-color: var(--primary-mid); background: var(--bg-secondary); }
     .radio-item:has(input:checked) { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 500; }
     .radio-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
+    .radio-item:has(input:disabled) { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
     /* ── Checkboxes ── */
     .check-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
@@ -994,11 +995,11 @@
           <div class="field-label" style="margin-bottom:8px"><span id="lbl_face_q">顔出しについて</span></div>
           <div class="radio-list">
             <label class="radio-item">
-              <input type="radio" name="facePreference" value="face_ok">
+              <input type="radio" name="facePreference" value="face_ok" disabled>
               <span id="lbl_face_ok">顔出しOK</span>
             </label>
             <label class="radio-item">
-              <input type="radio" name="facePreference" value="no_face">
+              <input type="radio" name="facePreference" value="no_face" disabled>
               <span id="lbl_face_no">顔は映さないでほしい</span>
             </label>
           </div>

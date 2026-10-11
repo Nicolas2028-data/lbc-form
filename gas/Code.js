@@ -1203,10 +1203,9 @@ function resetAuthLock() {
 // 2026-10-02: スタッフ系 API の端末トークン認証
 //  スクリプトプロパティ STAFF_ACCESS_TOKEN(カンマ区切りで複数可・ローテーション用。先頭を Notion リンクに埋め込む)
 //  未設定時は全拒否(fail-closed)
-var STAFF_TOKEN_ACTIONS = {
-  getPatientList: true, getPatientDetails: true,
-  submitTreatmentRecord: true, submitVoidRecord: true,
-};
+// 施術記録系 API はパスワード認証廃止済み(CLAUDE.md rule 4)。デバイストークン不要。
+// 管理系 API は adminForceVoid 等で引き続き STAFF_PASSWORD を使用。
+var STAFF_TOKEN_ACTIONS = {};
 
 function getStaffTokens(cfg) {
   return String(cfg.STAFF_ACCESS_TOKEN || '').split(',')

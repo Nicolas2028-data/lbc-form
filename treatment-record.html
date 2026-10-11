@@ -824,9 +824,9 @@
       <div class="card" id="durationCard">
         <div class="card-title"><span>⏱️</span>施術時間</div>
         <select id="durationMin" style="width:100%;padding:12px;font-size:1rem;border:1px solid var(--border);border-radius:var(--radius-sm)">
-          <option value="60" selected>60 分</option>
           <option value="30">30 分</option>
           <option value="45">45 分</option>
+          <option value="60" selected>60 分</option>
           <option value="90">90 分</option>
         </select>
       </div>
@@ -979,6 +979,9 @@ async function loadPatients() {
     document.getElementById('loadingPatients').style.display = 'none';
     document.getElementById('searchArea').style.display      = 'block';
     renderPendingPatients();
+    if (!URL_PREFILL || !URL_PREFILL.customerId) {
+      document.getElementById('nameSearch').focus();
+    }
 
     // URL パラメータで指定された患者を自動選択(Notion 未記録リストからの導線)
     if (URL_PREFILL && URL_PREFILL.customerId) {
@@ -1648,6 +1651,13 @@ function escHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
+
+window.addEventListener('beforeunload', function(e) {
+  if (S.customerId && !S.submitting) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 </script>
 </body>
 </html>

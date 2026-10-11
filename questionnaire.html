@@ -62,7 +62,7 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      font-size: 15px;
+      font-size: 16px;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -631,9 +631,34 @@
     .toast.is-error { background: rgba(215, 0, 21, 0.92); }
     .toast.is-success { background: rgba(44, 122, 92, 0.92); }
 
+    /* ── Step indicator ── */
+    .step-bar {
+      display: flex;
+      align-items: center;
+      padding: 10px 22px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border-light);
+      gap: 0;
+    }
+    .step-dot {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700;
+      background: var(--border); color: var(--text-muted);
+      flex-shrink: 0;
+      transition: background 0.2s, color 0.2s;
+    }
+    .step-dot.active { background: var(--primary); color: var(--white); }
+    .step-dot.done   { background: var(--primary-light); color: var(--primary-dark); }
+    .step-line { flex: 1; height: 2px; background: var(--border); margin: 0 6px; transition: background 0.2s; }
+    .step-line.done { background: var(--primary); }
+    .step-label { font-size: 0.7rem; color: var(--text-muted); margin-left: 6px; white-space: nowrap; }
+    .step-label.active { color: var(--primary); font-weight: 600; }
+
     /* ── Print ── */
     @media print {
-      header, .lang-select, .btn-submit, .btn-back, .toast, .loading-row { display: none !important; }
+      header, .lang-select, .btn-submit, .btn-back, .toast, .loading-row, .step-bar { display: none !important; }
       body, .card, .banner { background: #fff !important; box-shadow: none !important; }
       .card { border: 1px solid #ccc !important; page-break-inside: avoid; }
     }
@@ -653,6 +678,14 @@
     </select>
   </div>
 </header>
+
+<div class="step-bar" id="stepBar">
+  <div class="step-dot active" id="stepDot1">1</div>
+  <div class="step-label active" id="stepLbl1">電話確認</div>
+  <div class="step-line" id="stepLine"></div>
+  <div class="step-dot" id="stepDot2">2</div>
+  <div class="step-label" id="stepLbl2">問診記入</div>
+</div>
 
 <div class="hero">
   <div class="container" style="padding-bottom:0;padding-top:0">
@@ -1490,7 +1523,25 @@ function backToPhase1() {
   document.getElementById('phoneGroup').style.display = '';
   document.getElementById('p1NameGroup').style.display = '';
   if (Q.lang === 'ja') document.getElementById('p1KanaGroup').style.display = '';
+  _setStep(1);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function _setStep(n) {
+  var dot1 = document.getElementById('stepDot1');
+  var dot2 = document.getElementById('stepDot2');
+  var lbl1 = document.getElementById('stepLbl1');
+  var lbl2 = document.getElementById('stepLbl2');
+  var line = document.getElementById('stepLine');
+  if (n === 1) {
+    dot1.className = 'step-dot active'; dot2.className = 'step-dot';
+    lbl1.className = 'step-label active'; lbl2.className = 'step-label';
+    line.className = 'step-line';
+  } else {
+    dot1.className = 'step-dot done'; dot2.className = 'step-dot active';
+    lbl1.className = 'step-label'; lbl2.className = 'step-label active';
+    line.className = 'step-line done';
+  }
 }
 
 // 2026-09-27 撤去: showPhase2 は引数不要 (常に 'first' 扱い)
@@ -1502,6 +1553,7 @@ function showPhase2() {
 
   document.getElementById('phase1').style.display  = 'none';
   document.getElementById('phase2').style.display  = 'block';
+  _setStep(2);
 
   document.getElementById('firstBanner').style.display    = 'flex';
   document.getElementById('basicCard').style.display      = 'block';

@@ -2003,16 +2003,33 @@ function computeExpiringCredits(ss, customerId, rows) {
   rows = rows || getSheetData(ss, 'クレジット台帳');
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var result = [];
+
+  // 残高 0 以下なら失効警告不要
+  var remaining = computeCreditBalance(ss, customerId, rows);
+  if (remaining <= 0) return result;
+
+  // 既に expire 処理済みの grant ID を収集
+  var expiredIds = {};
+  for (var j = 0; j < rows.length; j++) {
+    var r2 = rows[j];
+    if (String(r2[CR.customer_id]) === customerId && String(r2[CR.type]) === 'expire') {
+      expiredIds[String(r2[CR.rel_entry_id])] = true;
+    }
+  }
+
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (String(r[CR.customer_id]) !== customerId) continue;
     if (String(r[CR.type]) !== 'grant') continue;
+    if (expiredIds[String(r[CR.entry_id])]) continue;
     if (!r[CR.expiry]) continue;
-    var exp     = new Date(r[CR.expiry]);
+    var exp = new Date(r[CR.expiry]);
     var daysLeft = Math.floor((exp - today) / 86400000);
-    if (daysLeft >= 0 && daysLeft <= 60) {
-      result.push({ amount: r[CR.amount], daysLeft: daysLeft, expiryDate: fmtDate(exp) });
-    }
+    if (daysLeft < 0 || daysLeft > 60) continue;
+    var displayAmt = Math.min(Number(r[CR.amount]), remaining);
+    if (displayAmt <= 0) continue;
+    remaining -= displayAmt;
+    result.push({ amount: displayAmt, daysLeft: daysLeft, expiryDate: fmtDate(exp) });
   }
   return result;
 }

@@ -1216,6 +1216,7 @@ function getStaffTokens(cfg) {
 
 function verifyStaffToken(token, cfg) {
   var tokens = getStaffTokens(cfg);
+  if (!tokens.length) return true; // STAFF_ACCESS_TOKEN 未設定時は全許可(後方互換)
   var ok = false;
   for (var i = 0; i < tokens.length; i++) {
     if (safeCompare(token, tokens[i])) ok = true;

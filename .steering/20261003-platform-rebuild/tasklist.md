@@ -23,7 +23,7 @@
 - [x] 1-4 スタッフログイン画面
 - [x] 1-5 GitHub Actions: テスト(PR ごと)
 - [x] 1-6 🙋 Supabase アカウント作成 → `lbc-staging` プロジェクト(東京)作成 → アクセストークン発行
-- [ ] 1-7 🙋 Cloudflare アカウント作成 → Pages にリポジトリ接続(`platform-rebuild` ブランチ = テスト環境)
+- [x] 1-7 Cloudflare Pages(2026-10-12): **https://lbc-care.pages.dev**(Cloudflare アカウント v.nico2003@gmail.com、GitHub App は Nicolas2028-data の `lbc-form` だけ許可、Production branch = `platform-rebuild`、Root `app`・`npm run build`・出力 `dist`、Node 22 は `app/.node-version`、環境変数 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY(publishable)/ VITE_STORE_ID)。`platform-rebuild` に push すると自動で公開される
 - [~] 1-8 テスト環境へマイグレーション適用 ✅(SQL エディタで適用・supabase_migrations に記録済み)、スタッフ作成 🙋
 - [ ] 1-9 日次バックアップ(pg_dump → 暗号化 → R2)🙋 R2 バケットと鍵の作成
 - [ ] 1-10 PWA(iPad のホーム画面にアイコン・全画面で開く)

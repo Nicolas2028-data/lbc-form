@@ -339,7 +339,7 @@ function QuestionnaireForm({ lang, onDone }: { lang: 'ja' | 'pt' | 'es'; onDone:
           </li>
           <li>{t('consent_2')}</li><li>{t('consent_3')}</li><li>{t('consent_4')}</li><li>{t('consent_5')}</li>
         </ol>
-        <p className="muted small">{t('consent_disclaimer')}</p>
+        <p className="muted small" dangerouslySetInnerHTML={{ __html: t('consent_disclaimer') }} />
         <div data-error={errors.consent ? '1' : undefined}>
           <label className={`choice ${f.consent ? 'on' : ''}`}>
             <input type="checkbox" checked={f.consent} onChange={(e) => set('consent', e.target.checked)} />

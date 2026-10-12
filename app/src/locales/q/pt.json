@@ -16,7 +16,7 @@
   "ph_phone": "Ex: 09012345678",
   "furigana_hint": "Escreva seu nome em katakana (Ex: ルーカス / シルバ)",
   "phone_hint": "",
-  "consent_disclaimer": "Este consentimento se aplica a todas as sessões futuras assinadas na primeira visita. Você será notificado sobre qualquer alteração.",
+  "consent_disclaimer": "Este questionário coleta informações pessoais sensíveis necessárias para o tratamento (histórico médico, doenças, estado físico, etc.). Serão usadas apenas para fins de tratamento na LBC Care e não serão compartilhadas com terceiros. A assinatura da primeira sessão aplica-se às sessões futuras. Consulte nossa <a href=\"/privacy\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:inherit;text-decoration:underline\">política de privacidade</a>.",
   "ph_detail_pregnant": "Quantos meses de gravidez?",
   "ph_detail_hospital": "Qual é o local/clínica de tratamento? (Ex: ortopedia, clínica geral)",
   "ph_detail_blood_thinner": "Digite o nome do medicamento",

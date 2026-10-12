@@ -1,4 +1,4 @@
-// ホーム: 上は立体アニメーション(直近 12 か月の売上)、下は公式サイトのようなカテゴリと今月の数字
+// ホーム: 上は背骨 3D アニメーション、下は公式サイトのようなカテゴリと今月の数字
 import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -11,7 +11,7 @@ import { yen } from '../lib/pricing';
 import { useOpenKiosk, useStaff } from './StaffLayout';
 import { CountUp } from '../ui';
 
-const HeroScene = lazy(() => import('../components/HeroScene'));
+const SpineScene = lazy(() => import('../components/SpineScene'));
 
 function last12(rows: MonthlyStats[]) {
   const byMonth = new Map(rows.map((r) => [r.month.slice(0, 7), r]));
@@ -46,14 +46,12 @@ export default function Home() {
   return (
     <div className="home">
       <section className="home-hero">
-        {stats.data && (
-          <Suspense fallback={null}>
-            <HeroScene values={months.map((m) => m.row?.sales_total ?? 0)} />
-          </Suspense>
-        )}
+        <Suspense fallback={null}>
+          <SpineScene />
+        </Suspense>
         <div className="home-hero-glow" aria-hidden />
         <div className="home-hero-inner">
-          <span className="home-eyebrow"><Leaf size={14} />LBC Care · {today}</span>
+          <span className="home-eyebrow"><Leaf size={14} />LBC整体院 · {today}</span>
           <h1>{t('home.greeting', { name: staff.display_name })}</h1>
           <p>{waiting > 0 ? t('home.leadWaiting', { count: waiting }) : t('home.lead', { count: done })}</p>
           <div className="home-cta">

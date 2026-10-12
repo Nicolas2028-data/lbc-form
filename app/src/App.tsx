@@ -10,6 +10,7 @@ import Today from './pages/Today';
 import Home from './pages/Home';
 import PrintChart from './pages/PrintChart';
 import Charts from './pages/Charts';
+import Privacy from './pages/Privacy';
 // 予約機能は 2026-10-03 Nicolas の判断で非表示(画面: pages/Book.tsx・BookingManage.tsx・Bookings.tsx、
 // DB: migration 0008 は残す)。再開するときはルートとメニューを戻し、migration 0009 の revoke を取り消す
 
@@ -18,6 +19,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/q" element={<Questionnaire />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/staff/login" element={<Login />} />
         <Route path="/staff" element={<StaffLayout />}>
           <Route index element={<Home />} />

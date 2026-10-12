@@ -16,7 +16,7 @@
   "ph_phone": "例: 09012345678",
   "furigana_hint": "",
   "phone_hint": "数字のみ入力（ハイフン自動入力）",
-  "consent_disclaimer": "本同意書は、初回ご署名をもって今後の施術にも適用されます。内容変更時は再度ご案内いたします。",
+  "consent_disclaimer": "本問診票では、施術に必要な要配慮個人情報（既往歴・病歴・身体の状態等）を含む個人情報を取得します。LBC整体院による施術目的のみに使用し、第三者への提供は行いません。本同意書は初回ご署名をもって今後の施術にも適用されます。詳細は<a href=\"/privacy\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:inherit;text-decoration:underline\">プライバシーポリシー</a>をご確認ください。",
   "ph_detail_pregnant": "妊娠何ヶ月ですか？",
   "ph_detail_hospital": "どこへの通院ですか？（例: 整形外科、内科など）",
   "ph_detail_blood_thinner": "薬名を入力ください",

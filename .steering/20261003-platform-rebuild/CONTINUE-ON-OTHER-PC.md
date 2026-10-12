@@ -54,7 +54,11 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 
 ## 現在の状態(2026-10-12 時点)
 
-- ブランチ `platform-rebuild`(GitHub に push 済み)。本番は従来どおり GAS(@141)+ GitHub Pages(main)で、こちらは未変更。
+- ブランチ `platform-rebuild`(GitHub に push 済み)。
+- **現行本番(旧システム)**: GAS **@144**(デプロイ ID `AKfycbxCBqtgb...QfX06PQ`、URL 不変)+ GitHub Pages(main `a4b6cb9`)。2026-10-12 に本番 @144 のコードを取得して main の `gas/Code.js` と照合 → 先頭の BOM 以外は一致。
+  - 2026-10-11 に別PCで main に 9 コミット(questionnaire / treatment-record / dashboard の UI 刷新、問診の顔出し設問の表示修正、GAS の端末トークン関連)。
+  - ⚠️ **要確認(セキュリティ)**: 1457bf7 で `STAFF_TOKEN_ACTIONS` を空にし、施術記録系 API(getPatientList / getPatientDetails / submitTreatmentRecord / submitVoidRecord)は**再びトークン無しで呼べる**状態(CLAUDE.md ルール 4 に合わせた戻し)。b4e2af9 でダッシュボードのトークン認証も撤廃。新基盤へ切り替えるまでこのままでよいか Nicolas が判断する。
+  - `platform-rebuild` には main の 10-11 の変更は入っていない(新基盤は app/ と supabase/ が別物なので通常は取り込み不要。切替前に main をマージするかは要判断)。
 - **Supabase**: 組織「LBC Care」(Free)/ プロジェクト `lbc-staging`(ref `lnatpitfcqxmgxxmmqzr`、東京)。
 - **migration 0001〜0016 を staging に適用済み**(`supabase/migrations/`)。
 - **データ**: 本番台帳を staging に移行済み、照合すべて一致(顧客36・来院5・施術なし1・取消5・売上¥36,000・回数券4・問診36)。**実在の患者情報が入っている**。
@@ -89,6 +93,16 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 - 仕様の判断待ち 2 件(tasklist 末尾): 紹介割引が料金より大きいとき / 紹介者のクレジットがマイナスになるとき
 - staging の**テスト患者 P042「テスト 確認用」を削除**する
 - staging の**営業時間は仮**(月〜土 10-19)→ 実際の時間を Nicolas に確認
+- 現行本番の施術記録系 API がトークン無しで呼べる件(上記 ⚠️)を続けるか判断
+
+### このリポジトリに入っていないもの(別PCで用意する)
+| もの | 場所 | 用意の仕方 |
+|---|---|---|
+| `app/.env.local` | gitignore | 上の「別PCの準備」3 |
+| `scripts/migrate/.env.local`(NOTION_TOKEN) | gitignore | 2-9 のときだけ Nicolas が入れる |
+| `.clasp.json` / `~/.clasprc.json` | リポジトリ外 | 現行 GAS を触るときだけ。`clasp login`、Script ID は `1DWGR2YgD6nZejBB6ak8fDHwvwvEtsBBokb7TacvsjZK-DHtsJRyMhixc` |
+| Supabase のスタッフアカウント | Supabase Auth | ダッシュボードで Nicolas が作成 |
+| Supabase の DB パスワード | 誰も保持していない | 必要ならダッシュボードでリセット |
 
 ---
 

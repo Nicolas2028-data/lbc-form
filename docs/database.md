@@ -195,4 +195,5 @@ GitHub Actions(`.github/workflows/test.yml`)で push ごとに実行(ファズ�
 | 0013 | chart | カルテ(Notion の置き換え): 受付・カルテメモ(編集履歴)・写真・今日の一覧 `get_day`・カルテ一覧 `list_visits` |
 | 0014 | chart_fixes | レビュー修正: 受付の使い回しとロック・記録済みの人の受付は 2 回目と明示したときだけ・取消後の一覧・移行した問診で受付しない・写真の保存場所の UUID 書式 |
 | 0015 | chart_source_ref | 移行元の印 `source_ref`(二重取り込み防止) |
+| 0016 | export_log | 印刷・Excel 出力の記録 `log_export` → audit_log(患者 1 人分はスタッフ全員、全員分はオーナーのみ) |
 | 0011 | review_fixes | コードレビューで確定したバグの修正: クレジットの割当方式・pg_cron・冪等キーの範囲・取消時のロック・患者カードの店舗限定・問診の検証と上書き防止・列単位の権限・関数の実行権限・来院日 |

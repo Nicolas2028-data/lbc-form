@@ -254,7 +254,7 @@ lbc-care-face-auth/       ← 顔認証などの重い作業
 
 ## 現状(2026-10-12)
 
-- **本番**は上記の GAS + シート構成(main ブランチ、GAS @141)で稼働中。顔認証は 2026-09-26 に廃止済み。
+- **本番**は上記の GAS + シート構成(main ブランチ、GAS @144)で稼働中。顔認証は 2026-09-26 に廃止済み。
 - **新基盤へ作り直し中**(2026-10-03 決定): GAS の受付層が不安定なため、Supabase(東京)を正本にした新システム(React アプリ)を `platform-rebuild` ブランチ・テスト環境 `lbc-staging` で開発。2026-10-04 に Notion からも脱却を決定。
   - 本番切替までは、上のアーキテクチャ・ルール(シートが正、Notion 表示専用など)は**現行本番**に対して適用される。新基盤のルールは `.steering/20261003-platform-rebuild/` と `docs/database.md`。
 - **別PCで続きをやるとき**: `.steering/20261003-platform-rebuild/CONTINUE-ON-OTHER-PC.md` を最初に読む。

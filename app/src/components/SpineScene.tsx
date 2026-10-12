@@ -19,57 +19,73 @@ export default function SpineScene() {
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.setClearColor(0x000000, 0);
       renderer.shadowMap.enabled = false;
       el.appendChild(renderer.domElement);
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+      const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 
-      // ライト: 白の環境光 + 緑のキーライト + 柔らかいフィルライト
-      scene.add(new THREE.AmbientLight(0xf5f7f2, 1.2));
-      const keyLight = new THREE.PointLight(0x2d6a4f, 80, 40);
-      keyLight.position.set(-5, 6, 6);
-      scene.add(keyLight);
-      const fillLight = new THREE.PointLight(0x74c69d, 40, 30);
-      fillLight.position.set(5, -2, 4);
+      // ── ライティング ─────────────────────────────────────────────
+      // 低めの環境光(白寄り)で潰れ防止
+      scene.add(new THREE.AmbientLight(0xdff0e8, 0.7));
+
+      // キー: DirectionalLight でシャープな陰影
+      const keyDir = new THREE.DirectionalLight(0xffffff, 2.8);
+      keyDir.position.set(-4, 8, 7);
+      scene.add(keyDir);
+
+      // フィル: ソフトな緑系
+      const fillLight = new THREE.PointLight(0x74c69d, 60, 35);
+      fillLight.position.set(6, 0, 5);
       scene.add(fillLight);
-      const rimLight = new THREE.PointLight(0xd8f3dc, 20, 20);
-      rimLight.position.set(0, 10, -5);
+
+      // リム: 後方から強く当ててエッジを光らせる
+      const rimLight = new THREE.PointLight(0xb7e4c7, 90, 25);
+      rimLight.position.set(2, 4, -8);
       scene.add(rimLight);
 
-      // 骨の素材: オフホワイト + 少し粗い表面
+      // アクセント: 下から淡い緑で浮遊感
+      const bottomLight = new THREE.PointLight(0x52b788, 30, 20);
+      bottomLight.position.set(0, -8, 3);
+      scene.add(bottomLight);
+
+      // ── マテリアル ────────────────────────────────────────────────
       const boneMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color('#f0ede8'),
-        roughness: 0.72,
-        metalness: 0.0,
+        roughness: 0.45,
+        metalness: 0.05,
+        emissive: new THREE.Color('#0a1a10'),
+        emissiveIntensity: 0.12,
       });
       const discMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#d8e8dc'),
-        roughness: 0.85,
-        metalness: 0.0,
+        color: new THREE.Color('#c8e0d0'),
+        roughness: 0.55,
+        metalness: 0.02,
+        emissive: new THREE.Color('#0a2518'),
+        emissiveIntensity: 0.18,
       });
 
-      // 背骨グループ(Y 軸回転用)
+      // ── 背骨グループ ──────────────────────────────────────────────
       const spine = new THREE.Group();
       scene.add(spine);
 
-      // 椎骨の定義: [頸椎×7, 胸椎×12, 腰椎×5]
-      // 各椎骨: radius(本体), height, zOffset(S カーブ)
+      // 椎骨定義: 強調した S カーブ
       const segments: { r: number; h: number; z: number }[] = [];
       for (let i = 0; i < 7; i++) {
-        // 頸椎: 小さく、前方(+z)にカーブ
+        // 頸椎: 前方に大きくカーブ
         const t = i / 6;
-        segments.push({ r: 0.18 + t * 0.04, h: 0.30, z: 0.5 - t * 0.8 });
+        segments.push({ r: 0.18 + t * 0.04, h: 0.30, z: 0.7 - t * 1.0 });
       }
       for (let i = 0; i < 12; i++) {
-        // 胸椎: 中程度、後方(-z)にカーブ
+        // 胸椎: 後方に大きくカーブ
         const t = i / 11;
-        segments.push({ r: 0.22 + t * 0.06, h: 0.32, z: -0.3 - Math.sin(t * Math.PI) * 0.55 });
+        segments.push({ r: 0.22 + t * 0.06, h: 0.32, z: -0.3 - Math.sin(t * Math.PI) * 0.8 });
       }
       for (let i = 0; i < 5; i++) {
-        // 腰椎: 大きく、前方(+z)にカーブ
+        // 腰椎: 前方に大きくカーブ
         const t = i / 4;
-        segments.push({ r: 0.30 + t * 0.04, h: 0.36, z: -0.1 + t * 0.55 });
+        segments.push({ r: 0.30 + t * 0.04, h: 0.36, z: -0.1 + t * 0.75 });
       }
 
       const totalH = segments.reduce((s, seg) => s + seg.h + 0.12, 0);
@@ -78,16 +94,16 @@ export default function SpineScene() {
       segments.forEach((seg) => {
         y -= seg.h / 2;
 
-        // 椎体(本体の円柱)
-        const bodyGeo = new THREE.CylinderGeometry(seg.r, seg.r * 1.05, seg.h, 16);
+        // 椎体
+        const bodyGeo = new THREE.CylinderGeometry(seg.r, seg.r * 1.05, seg.h, 20);
         const body = new THREE.Mesh(bodyGeo, boneMat);
         body.position.set(0, y, seg.z);
         spine.add(body);
 
-        // 横突起(左右の小さな突起)
+        // 横突起(左右)
         const procR = seg.r * 0.22;
-        const procL = seg.r * 1.2 + procR;
-        const procGeo = new THREE.CylinderGeometry(procR, procR * 0.8, procL, 8);
+        const procL = seg.r * 1.3 + procR;
+        const procGeo = new THREE.CylinderGeometry(procR, procR * 0.75, procL, 8);
         const left = new THREE.Mesh(procGeo, boneMat);
         left.rotation.z = Math.PI / 2;
         left.position.set(procL / 2 + seg.r * 0.05, y, seg.z - seg.r * 0.3);
@@ -97,36 +113,55 @@ export default function SpineScene() {
         right.position.set(-(procL / 2 + seg.r * 0.05), y, seg.z - seg.r * 0.3);
         spine.add(right);
 
-        // 棘突起(後方の突起)
-        const spineProcGeo = new THREE.CylinderGeometry(procR * 0.8, procR, seg.r * 1.6, 8);
+        // 棘突起(後方)
+        const spineProcGeo = new THREE.CylinderGeometry(procR * 0.75, procR, seg.r * 1.8, 8);
         const spinousProc = new THREE.Mesh(spineProcGeo, boneMat);
         spinousProc.rotation.x = Math.PI / 2;
-        spinousProc.position.set(0, y, seg.z - seg.r - seg.r * 0.8);
+        spinousProc.position.set(0, y, seg.z - seg.r - seg.r * 0.9);
         spine.add(spinousProc);
 
         // 椎間板
         y -= seg.h / 2;
         const discH = 0.10;
-        const discGeo = new THREE.CylinderGeometry(seg.r * 1.08, seg.r * 1.08, discH, 16);
+        const discGeo = new THREE.CylinderGeometry(seg.r * 1.1, seg.r * 1.1, discH, 20);
         const disc = new THREE.Mesh(discGeo, discMat);
         disc.position.set(0, y - discH / 2, seg.z);
         spine.add(disc);
         y -= discH + 0.02;
       });
 
-      // 仙骨(下端の楕円形ブロック)
-      const sacGeo = new THREE.CylinderGeometry(0.38, 0.28, 0.5, 16);
+      // 仙骨
+      const sacGeo = new THREE.CylinderGeometry(0.40, 0.28, 0.55, 20);
       const sacrum = new THREE.Mesh(sacGeo, boneMat);
-      sacrum.position.set(0, y - 0.25, 0.3);
+      sacrum.position.set(0, y - 0.28, 0.35);
       spine.add(sacrum);
 
-      // カメラ設定
+      // ── パーティクル(小さな緑の光点) ─────────────────────────────
+      const particleCount = 18;
+      const pPositions = new Float32Array(particleCount * 3);
+      const pSeeds = new Float32Array(particleCount * 3); // offset・speed・radius
+      for (let i = 0; i < particleCount; i++) {
+        pSeeds[i * 3 + 0] = Math.random() * Math.PI * 2; // angle offset
+        pSeeds[i * 3 + 1] = 0.4 + Math.random() * 0.6;  // speed factor
+        pSeeds[i * 3 + 2] = 1.2 + Math.random() * 1.0;  // orbit radius
+        const yp = (Math.random() - 0.5) * totalH * 0.9;
+        pPositions[i * 3 + 0] = (Math.random() - 0.5) * 2.5;
+        pPositions[i * 3 + 1] = yp;
+        pPositions[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
+      }
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+      const pMat = new THREE.PointsMaterial({ color: 0x52b788, size: 0.08, transparent: true, opacity: 0.45, sizeAttenuation: true });
+      const particles = new THREE.Points(pGeo, pMat);
+      scene.add(particles);
+
+      // ── カメラ ────────────────────────────────────────────────────
       const resize = () => {
         const w = el.clientWidth, h = el.clientHeight;
         renderer.setSize(w, h, false);
         camera.aspect = w / Math.max(h, 1);
-        const dist = w < 480 ? 18 : w < 768 ? 15 : 13;
-        camera.position.set(0, 0, dist);
+        const dist = w < 480 ? 20 : w < 768 ? 17 : 14;
+        camera.position.set(0, 1.5, dist);
         camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
       };
@@ -134,7 +169,7 @@ export default function SpineScene() {
       ro.observe(el);
       resize();
 
-      // マウス/タッチで少しだけ傾く
+      // マウス/タッチで傾く
       let tx = 0, ty = 0;
       const onMove = (e: PointerEvent) => {
         const r = el.getBoundingClientRect();
@@ -148,21 +183,39 @@ export default function SpineScene() {
       const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
       io.observe(el);
 
-      // 静止画
+      // 静止画(reduced-motion)
       if (reduce) {
-        spine.rotation.y = 0.4;
+        spine.rotation.y = Math.PI * 0.15;
         renderer.render(scene, camera);
       } else {
+        const posArr = pGeo.attributes.position.array as Float32Array;
+
         const tick = (now: number) => {
           raf = requestAnimationFrame(tick);
           if (!visible || document.hidden) return;
           const t = now / 1000;
-          spine.rotation.y += 0.005 + (tx * 0.8 - spine.rotation.y * 0.1) * 0.04;
+
+          spine.rotation.y += 0.003 + (tx * 0.8 - spine.rotation.y * 0.1) * 0.04;
           spine.rotation.x += (ty * 0.3 - spine.rotation.x) * 0.03;
-          // ゆっくり浮き沈み
-          spine.position.y = Math.sin(t * 0.4) * 0.08;
+          spine.position.y = Math.sin(t * 0.3) * 0.12;
+
+          // パーティクルをゆらゆら漂わせる
+          for (let i = 0; i < particleCount; i++) {
+            const ao = pSeeds[i * 3 + 0];
+            const sp = pSeeds[i * 3 + 1];
+            const rad = pSeeds[i * 3 + 2];
+            posArr[i * 3 + 0] = Math.cos(t * sp * 0.3 + ao) * rad;
+            posArr[i * 3 + 2] = Math.sin(t * sp * 0.25 + ao) * rad * 0.6;
+            posArr[i * 3 + 1] += Math.sin(t * sp * 0.5 + ao) * 0.002;
+            // Y がはみ出したらループ
+            if (posArr[i * 3 + 1] > totalH * 0.55) posArr[i * 3 + 1] = -totalH * 0.55;
+            if (posArr[i * 3 + 1] < -totalH * 0.55) posArr[i * 3 + 1] = totalH * 0.55;
+          }
+          pGeo.attributes.position.needsUpdate = true;
+
           renderer.render(scene, camera);
         };
+        spine.rotation.y = Math.PI * 0.15;
         raf = requestAnimationFrame(tick);
       }
 
@@ -173,6 +226,8 @@ export default function SpineScene() {
         el.removeEventListener('pointermove', onMove);
         boneMat.dispose();
         discMat.dispose();
+        pGeo.dispose();
+        pMat.dispose();
         scene.traverse((o) => {
           const m = o as THREE.Mesh;
           m.geometry?.dispose?.();

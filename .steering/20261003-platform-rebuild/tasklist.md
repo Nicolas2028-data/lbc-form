@@ -27,7 +27,7 @@
 - [~] 1-8 テスト環境へマイグレーション適用 ✅(SQL エディタで適用・supabase_migrations に記録済み)、スタッフ作成 🙋
 - [ ] 1-9 日次バックアップ(pg_dump → 暗号化 → R2)🙋 R2 バケットと鍵の作成
 - [x] 1-10 PWA(2026-10-12): manifest.webmanifest(LBC整体院・緑テーマ)・sw.js(ネットワーク優先)・PWA アイコン 192/512px
-- [~] 1-11 安全対策(2026-10-12 部分完了): 同意文「要配慮個人情報」明記 ✅ / Privacy.tsx(/privacy、ja/es/pt)✅ / Cloudflare セキュリティヘッダー(_headers)✅ / スタッフ 2FA 未 / カルテ閲覧記録 未 / 本番 Pro+PITR 未(切替時)
+- [~] 1-11 安全対策(2026-10-12): 同意文「要配慮個人情報」明記 ✅ / Privacy.tsx(/privacy、ja/es/pt)✅ / Cloudflare セキュリティヘッダー(_headers)✅ / カルテ閲覧記録(migration 0018)✅ / スタッフ 2FA 未🙋 / 本番 Pro+PITR 未(切替時)
 
 ## 2. 施術記録・お金・移行
 - [x] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log

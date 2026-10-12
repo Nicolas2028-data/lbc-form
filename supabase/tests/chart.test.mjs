@@ -237,6 +237,24 @@ test('移行した過去の問診(legacy_images あり)は、今日の日付で�
   assert.equal((await one(db, `select count(*)::int n from public.checkins where customer_id = $1`, [c])).n, 0);
 });
 
+test('カルテ閲覧記録: get_patient_card を呼ぶと audit_log に view:patient_card が残る。存在しない患者では記録されない', async () => {
+  const c = await newCustomer('閲覧記録 確認');
+  await record(s.lucas, { customer_id: c });
+  await as(db, s.lucas, () => one(db, `select public.get_patient_card($1) as r`, [c]));
+  await as(db, s.owner, () => one(db, `select public.get_patient_card($1) as r`, [c]));
+  const rows = await db.query(
+    `select actor from public.audit_log where action = 'view:patient_card' and row_id = $1 order by id`,
+    [c],
+  );
+  assert.equal(rows.rows.length, 2);
+
+  // 存在しない患者 → 例外で終わるので audit は増えない
+  const before = (await db.query(`select count(*)::int n from public.audit_log where action = 'view:patient_card'`)).rows[0].n;
+  await assert.rejects(as(db, s.lucas, () => one(db, `select public.get_patient_card($1) as r`, [uuid()])));
+  const after = (await db.query(`select count(*)::int n from public.audit_log where action = 'view:patient_card'`)).rows[0].n;
+  assert.equal(after, before);
+});
+
 test('出力の記録: 患者 1 人分はスタッフ、全員分はオーナーだけ。誰がいつ出したか残る', async () => {
   const c = await newCustomer('出力 確認');
   const call = (user, kind, cust = null) => as(db, user, () => db.query(`select public.log_export($1, $2)`, [kind, cust]));

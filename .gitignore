@@ -10,3 +10,8 @@ scripts/migrate/out/
 
 # Notion などの接続トークン(秘密)
 scripts/migrate/.env*
+
+# 患者データになりうる表形式ファイル・ローカルの接続情報(公開リポジトリのため)
+*.csv
+*.tsv
+.env*.local

@@ -57,7 +57,7 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 - ブランチ `platform-rebuild`(GitHub に push 済み)。
 - **現行本番(旧システム)**: GAS **@144**(デプロイ ID `AKfycbxCBqtgb...QfX06PQ`、URL 不変)+ GitHub Pages(main `a4b6cb9`)。2026-10-12 に本番 @144 のコードを取得して main の `gas/Code.js` と照合 → 先頭の BOM 以外は一致。
   - 2026-10-11 に別PCで main に 9 コミット(questionnaire / treatment-record / dashboard の UI 刷新、問診の顔出し設問の表示修正、GAS の端末トークン関連)。
-  - ⚠️ **セキュリティ(決定済み・現状維持)**: 1457bf7 で `STAFF_TOKEN_ACTIONS` を空にし、施術記録系 API(getPatientList / getPatientDetails / submitTreatmentRecord / submitVoidRecord)は**再びトークン無しで呼べる**状態(CLAUDE.md ルール 4 に合わせた戻し)。b4e2af9 でダッシュボードのトークン認証も撤廃。**2026-10-12 Nicolas 決定: とりあえず現状のまま残す(変更しない)。経緯は履歴として残す。** 新基盤への切替で解消する。
+  - ⚠️ **セキュリティ(決定済み・現状維持)**: 1457bf7 で `STAFF_TOKEN_ACTIONS` を空にし、施術記録系 API(getPatientList / getPatientDetails / submitTreatmentRecord / submitVoidRecord)は**再びトークン無しで呼べる**状態(CLAUDE.md ルール 4 に合わせた戻し)。b4e2af9 でダッシュボードのトークン認証も撤廃。**2026-10-12 Nicolas 決定: とりあえず現状のまま残す(変更しない)。経緯は履歴として残す。** 新基盤への切替で解消する。**→ その後リポジトリが公開(public)と判明し、誰でも患者情報を取得・記録を改ざんできる状態と分かったため再判断待ち(docs/accounts.md 0 章)。**
   - `platform-rebuild` には main の 10-11 の変更は入っていない(新基盤は app/ と supabase/ が別物なので通常は取り込み不要。切替前に main をマージするかは要判断)。
 - **公開リンク(テスト環境)**: **https://lbc-care.pages.dev**(スタッフ `/staff/login`、問診 `/q`)。Cloudflare Pages(アカウント v.nico2003@gmail.com、ID `ddf479e13f9ead9ee161be5097f2d634`、プロジェクト `lbc-care`)。`platform-rebuild` に push すると自動でビルド・公開。設定: Root `app` / `npm run build` / 出力 `dist` / Node 22(`app/.node-version`)/ 環境変数 VITE_SUPABASE_URL・VITE_SUPABASE_ANON_KEY(publishable)・VITE_STORE_ID。GitHub App「Cloudflare Workers and Pages」は Nicolas2028-data の `lbc-form` だけ許可。ログイン画面は誰でも見られるが、データは Supabase の RLS とログインで保護。リンクはルカス以外に配らない。
   - 同じ Cloudflare アカウントに別件の `bella-beauty-workers` / `bella-market-workers` がある(LBC とは無関係。触らない)。
@@ -92,6 +92,7 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 
 ### 判断待ち・残作業
 - 仕様の判断待ち 2 件(tasklist 末尾): 紹介割引が料金より大きいとき / 紹介者のクレジットがマイナスになるとき
+- 🔴 **最優先で再判断**: 現行本番の患者 API がトークン無しで誰でも呼べる件(リポジトリが公開のため実害が起きうる。docs/accounts.md 0 章)
 - staging の**テスト患者 P042「テスト 確認用」を削除**する
 - staging の**営業時間は仮**(月〜土 10-19)→ 実際の時間を Nicolas に確認
 

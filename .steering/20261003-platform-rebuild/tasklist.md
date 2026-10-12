@@ -26,8 +26,8 @@
 - [x] 1-7 Cloudflare Pages(2026-10-12): **https://lbc-care.pages.dev**(Cloudflare アカウント v.nico2003@gmail.com、GitHub App は Nicolas2028-data の `lbc-form` だけ許可、Production branch = `platform-rebuild`、Root `app`・`npm run build`・出力 `dist`、Node 22 は `app/.node-version`、環境変数 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY(publishable)/ VITE_STORE_ID)。`platform-rebuild` に push すると自動で公開される
 - [~] 1-8 テスト環境へマイグレーション適用 ✅(SQL エディタで適用・supabase_migrations に記録済み)、スタッフ作成 🙋
 - [ ] 1-9 日次バックアップ(pg_dump → 暗号化 → R2)🙋 R2 バケットと鍵の作成
-- [ ] 1-10 PWA(iPad のホーム画面にアイコン・全画面で開く)
-- [ ] 1-11 安全対策(調査で判明): 問診の同意文を「要配慮個人情報(既往歴など)の取得への同意」とはっきり書く/プライバシーポリシー(米国 Supabase・東京保管・漏えい時の対応)/スタッフの二段階認証/カルテ閲覧の記録/本番は Supabase Pro + PITR
+- [x] 1-10 PWA(2026-10-12): manifest.webmanifest(LBC整体院・緑テーマ)・sw.js(ネットワーク優先)・PWA アイコン 192/512px
+- [~] 1-11 安全対策(2026-10-12 部分完了): 同意文「要配慮個人情報」明記 ✅ / Privacy.tsx(/privacy、ja/es/pt)✅ / Cloudflare セキュリティヘッダー(_headers)✅ / スタッフ 2FA 未 / カルテ閲覧記録 未 / 本番 Pro+PITR 未(切替時)
 
 ## 2. 施術記録・お金・移行
 - [x] 2-1 migrations: visits, sales, credit_entries, passes, pass_uses, orders, audit_log
@@ -38,6 +38,8 @@
 - [x] 2-6 移行スクリプト(シート → Supabase)+ 突き合わせ検証 — 2026-10-04 本番台帳を lbc-staging に取り込み、照合すべて一致(顧客36・来院5・施術なし1・取消5・売上¥36,000・回数券4・問診36)。顧客マスタに無い P001〜P003 の7月の記録3件(テストデータ)と、重複整理の跡の取消3件は移行しない(Nicolas 確認済み。元のスプレッドシートが記録として残る)。台帳 xlsx と out/ は削除済み
 - [x] 2-8 Notion から脱却(Nicolas 判断 2026-10-04): 受付(今日の一覧)・カルテメモ(編集履歴)・写真・カルテ一覧・注意事項・前回のカルテ表示(migration 0013〜0015、テスト 81 件)。独立レビュー 9 件を修正。Notion の施術カルテ 44 ページを調査 → 問診の自動まとめ以外の書き込み 10 ページのうち、新システムにいる患者の 3 件をカルテメモとして取り込み(残り 7 件は P001〜P005 = 7〜8 月のテスト期の患者で顧客マスタに無い)
 - [ ] 2-9 🙋 本番切替時に Notion の取り込みをやり直す(scripts/migrate/notion-export.mjs → notion-notes.mjs → スタッフ画面で取り込み)。切替後に Notion の施術カルテ・顧客管理DB と GAS の Notion 同期を止める
+- [x] ミーティング合意機能(2026-10-12): クレジット 1000円刻み ✅ / スポンサー割引 FC笹川 -2000円 ✅ / 紹介割引手動入力 ✅ / migration 0017 ✅ / i18n(ja/es/pt)✅ / テスト 25 件 ✅ — 🙋 staging に migration 0017 を SQL エディタで適用すること
+- [~] ホーム画面背骨アニメーション改善(2026-10-12): ライティング・マテリアル・S字カーブ強化中
 - [ ] 2-7 ルカスにテスト環境で記録業務を試してもらう
 
 ## 3. 問診・予約(→ 本番切替)

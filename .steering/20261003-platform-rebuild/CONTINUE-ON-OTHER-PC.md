@@ -52,41 +52,43 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 
 ---
 
-## 現在の状態(2026-10-12 時点)
+## 現在の状態(2026-10-12 夕方時点)
 
-- ブランチ `platform-rebuild`(GitHub に push 済み)。
-- **現行本番(旧システム)**: GAS **@144**(デプロイ ID `AKfycbxCBqtgb...QfX06PQ`、URL 不変)+ GitHub Pages(main `a4b6cb9`)。2026-10-12 に本番 @144 のコードを取得して main の `gas/Code.js` と照合 → 先頭の BOM 以外は一致。
-  - 2026-10-11 に別PCで main に 9 コミット(questionnaire / treatment-record / dashboard の UI 刷新、問診の顔出し設問の表示修正、GAS の端末トークン関連)。
-  - ⚠️ **セキュリティ(決定済み・現状維持)**: 1457bf7 で `STAFF_TOKEN_ACTIONS` を空にし、施術記録系 API(getPatientList / getPatientDetails / submitTreatmentRecord / submitVoidRecord)は**再びトークン無しで呼べる**状態(CLAUDE.md ルール 4 に合わせた戻し)。b4e2af9 でダッシュボードのトークン認証も撤廃。**2026-10-12 Nicolas 決定: とりあえず現状のまま残す(変更しない)。経緯は履歴として残す。** 新基盤への切替で解消する。**→ その後リポジトリが公開(public)と判明し、誰でも患者情報を取得・記録を改ざんできる状態と分かったため再判断待ち(docs/accounts.md 0 章)。**
-  - `platform-rebuild` には main の 10-11 の変更は入っていない(新基盤は app/ と supabase/ が別物なので通常は取り込み不要。切替前に main をマージするかは要判断)。
-- **公開リンク(テスト環境)**: **https://lbc-care.pages.dev**(スタッフ `/staff/login`、問診 `/q`)。Cloudflare Pages(アカウント v.nico2003@gmail.com、ID `ddf479e13f9ead9ee161be5097f2d634`、プロジェクト `lbc-care`)。`platform-rebuild` に push すると自動でビルド・公開。設定: Root `app` / `npm run build` / 出力 `dist` / Node 22(`app/.node-version`)/ 環境変数 VITE_SUPABASE_URL・VITE_SUPABASE_ANON_KEY(publishable)・VITE_STORE_ID。GitHub App「Cloudflare Workers and Pages」は Nicolas2028-data の `lbc-form` だけ許可。ログイン画面は誰でも見られるが、データは Supabase の RLS とログインで保護。リンクはルカス以外に配らない。
-  - 同じ Cloudflare アカウントに別件の `bella-beauty-workers` / `bella-market-workers` がある(LBC とは無関係。触らない)。
+- ブランチ `platform-rebuild`(GitHub push 済み、最新コミット `7050ae4`)。
+- **現行本番(旧システム)**: GAS **@144** + GitHub Pages(main)。新基盤への切替が完了するまで触らない。⚠️ リポジトリが public のため患者 API がトークン無しで呼べる状態 → 再判断待ち(docs/accounts.md 0 章)。
+- **公開リンク(テスト環境)**: **https://lbc-care.pages.dev**(スタッフ `/staff/login`、問診 `/q`、プライバシーポリシー `/privacy`)。`platform-rebuild` に push すると自動デプロイ。
 - **Supabase**: 組織「LBC Care」(Free)/ プロジェクト `lbc-staging`(ref `lnatpitfcqxmgxxmmqzr`、東京)。
-- **migration 0001〜0016 を staging に適用済み**(`supabase/migrations/`)。
-- **データ**: 本番台帳を staging に移行済み、照合すべて一致(顧客36・来院5・施術なし1・取消5・売上¥36,000・回数券4・問診36)。**実在の患者情報が入っている**。
+- **migration 0001〜0017 を staging に適用すること** — 0017 は 2026-10-12 追加(manual_discount)。🙋 未適用なら SQL エディタで `supabase/migrations/20261012000017_manual_discount.sql` を実行
+- **データ**: 本番台帳を staging に移行済み(顧客36・売上¥36,000 等)。実在患者情報あり。
+- **2026-10-12 に追加・完了した機能**
+  - ホーム画面: 背骨 3D アニメーション(頸椎7+胸椎12+腰椎5+仙骨 S カーブ、Y 軸回転)+ 白×緑テーマ
+  - PWA: manifest.webmanifest・sw.js・アイコン 192/512px
+  - セキュリティヘッダー: app/public/_headers (CSP・X-Frame-Options・Referrer-Policy)
+  - プライバシーポリシー: Privacy.tsx (/privacy、ja/es/pt、要配慮個人情報)
+  - 問診同意文: 要配慮個人情報の明記 + /privacy リンク(3言語)
+  - 施術記録: クレジット 1000円刻み・スポンサー割引(FC笹川 -2000円)・紹介割引手動入力(migration 0017)
 - **画面(app/、Vite + React + TS、ja/es/pt)**
   | パス | 内容 |
   |---|---|
-  | `/staff` | ホーム(売上の 3D グラフ・メニュー) |
+  | `/staff` | ホーム(背骨 3D アニメーション・メニュー・今月の数字) |
   | `/staff/today` | 今日の一覧(受付) |
-  | `/staff/patients` | 患者検索(DB 関数 search_customers。全件読み込みはしない) |
-  | `/staff/record/:customerId` | 施術記録 |
-  | `/staff/customers/:customerId` | 顧客詳細(履歴・カルテメモ・写真・クレジット・問診) |
-  | `/staff/customers/:customerId/print` | カルテ印刷(A4) |
+  | `/staff/patients` | 患者検索 |
+  | `/staff/record/:customerId` | 施術記録(スポンサー割引・手動割引含む) |
+  | `/staff/customers/:customerId` | 顧客詳細 |
   | `/staff/charts` | カルテ一覧 |
   | `/staff/dashboard` | ダッシュボード |
   | `/q` | 問診票(お客さん用) |
-  - 予約(`/book` など)は 2026-10-03 Nicolas の判断で**非表示**(コードと migration 0008 は残す。再開手順は docs/database.md 6.4)。
-- **テーマ**: ネオン(`app/src/theme-neon.css`)。Nicolas「派手はいいけど、わかりやすさを大事に」→ 業務画面は白文字・控えめな光。
+  | `/privacy` | プライバシーポリシー |
+  - 予約(`/book` など)は 2026-10-03 Nicolas の判断で非表示(コードは残す)。
 - 詳しい履歴: `reports/2026-10-04.md`、`tasklist.md`、DB は `docs/database.md`。
 
 ---
 
 ## 次のタスク候補(どれからやるかは Nicolas が決める)
 
-1. **2-7 ルカスにテスト環境で試してもらう**(https://lbc-care.pages.dev で可能になった)
-2. **1-10 PWA**(iPad のホーム画面アイコン・全画面)
-3. **1-11 安全対策**: 要配慮個人情報の同意文、プライバシーポリシー、スタッフの二段階認証、カルテ閲覧記録、本番は Supabase Pro + PITR
+1. **🙋 migration 0017 を staging に適用** (SQL エディタ → `supabase/migrations/20261012000017_manual_discount.sql` を実行 → `supabase_migrations.schema_migrations` に記録)
+2. **2-7 ルカスにテスト環境で試してもらう**(https://lbc-care.pages.dev でログイン可能)
+3. **本番切替(3-5)**: 本番 Supabase プロジェクト作成 → migration 適用 → Cloudflare 環境変数切替 → Notion 取り込み → GAS 停止(docs/production-cutover.md)
 4. **1-9 日次バックアップ** 🙋 R2(Cloudflare アカウントは作成済み)
 6. 連携(Google カレンダー / LINE / Webhook)、Resend、Stripe など(tasklist 4〜8)
 

@@ -113,7 +113,8 @@
     "vsLast": "前月比",
     "trend": "月別の売上",
     "table": "月別の内訳",
-    "noData": "まだデータがありません"
+    "noData": "まだデータがありません",
+    "taxExport": "確定申告用 Excel"
   },
   "errors": {
     "not_staff": "スタッフとして登録されていません",
@@ -393,6 +394,18 @@
     "expires": "有効期限",
     "howFound": "来院のきっかけ",
     "lastVisit": "最終来院日",
-    "customersSheet": "顧客一覧"
+    "customersSheet": "顧客一覧",
+    "taxXlsx": "確定申告用 Excel を出力",
+    "taxYear": "年度",
+    "taxSheet1": "月次合計",
+    "taxSheet2": "日次明細",
+    "taxCash": "現金",
+    "taxCard": "カード",
+    "taxPaypay": "PayPay",
+    "taxOther": "その他",
+    "taxUnpaid": "未収",
+    "taxCreditUsed": "ポイント充当",
+    "taxGross": "売上総額",
+    "taxTotal": "合計"
   }
 }

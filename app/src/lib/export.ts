@@ -15,7 +15,7 @@ async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string
   return data as T;
 }
 
-export const logExport = (kind: 'patient_print' | 'patient_xlsx' | 'customers_xlsx' | 'charts_xlsx', customerId: string | null = null, detail: Record<string, unknown> = {}) =>
+export const logExport = (kind: 'patient_print' | 'patient_xlsx' | 'customers_xlsx' | 'charts_xlsx' | 'tax_xlsx', customerId: string | null = null, detail: Record<string, unknown> = {}) =>
   must(supabase.rpc('log_export', { p_kind: kind, p_customer: customerId, p_detail: detail }));
 
 /** 1,000 行ずつ全部読む(API は 1 回 1,000 行まで) */
@@ -184,4 +184,94 @@ export async function exportChartsXlsx(from: string, to: string, c: Ctx) {
   }));
   await save([{ name: t('charts.title'), rows }], `LBC_カルテ一覧_${from}_${to}.xlsx`);
   return rows.length;
+}
+
+// ── 確定申告用年間売上(オーナーのみ)──
+interface TaxSaleRow {
+  occurred_on: string;
+  method: string;
+  amount: number;
+  breakdown: Record<string, number> | null;
+  visit_id: string;
+  customers: { code: string; name: string } | null;
+  visits: { menu_id: string | null } | null;
+}
+
+export async function exportTaxXlsx(year: string, c: Ctx) {
+  await logExport('tax_xlsx', null, { year });
+  const t = c.t;
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+
+  const sales = await fetchAll<TaxSaleRow>((a, b) =>
+    supabase.from('sales')
+      .select('occurred_on, method, amount, breakdown, visit_id, customers(code, name), visits(menu_id)')
+      .eq('kind', 'sale')
+      .gte('occurred_on', from)
+      .lte('occurred_on', to)
+      .order('occurred_on')
+      .order('created_at')
+      .range(a, b) as PromiseLike<{ data: TaxSaleRow[] | null; error: { message: string; code?: string } | null }>,
+  );
+
+  const methodGroup = (m: string) => {
+    if (m === 'cash') return 'cash';
+    if (m === 'card') return 'card';
+    if (m === 'paypay') return 'paypay';
+    if (m === 'unpaid') return 'unpaid';
+    return 'other';
+  };
+
+  // 月次集計
+  const months: Record<string, { visits: Set<string>; cash: number; card: number; paypay: number; other: number; unpaid: number; credit: number; gross: number }> = {};
+  for (let m = 1; m <= 12; m++) {
+    const key = `${year}-${String(m).padStart(2, '0')}`;
+    months[key] = { visits: new Set(), cash: 0, card: 0, paypay: 0, other: 0, unpaid: 0, credit: 0, gross: 0 };
+  }
+  for (const s of sales) {
+    const key = s.occurred_on.slice(0, 7);
+    if (!months[key]) continue;
+    const mo = months[key];
+    mo.visits.add(s.visit_id);
+    const credit = s.breakdown?.credit_used ?? 0;
+    mo.credit += credit;
+    mo.gross += s.amount + credit;
+    const g = methodGroup(s.method);
+    if (g === 'cash') mo.cash += s.amount;
+    else if (g === 'card') mo.card += s.amount;
+    else if (g === 'paypay') mo.paypay += s.amount;
+    else if (g === 'unpaid') mo.unpaid += s.amount;
+    else mo.other += s.amount;
+  }
+
+  const summary: Row[] = Object.entries(months).map(([key, mo]) => ({
+    [t('dashboard.month')]: key,
+    [t('dashboard.visits')]: mo.visits.size,
+    [t('export.taxCash')]: mo.cash,
+    [t('export.taxCard')]: mo.card,
+    [t('export.taxPaypay')]: mo.paypay,
+    [t('export.taxOther')]: mo.other,
+    [t('export.taxUnpaid')]: mo.unpaid,
+    [t('export.taxTotal')]: mo.cash + mo.card + mo.paypay + mo.other + mo.unpaid,
+    [t('export.taxCreditUsed')]: mo.credit,
+    [t('export.taxGross')]: mo.gross,
+  }));
+
+  const detail: Row[] = sales.map((s) => ({
+    [t('export.date')]: s.occurred_on,
+    [t('patients.code', { defaultValue: '診察番号' })]: s.customers?.code ?? '',
+    [t('customer.name')]: s.customers?.name ?? '',
+    [t('export.taxCash')]: methodGroup(s.method) === 'cash' ? s.amount : 0,
+    [t('export.taxCard')]: methodGroup(s.method) === 'card' ? s.amount : 0,
+    [t('export.taxPaypay')]: methodGroup(s.method) === 'paypay' ? s.amount : 0,
+    [t('export.taxOther')]: methodGroup(s.method) === 'other' ? s.amount : 0,
+    [t('export.taxUnpaid')]: methodGroup(s.method) === 'unpaid' ? s.amount : 0,
+    [t('export.taxCreditUsed')]: s.breakdown?.credit_used ?? 0,
+    [t('export.taxGross')]: s.amount + (s.breakdown?.credit_used ?? 0),
+  }));
+
+  await save([
+    { name: t('export.taxSheet1'), rows: summary },
+    { name: t('export.taxSheet2'), rows: detail },
+  ], `LBC_売上_${year}.xlsx`);
 }

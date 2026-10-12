@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, Coins, TableProperties, TrendingDown, TrendingUp, UserPlus, Users } from 'lucide-react';
+import { BarChart3, Coins, FileSpreadsheet, TableProperties, TrendingDown, TrendingUp, UserPlus, Users } from 'lucide-react';
 import { useMonthlyStats, errorText, type MonthlyStats } from '../lib/data';
 import { yen } from '../lib/pricing';
 import { Card, ErrorBox, Loading } from '../ui';
+import { TaxExportButton } from '../components/ExportButton';
+import { useStaff } from './StaffLayout';
 
 // 直近 12 か月(データのない月は 0 で埋める)
 function last12(rows: MonthlyStats[]) {
@@ -46,6 +48,7 @@ function Tile({ label, icon, value, cur, prev }: { label: string; icon: React.Re
 export default function Dashboard() {
   const { t } = useTranslation();
   const stats = useMonthlyStats();
+  const staff = useStaff();
   const [hover, setHover] = useState<string | null>(null);
 
   if (stats.isPending) return <Loading />;
@@ -127,6 +130,12 @@ export default function Dashboard() {
           </div>
         )}
       </Card>
+
+      {staff.role === 'owner' && (
+        <Card title={t('dashboard.taxExport')} icon={<FileSpreadsheet size={18} />}>
+          <TaxExportButton />
+        </Card>
+      )}
     </>
   );
 }

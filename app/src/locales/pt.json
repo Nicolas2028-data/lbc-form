@@ -113,7 +113,8 @@
     "vsLast": "vs mês anterior",
     "trend": "Vendas por mês",
     "table": "Detalhe mensal",
-    "noData": "Ainda não há dados"
+    "noData": "Ainda não há dados",
+    "taxExport": "Exportar Excel fiscal"
   },
   "errors": {
     "not_staff": "Não registrado como equipe",
@@ -393,6 +394,18 @@
     "expires": "Validade",
     "howFound": "Como conheceu",
     "lastVisit": "Última visita",
-    "customersSheet": "Pacientes"
+    "customersSheet": "Pacientes",
+    "taxXlsx": "Exportar Excel fiscal",
+    "taxYear": "Ano",
+    "taxSheet1": "Resumo mensal",
+    "taxSheet2": "Detalhe diário",
+    "taxCash": "Dinheiro",
+    "taxCard": "Cartão",
+    "taxPaypay": "PayPay",
+    "taxOther": "Outros",
+    "taxUnpaid": "Pendente",
+    "taxCreditUsed": "Pontos aplicados",
+    "taxGross": "Total bruto",
+    "taxTotal": "Total"
   }
 }

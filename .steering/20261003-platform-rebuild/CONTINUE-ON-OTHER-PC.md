@@ -18,7 +18,7 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
    git clone https://github.com/Nicolas2028-data/lbc-form.git lbc-care)
 2. git fetch → git switch platform-rebuild → git status -sb で最新か確認
 3. .steering/20261003-platform-rebuild/CONTINUE-ON-OTHER-PC.md(このファイル)、
-   tasklist.md、design.md、docs/database.md、reports/ の最新日を読む
+   tasklist.md、design.md、docs/database.md、docs/accounts.md、reports/ の最新日を読む
 4. このファイルの「別PCの準備」をやる(npm ci、app/.env.local)
 
 方針: GAS+シート+Notion をやめて Supabase(東京)を正本にした新システムへ移行中。
@@ -94,6 +94,9 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 - 仕様の判断待ち 2 件(tasklist 末尾): 紹介割引が料金より大きいとき / 紹介者のクレジットがマイナスになるとき
 - staging の**テスト患者 P042「テスト 確認用」を削除**する
 - staging の**営業時間は仮**(月〜土 10-19)→ 実際の時間を Nicolas に確認
+
+### アカウント・鍵
+**どのサービスにどのアカウントで入るか、鍵がどこにあるかは [docs/accounts.md](../../docs/accounts.md)**。リポジトリは公開なので、鍵の値・個人情報はリポジトリに書かない。
 
 ### このリポジトリに入っていないもの(別PCで用意する)
 | もの | 場所 | 用意の仕方 |

@@ -52,13 +52,15 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 
 ---
 
-## 現在の状態(2026-10-12 夕方時点)
+## 現在の状態(2026-10-12 夜時点)
 
-- ブランチ `platform-rebuild`(GitHub push 済み、最新コミット `7050ae4`)。
+- ブランチ `platform-rebuild`(GitHub push 済み、最新コミット `a6e8a72`)。
 - **現行本番(旧システム)**: GAS **@144** + GitHub Pages(main)。新基盤への切替が完了するまで触らない。⚠️ リポジトリが public のため患者 API がトークン無しで呼べる状態 → 再判断待ち(docs/accounts.md 0 章)。
 - **公開リンク(テスト環境)**: **https://lbc-care.pages.dev**(スタッフ `/staff/login`、問診 `/q`、プライバシーポリシー `/privacy`)。`platform-rebuild` に push すると自動デプロイ。
 - **Supabase**: 組織「LBC Care」(Free)/ プロジェクト `lbc-staging`(ref `lnatpitfcqxmgxxmmqzr`、東京)。
-- **migration 0001〜0017 を staging に適用すること** — 0017 は 2026-10-12 追加(manual_discount)。🙋 未適用なら SQL エディタで `supabase/migrations/20261012000017_manual_discount.sql` を実行
+- **migration 0001〜0018 を staging に適用すること**
+  - 0017(manual_discount): 🙋 Nicolas が SQL エディタで適用済み ✅
+  - 0018(chart_view_log): 🙋 未適用 → SQL エディタで `supabase/migrations/20261012000018_chart_view_log.sql` を実行
 - **データ**: 本番台帳を staging に移行済み(顧客36・売上¥36,000 等)。実在患者情報あり。
 - **2026-10-12 に追加・完了した機能**
   - ホーム画面: 背骨 3D アニメーション(頸椎7+胸椎12+腰椎5+仙骨 S カーブ、Y 軸回転)+ 白×緑テーマ
@@ -67,6 +69,7 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
   - プライバシーポリシー: Privacy.tsx (/privacy、ja/es/pt、要配慮個人情報)
   - 問診同意文: 要配慮個人情報の明記 + /privacy リンク(3言語)
   - 施術記録: クレジット 1000円刻み・スポンサー割引(FC笹川 -2000円)・紹介割引手動入力(migration 0017)
+  - カルテ閲覧記録: get_patient_card を audit_log に記録(migration 0018、1-11 対応)
 - **画面(app/、Vite + React + TS、ja/es/pt)**
   | パス | 内容 |
   |---|---|
@@ -86,11 +89,11 @@ LBC Care プロジェクトの続きをやります。私は Nicolas Ventura
 
 ## 次のタスク候補(どれからやるかは Nicolas が決める)
 
-1. **🙋 migration 0017 を staging に適用** (SQL エディタ → `supabase/migrations/20261012000017_manual_discount.sql` を実行 → `supabase_migrations.schema_migrations` に記録)
+1. **🙋 migration 0018 を staging に適用** (SQL エディタ → `supabase/migrations/20261012000018_chart_view_log.sql` を実行 → `supabase_migrations.schema_migrations` に記録)
 2. **2-7 ルカスにテスト環境で試してもらう**(https://lbc-care.pages.dev でログイン可能)
 3. **本番切替(3-5)**: 本番 Supabase プロジェクト作成 → migration 適用 → Cloudflare 環境変数切替 → Notion 取り込み → GAS 停止(docs/production-cutover.md)
 4. **1-9 日次バックアップ** 🙋 R2(Cloudflare アカウントは作成済み)
-6. 連携(Google カレンダー / LINE / Webhook)、Resend、Stripe など(tasklist 4〜8)
+5. 連携(Google カレンダー / LINE / Webhook)、Resend、Stripe など(tasklist 4〜8)
 
 ### 判断待ち・残作業
 - 仕様の判断待ち 2 件(tasklist 末尾): 紹介割引が料金より大きいとき / 紹介者のクレジットがマイナスになるとき

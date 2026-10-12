@@ -7,7 +7,7 @@ import { PinnedAlerts, VisitChart, useChartNotes, useChartPhotos, PhotoGrid } fr
 import { useDay } from '../lib/chart';
 import { tokyoDate } from '../lib/booking';
 import { sendMutation, newRequestId, BusinessError } from '../lib/rpc';
-import { calcPrice, yen } from '../lib/pricing';
+import { calcPrice, yen, SPONSOR_PRESETS } from '../lib/pricing';
 import { pickName } from '../i18n';
 import {
   ArrowLeft, Banknote, CalendarCheck, CheckCircle2, CircleSlash, Clock, CreditCard, FileClock, IdCard, Minus, NotebookPen,
@@ -94,6 +94,8 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
   const deferredRef = useDeferredValue(referrerQuery);
   const referrerSearch = useCustomerSearch(deferredRef, 7, deferredRef.trim().length > 0);
   const [memo, setMemo] = useState('');
+  const [manualDiscount, setManualDiscount] = useState(0);
+  const [manualDiscountReason, setManualDiscountReason] = useState('');
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
 
@@ -112,6 +114,7 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
     productPrice: product?.price ?? 0,
     referral,
     creditUse,
+    manualDiscount,
   });
   const maxCredit = Math.min(price.maxCredit, card.credit_available);
   // 回数券を選ぶなどで上限が下がったら、選んでいたクレジットも上限まで下げる(古い値が後で復活しないように)
@@ -142,6 +145,8 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
       payment_method: attended && price.total > 0 ? payment : null,
       credit_use: attended ? price.creditUse : 0,
       referrer_id: attended && referral ? referrerId : null,
+      manual_discount: attended ? manualDiscount : 0,
+      manual_discount_reason: attended && manualDiscount > 0 ? (manualDiscountReason || null) : null,
       memo,
       allow_same_day: allowSameDay,
       // 来院日: 送信待ちが翌日に届いても、記録した日の日付で記録される
@@ -330,14 +335,36 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
               </div>
             )}
 
+            {SPONSOR_PRESETS.length > 0 && (
+              <div className="field">
+                <span>{t('record.sponsorDiscount')}</span>
+                <div className="choice-grid compact">
+                  {SPONSOR_PRESETS.map((sp) => {
+                    const active = manualDiscountReason === sp.key && manualDiscount === sp.discount;
+                    return (
+                      <label key={sp.key} className={`choice ${active ? 'on' : ''}`}>
+                        <input type="checkbox" checked={active}
+                               onChange={() => {
+                                 if (active) { setManualDiscount(0); setManualDiscountReason(''); }
+                                 else { setManualDiscount(sp.discount); setManualDiscountReason(sp.key); }
+                               }} />
+                        <span className="choice-label">{sp.labelJa}</span>
+                        <span className="choice-meta">−{yen(sp.discount)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {card.credit_available > 0 && !referral && (
               <div className="field">
                 <span>{t('record.credit')} · {t('record.creditAvailable', { amount: yen(card.credit_available) })}</span>
                 <div className="inline">
                   <div className="stepper">
-                    <button type="button" onClick={() => setCreditUse(Math.max(price.creditUse - 500, 0))}><Minus size={16} /></button>
+                    <button type="button" onClick={() => setCreditUse(Math.max(price.creditUse - 1000, 0))}><Minus size={16} /></button>
                     <strong>{yen(price.creditUse)}</strong>
-                    <button type="button" onClick={() => setCreditUse(Math.min(price.creditUse + 500, maxCredit))}><Plus size={16} /></button>
+                    <button type="button" onClick={() => setCreditUse(Math.min(price.creditUse + 1000, maxCredit))}><Plus size={16} /></button>
                   </div>
                   <button type="button" className="btn-sm" onClick={() => setCreditUse(maxCredit)}>MAX</button>
                 </div>
@@ -366,6 +393,12 @@ function RecordForm({ card, message, open, allowSameDay, onOpen, onMessage: setM
                 {price.menuCharge > 0 && <div className="receipt-row"><span>{t('record.lineMenu')}</span><span>{yen(price.menuCharge)}</span></div>}
                 {price.productCharge > 0 && <div className="receipt-row"><span>{t('record.lineProduct')}</span><span>{yen(price.productCharge)}</span></div>}
                 {price.referralDiscount > 0 && <div className="receipt-row minus"><span>{t('record.lineReferral')}</span><span>−{yen(price.referralDiscount)}</span></div>}
+                {price.manualDiscount > 0 && (
+                  <div className="receipt-row minus">
+                    <span>{t('record.lineManualDiscount')}{manualDiscountReason ? ` (${SPONSOR_PRESETS.find((s) => s.key === manualDiscountReason)?.labelJa ?? manualDiscountReason})` : ''}</span>
+                    <span>−{yen(price.manualDiscount)}</span>
+                  </div>
+                )}
                 {price.creditUse > 0 && <div className="receipt-row minus"><span>{t('record.lineCredit')}</span><span>−{yen(price.creditUse)}</span></div>}
                 <div className="receipt-total"><span>{t('record.lineTotal')}</span><strong>{yen(price.total)}</strong></div>
               </div>

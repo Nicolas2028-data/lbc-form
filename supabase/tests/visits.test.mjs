@@ -320,3 +320,45 @@ test('顧客の電話番号・メールは保存時に正規化される(スタ�
   const r = await one(db, `select name, phone_normalized, email, furigana from public.customers where id = $1`, [c]);
   assert.deepEqual(r, { name: 'Phone', phone_normalized: '09012345678', email: 'foo@example.com', furigana: null });
 });
+
+test('手動割引: FC笹川スポンサー割引(-2000)が料金から正しく引かれる', async () => {
+  const c = (await one(db, `insert into public.customers (name) values ('Sponsor1') returning id`)).id;
+  const r = await record(s.lucas, {
+    customer_id: c, menu_id: s.menu.chiro, payment_method: 'cash',
+    manual_discount: 2000, manual_discount_reason: 'fc_sasagawa',
+  });
+  // chiro = 4000, manual_discount = 2000 → total = 2000
+  assert.equal(r.total, 2000);
+  assert.equal(r.breakdown.manual_discount, 2000);
+  const v = await one(db, `select manual_discount, manual_discount_reason from public.visits where id = $1`, [r.visit_id]);
+  assert.equal(v.manual_discount, 2000);
+  assert.equal(v.manual_discount_reason, 'fc_sasagawa');
+});
+
+test('手動割引: 割引額が料金を超えても total は 0 未満にならない', async () => {
+  const c = (await one(db, `insert into public.customers (name) values ('Sponsor2') returning id`)).id;
+  const r = await record(s.lucas, {
+    customer_id: c, menu_id: s.menu.chiro, payment_method: 'cash',
+    manual_discount: 9999,
+  });
+  assert.equal(r.total, 0);
+  assert.equal(r.breakdown.manual_discount, 9999);
+  // total = 0 なので sales には記録されない
+  const sale = await one(db, `select count(*)::int n from public.sales where visit_id = $1`, [r.visit_id]);
+  assert.equal(sale.n, 0);
+});
+
+test('手動割引 + クレジット: 手動割引後の残額にクレジットが適用される', async () => {
+  const c = (await one(db, `insert into public.customers (name) values ('Sponsor3') returning id`)).id;
+  // クレジット 1000 付与
+  await db.query(`insert into public.credit_entries (customer_id, store_id, kind, amount, reason, expires_on, occurred_on)
+    values ($1, $2, 'grant', 1000, 'test', current_date + 365, current_date)`, [c, s.store]);
+  // chiro 4000 - manual_discount 2000 = 2000, credit 1000 → total 1000
+  const r = await record(s.lucas, {
+    customer_id: c, menu_id: s.menu.chiro, payment_method: 'cash',
+    manual_discount: 2000, credit_use: 1000,
+  });
+  assert.equal(r.total, 1000);
+  assert.equal(r.breakdown.manual_discount, 2000);
+  assert.equal(r.breakdown.credit_used, 1000);
+});
